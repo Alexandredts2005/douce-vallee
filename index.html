@@ -1,0 +1,414 @@
+<title>Douce Vallée</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: plein écran 3D, HUD flottant façon jeu cosy (bulles arrondies, bois & feuillage) */
+:root{
+  --leaf:#4fb35f; --leaf-d:#2f8a45; --leaf-l:#bfe8b0;
+  --paper:#fff7df; --paper-d:#f1e3bc; --bark:#6b4a32; --ink:#3d2b1d;
+  --sky:#7cc7ec; --sun:#ffc23d; --berry:#ef5f5c; --plum:#8d6fd1;
+  --shade:rgba(61,43,29,.22);
+  --f-display:"Fredoka", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Nunito", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:#9ad5f0;color:var(--ink);font-family:var(--f-body);-webkit-user-select:none;user-select:none;touch-action:none}
+#app{position:fixed;inset:0;overflow:hidden}
+#gl{position:absolute;inset:0}
+#gl canvas{display:block;width:100%;height:100%}
+button{font-family:var(--f-display);cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.card{background:rgba(255,247,223,.94);border-radius:18px;box-shadow:0 3px 0 var(--paper-d),0 6px 16px var(--shade);padding:8px 14px}
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;pointer-events:none}
+#hud-tl{position:absolute;left:14px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.clock{display:flex;align-items:center;gap:10px;font-family:var(--f-display)}
+.clock #clk-ico{font-size:28px;line-height:1}
+.clock b{font-size:24px;font-weight:600;letter-spacing:.5px;display:block;font-variant-numeric:tabular-nums}
+.clock small{font-size:13px;color:var(--bark);display:block;margin-top:-2px}
+.coins{font-family:var(--f-display);font-size:18px;display:flex;align-items:center;gap:6px;padding:5px 14px}
+.coins b{font-weight:600;font-variant-numeric:tabular-nums}
+#stats{display:flex;flex-direction:column;gap:4px;padding:7px 12px}
+#hearts,#hunger{display:flex;gap:2px;font-size:19px;line-height:1;filter:drop-shadow(0 1px 0 rgba(0,0,0,.15))}
+#hearts span.off,#hunger span.off{opacity:.25;filter:grayscale(1)}
+#hearts span.half{opacity:.6}
+#village-tag{font-family:var(--f-display);font-size:13px;color:var(--bark);padding:4px 12px}
+#hud-tr{position:absolute;right:14px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:center;gap:6px}
+#minimap{width:168px;height:168px;border-radius:22px;border:5px solid var(--paper);box-shadow:0 4px 14px var(--shade);background:#4fa3d1;display:block}
+#mm-label{font-family:var(--f-display);font-size:14px;padding:3px 12px}
+#prompt{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);font-family:var(--f-display);font-size:17px;padding:7px 16px;white-space:nowrap}
+#prompt kbd,.kbd{display:inline-block;min-width:22px;padding:0 6px;margin-right:6px;border-radius:7px;background:var(--leaf);color:#fff;font-family:var(--f-display);font-size:14px;text-align:center;box-shadow:0 2px 0 var(--leaf-d)}
+#hotbar{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;padding:7px;border-radius:22px;background:rgba(255,247,223,.9);box-shadow:0 3px 0 var(--paper-d),0 8px 18px var(--shade);pointer-events:auto}
+.slot{position:relative;width:54px;height:54px;border-radius:15px;background:#f3e6c4;border:none;display:flex;align-items:center;justify-content:center;font-size:30px;padding:0;transition:transform .12s}
+.slot img{width:46px;height:46px;image-rendering:auto;pointer-events:none}
+.slot .n{position:absolute;right:4px;bottom:1px;font-family:var(--f-display);font-size:13px;font-weight:600;color:var(--ink);text-shadow:0 0 3px #fff,0 0 3px #fff}
+.slot .k{position:absolute;left:5px;top:2px;font-size:10px;font-weight:800;color:var(--bark);opacity:.6}
+.slot.sel{background:#fff;box-shadow:0 0 0 3px var(--leaf),0 4px 0 var(--leaf-d);transform:translateY(-4px)}
+#held-name{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);font-family:var(--f-display);font-size:15px;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,.45);transition:opacity .4s;white-space:nowrap}
+#popups{position:absolute;inset:0;overflow:hidden}
+.pop{position:absolute;font-family:var(--f-display);font-weight:600;font-size:18px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 6px rgba(0,0,0,.25);white-space:nowrap;transform:translate(-50%,-50%);will-change:transform}
+.pop.gold{color:#ffe27a}.pop.red{color:#ff8b86}.pop.green{color:#c5ffb5}
+#charge{position:absolute;width:64px;height:12px;border-radius:8px;background:rgba(61,43,29,.55);padding:2px;transform:translate(-50%,-50%);display:none}
+#charge i{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,#8de07b,#ffd94a,#ff7b55)}
+#charge.max{animation:pulse .35s infinite alternate}
+#charge.max::after{content:"MAX !";position:absolute;left:50%;top:-20px;transform:translateX(-50%);font-family:var(--f-display);font-size:14px;color:#fff;text-shadow:0 2px 0 #c0502f}
+@keyframes pulse{to{transform:translate(-50%,-50%) scale(1.12)}}
+#toasts{position:absolute;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center}
+.toast{font-family:var(--f-display);font-size:16px;padding:7px 16px;animation:tin .25s ease-out}
+@keyframes tin{from{opacity:0;transform:translateY(-10px)}}
+#target-tip{position:absolute;font-family:var(--f-display);font-size:13px;color:#fff;text-shadow:0 1px 2px #000;transform:translate(-50%,-100%);white-space:nowrap}
+/* ---------- Dialogue ---------- */
+#dialog{position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(680px,calc(100% - 32px));min-height:118px;background:var(--paper);border-radius:34px;box-shadow:0 5px 0 var(--paper-d),0 10px 26px var(--shade);padding:30px 34px 22px;font-family:var(--f-display);font-size:20px;line-height:1.45;pointer-events:auto;z-index:20}
+#dlg-name{position:absolute;left:30px;top:-18px;padding:5px 18px;border-radius:16px;background:var(--leaf);color:#fff;font-weight:600;font-size:17px;transform:rotate(-3deg);box-shadow:0 3px 0 rgba(0,0,0,.15)}
+#dlg-choices{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#dlg-choices button{border:none;background:#fff;border-radius:14px;padding:7px 16px;font-size:16px;color:var(--ink);box-shadow:0 3px 0 var(--paper-d)}
+#dlg-choices button:hover{background:var(--leaf-l)}
+.dlg-next{position:absolute;right:26px;bottom:10px;color:var(--leaf);font-size:16px;animation:bob .6s infinite alternate}
+@keyframes bob{to{transform:translateY(4px)}}
+/* ---------- Panneaux (inventaire, catalogue, établi, boutique) ---------- */
+.modal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(40,60,40,.25);z-index:50;padding:16px}
+.panel{background:var(--paper);border-radius:30px;box-shadow:0 6px 0 var(--paper-d),0 14px 40px rgba(0,0,0,.25);width:min(860px,100%);max-height:calc(100% - 20px);display:flex;flex-direction:column;overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:12px;padding:16px 22px 8px}
+.panel-h h2{margin:0;font-family:var(--f-display);font-weight:600;font-size:26px;color:var(--bark);flex:1}
+.x{border:none;background:var(--berry);color:#fff;width:38px;height:38px;border-radius:50%;font-size:20px;box-shadow:0 3px 0 #b94240}
+.tabs{display:flex;gap:6px;padding:4px 18px 10px;flex-wrap:wrap}
+.tab{border:none;background:var(--paper-d);color:var(--bark);border-radius:14px;padding:7px 13px;font-size:15px}
+.tab.on{background:var(--leaf);color:#fff;box-shadow:0 3px 0 var(--leaf-d)}
+.panel-b{padding:4px 18px 18px;overflow:auto;min-height:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px}
+.it{position:relative;border:none;background:#fff;border-radius:16px;padding:6px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--f-body);font-size:12px;font-weight:700;color:var(--ink);box-shadow:0 3px 0 var(--paper-d);min-width:0}
+.it .ic{font-size:34px;line-height:46px;height:46px}
+.it img{width:52px;height:52px}
+.it .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .n{position:absolute;right:7px;top:5px;font-family:var(--f-display);font-size:13px;color:var(--bark)}
+.it:hover{background:#f6ffef}
+.it.sel{box-shadow:0 0 0 3px var(--leaf),0 3px 0 var(--leaf-d)}
+.it.empty{background:#f6ecd0;box-shadow:none}
+.it .price{font-family:var(--f-display);color:#b07d12;font-size:12px}
+.inv-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 18px 16px;border-top:2px dashed var(--paper-d)}
+.inv-foot .desc{flex:1;min-width:180px;font-size:14px;color:var(--bark)}
+.btn{border:none;background:var(--leaf);color:#fff;border-radius:16px;padding:9px 18px;font-size:17px;box-shadow:0 4px 0 var(--leaf-d);transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--leaf-d)}
+.btn.alt{background:#fff;color:var(--bark);box-shadow:0 4px 0 var(--paper-d)}
+.btn.warn{background:var(--berry);box-shadow:0 4px 0 #b94240}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.recipe{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:8px 12px;box-shadow:0 3px 0 var(--paper-d)}
+.recipe img{width:46px;height:46px}.recipe .ic{font-size:30px;width:46px;text-align:center}
+.recipe .rn{font-family:var(--f-display);font-size:17px;min-width:120px}
+.recipe .need{flex:1;display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.recipe .need span{background:#f3e6c4;border-radius:10px;padding:2px 8px}
+.recipe .need span.ok{background:var(--leaf-l)}.recipe .need span.no{background:#ffd7d3}
+.list{display:flex;flex-direction:column;gap:8px}
+.search{border:none;border-radius:14px;padding:8px 14px;font-family:var(--f-body);font-size:15px;background:#fff;box-shadow:inset 0 2px 0 var(--paper-d);min-width:0;width:200px}
+/* ---------- Carte ---------- */
+#mapfull .panel{width:min(760px,100%)}
+#bigmap{width:100%;height:auto;border-radius:18px;background:#4fa3d1;display:block}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--bark);padding-top:8px}
+/* ---------- Écrans de menu ---------- */
+.screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;padding:16px;overflow:auto}
+.screen.dim{background:rgba(30,50,40,.35)}
+.menu-box{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:min(400px,100%);margin:auto;padding-bottom:36px}
+.logo{font-family:var(--f-display);font-weight:700;font-size:clamp(42px,min(8vw,11vh),82px);line-height:.95;text-align:center;color:#fff;letter-spacing:1px;
+  text-shadow:0 4px 0 var(--leaf-d),0 8px 0 rgba(47,138,69,.45),0 14px 24px rgba(0,0,0,.25);margin:0}
+.logo span{display:inline-block;animation:sway 3.2s ease-in-out infinite}
+@keyframes sway{50%{transform:translateY(-6px) rotate(-2deg)}}
+.tagline{font-family:var(--f-display);text-align:center;color:#fff;font-size:19px;text-shadow:0 2px 4px rgba(0,0,0,.35);margin:4px 0 10px}
+.mbtn{border:none;border-radius:22px;padding:11px 20px;font-size:20px;font-weight:500;background:var(--paper);color:var(--bark);box-shadow:0 5px 0 var(--paper-d),0 10px 20px var(--shade);display:flex;align-items:center;gap:12px;transition:transform .1s}
+.mbtn:hover{transform:translateY(-2px) scale(1.02)}
+.mbtn.main{background:var(--leaf);color:#fff;box-shadow:0 5px 0 var(--leaf-d),0 10px 20px var(--shade)}
+.mbtn .e{font-size:24px;width:30px;text-align:center}
+.foot-hint{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 3px rgba(0,0,0,.5);padding:0 16px}
+.form{background:var(--paper);border-radius:30px;box-shadow:0 6px 0 var(--paper-d),0 14px 40px rgba(0,0,0,.25);padding:22px 24px;width:min(640px,100%);display:flex;flex-direction:column;gap:14px;margin:auto}
+.form h2{margin:0;font-family:var(--f-display);font-weight:600;font-size:28px;color:var(--bark)}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>label,.fld{flex:1;min-width:170px;display:flex;flex-direction:column;gap:5px;font-weight:800;font-size:13px;color:var(--bark);letter-spacing:.3px}
+.form input[type=text],.form select{border:none;border-radius:14px;padding:10px 14px;font-family:var(--f-body);font-size:16px;font-weight:700;background:#fff;color:var(--ink);box-shadow:inset 0 2px 0 var(--paper-d)}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode{border:none;text-align:left;background:#fff;border-radius:20px;padding:12px 14px;box-shadow:0 4px 0 var(--paper-d);color:var(--ink);font-family:var(--f-body)}
+.mode b{font-family:var(--f-display);font-size:20px;display:block;font-weight:600}
+.mode small{font-size:13px;color:var(--bark);line-height:1.35;display:block;margin-top:3px}
+.mode.on{box-shadow:0 0 0 4px var(--leaf),0 4px 0 var(--leaf-d);background:#f6ffef}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 0 var(--paper-d)}
+.sw.on{box-shadow:0 0 0 3px var(--leaf)}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:10px 14px;font-weight:700}
+.opt input[type=range]{width:46%;accent-color:var(--leaf)}
+.opt input[type=checkbox]{width:22px;height:22px;accent-color:var(--leaf)}
+.ctrl-table{width:100%;border-collapse:separate;border-spacing:0 5px;font-size:14px}
+.ctrl-table td{background:#fff;padding:7px 10px}
+.ctrl-table td:first-child{border-radius:12px 0 0 12px;font-weight:800;color:var(--bark);white-space:nowrap}
+.ctrl-table td:last-child{border-radius:0 12px 12px 0}
+/* ---------- Éditeur d'acres ---------- */
+#editor{position:absolute;inset:0;z-index:45;background:linear-gradient(#bfe7f7,#d9f2cf);display:flex;flex-direction:column;padding:12px 16px;gap:10px;overflow:auto}
+.ed-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ed-top h2{margin:0 10px 0 0;font-family:var(--f-display);font-weight:600;color:var(--bark);font-size:26px}
+.ed-body{display:flex;gap:14px;flex:1;min-height:0;flex-wrap:wrap}
+.ed-pal{width:220px;display:flex;flex-direction:column;gap:5px;overflow:auto;max-height:100%;padding-right:4px}
+.pal{border:none;display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:6px 8px;font-family:var(--f-body);font-weight:700;font-size:13px;color:var(--ink);text-align:left;box-shadow:0 2px 0 var(--paper-d)}
+.pal i{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:14px;flex:none}
+.pal.on{box-shadow:0 0 0 3px var(--leaf)}
+.ed-grid-wrap{flex:1;min-width:280px;display:flex;flex-direction:column;gap:8px;align-items:center}
+#ed-grid{display:grid;gap:4px;background:#2f7fb0;padding:10px;border-radius:20px;box-shadow:0 6px 18px var(--shade);width:min(100%,640px)}
+.acre{aspect-ratio:1;border-radius:10px;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);padding:2px;min-width:0;overflow:hidden}
+.acre small{font-size:9px;font-family:var(--f-body);font-weight:800;line-height:1.1;text-align:center}
+.acre .lb{position:absolute;font-size:9px}
+.ed-side{width:300px;display:flex;flex-direction:column;gap:8px}
+#ed-preview{width:100%;border-radius:16px;background:#4fa3d1;box-shadow:0 6px 18px var(--shade);image-rendering:pixelated;display:block}
+.ed-note{font-size:13px;color:var(--bark);background:rgba(255,255,255,.75);border-radius:14px;padding:8px 12px;line-height:1.4}
+/* ---------- Confirmation / fondu / chargement / tactile ---------- */
+#confirm{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);padding:16px}
+#confirm .form{width:min(440px,100%);text-align:center}
+#fade{position:absolute;inset:0;background:#120c08;opacity:0;pointer-events:none;transition:opacity .35s;z-index:55}
+#fade.on{opacity:1}
+#loading{position:absolute;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(#8fd3f2,#bfe9b6);font-family:var(--f-display);font-size:24px;color:#fff;text-shadow:0 2px 0 var(--leaf-d)}
+#loading .leaf{font-size:54px;animation:sway 1.2s infinite}
+#touch{position:absolute;inset:0;pointer-events:none;z-index:15}
+#joy{position:absolute;left:22px;bottom:calc(96px + env(safe-area-inset-bottom,0px));width:128px;height:128px;border-radius:50%;background:rgba(255,247,223,.35);border:3px solid rgba(255,255,255,.6);pointer-events:auto}
+#joy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,247,223,.9);box-shadow:0 3px 0 var(--paper-d)}
+.tb{position:absolute;pointer-events:auto;border:none;border-radius:50%;width:64px;height:64px;font-family:var(--f-display);font-size:14px;font-weight:600;color:#fff;background:rgba(79,179,95,.88);box-shadow:0 4px 0 var(--leaf-d)}
+.tb.s{width:50px;height:50px;font-size:20px;background:rgba(255,247,223,.92);color:var(--bark);box-shadow:0 3px 0 var(--paper-d)}
+@media (max-width:700px){
+  .slot{width:min(40px,calc((100vw - 64px) / 10));height:min(40px,calc((100vw - 64px) / 10));font-size:20px;border-radius:10px}.slot img{width:85%;height:85%}
+  .slot .k{display:none}
+  #hotbar{gap:3px;padding:5px;bottom:calc(8px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 16px)}
+  #minimap{width:112px;height:112px;border-width:4px;border-radius:18px}
+  .clock b{font-size:19px}.clock #clk-ico{font-size:22px}
+  #prompt{bottom:96px;font-size:15px}#held-name{bottom:62px}
+  .modes{grid-template-columns:1fr}
+  .ed-pal{width:100%;flex-direction:row;flex-wrap:wrap;max-height:none}
+  .ed-side{width:100%}
+}
+#lockhint{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-family:var(--f-display);font-size:15px;white-space:nowrap;animation:bob .8s infinite alternate}
+#crosshair{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none}
+#crosshair::before,#crosshair::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.45);border-radius:2px}
+#crosshair::before{left:10px;top:2px;width:2px;height:18px}#crosshair::after{top:10px;left:2px;height:2px;width:18px}
+#app.touch-on #prompt{bottom:calc(232px + env(safe-area-inset-bottom,0px))}
+#app.touch-on #held-name{bottom:calc(214px + env(safe-area-inset-bottom,0px))}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app">
+  <div id="gl"></div>
+
+  <div id="hud" hidden>
+    <div id="hud-tl">
+      <div class="card clock"><span id="clk-ico">☀️</span><div><b id="clk-time">06:00</b><small id="clk-date">Lun. 5 oct.</small></div></div>
+      <div class="card coins"><span>🔔</span><b id="coins">0</b></div>
+      <div class="card" id="stats"><div id="hearts"></div><div id="hunger"></div></div>
+    </div>
+    <div id="hud-tr">
+      <canvas id="minimap" width="168" height="168"></canvas>
+      <div class="card" id="mm-label">A-1</div>
+    </div>
+    <div id="popups"></div>
+    <div id="crosshair" hidden></div>
+    <div class="card" id="lockhint" hidden>🖱️ Clique dans le jeu pour diriger la caméra avec la souris · <kbd class="kbd">V</kbd>changer de caméra</div>
+    <div id="target-tip"></div>
+    <div id="charge"><i></i></div>
+    <div class="card" id="prompt" hidden></div>
+    <div id="held-name"></div>
+    <div id="hotbar"></div>
+    <div id="toasts"></div>
+  </div>
+
+  <div id="touch" hidden>
+    <div id="joy"><i></i></div>
+    <button class="tb" id="tb-jump" style="right:22px;bottom:calc(150px + env(safe-area-inset-bottom,0px))">Saut</button>
+    <button class="tb" id="tb-use" style="right:96px;bottom:calc(110px + env(safe-area-inset-bottom,0px))">Outil</button>
+    <button class="tb" id="tb-act" style="right:22px;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:rgba(141,111,209,.9);box-shadow:0 4px 0 #5f48a0">Action</button>
+    <button class="tb s" id="tb-take" style="right:170px;bottom:calc(86px + env(safe-area-inset-bottom,0px))">✋</button>
+    <button class="tb s" id="tb-inv" style="right:22px;top:calc(230px + env(safe-area-inset-top,0px))">🎒</button>
+    <button class="tb s" id="tb-map" style="right:80px;top:calc(230px + env(safe-area-inset-top,0px))">🗺️</button>
+    <button class="tb s" id="tb-pause" style="right:138px;top:calc(230px + env(safe-area-inset-top,0px))">⏸</button>
+  </div>
+
+  <div id="dialog" hidden><div id="dlg-name"></div><div id="dlg-text"></div><div id="dlg-choices"></div><div class="dlg-next" id="dlg-next">▼</div></div>
+
+  <div id="panel" class="modal" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2 id="panel-title">Inventaire</h2><input class="search" id="panel-search" type="text" placeholder="Rechercher…" hidden><button class="x" id="panel-close" aria-label="Fermer">✕</button></div>
+      <div class="tabs" id="panel-tabs"></div>
+      <div class="panel-b" id="panel-body"></div>
+      <div class="inv-foot" id="panel-foot"></div>
+    </div>
+  </div>
+
+  <div id="mapfull" class="modal" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2 id="map-title">Carte du village</h2><button class="x" id="map-close" aria-label="Fermer">✕</button></div>
+      <div class="panel-b"><canvas id="bigmap" width="720" height="660"></canvas>
+        <div class="map-legend"><span>🔴 Toi</span><span>🏠 Ta maison</span><span>🛒 Boutique</span><span>⛲ Place</span><span>⛺ Camping</span><span>🐾 Habitants</span></div></div>
+    </div>
+  </div>
+
+  <div id="screen-title" class="screen" hidden>
+    <div class="menu-box">
+      <h1 class="logo"><span>Douce</span> <span style="animation-delay:.4s">Vallée</span></h1>
+      <p class="tagline">Ton petit village, tes règles.</p>
+      <button class="mbtn main" id="btn-continue" hidden><span class="e">🌿</span>Continuer</button>
+      <button class="mbtn main" id="btn-new"><span class="e">🌱</span>Nouvelle partie</button>
+      <button class="mbtn" id="btn-editor"><span class="e">🗺️</span>Éditeur d'acres</button>
+      <button class="mbtn" id="btn-options"><span class="e">⚙️</span>Options</button>
+      <button class="mbtn" id="btn-controls"><span class="e">🎮</span>Commandes</button>
+    </div>
+    <div class="foot-hint">ZQSD / WASD pour marcher · Maintiens Espace pour un super saut · E pour parler</div>
+  </div>
+
+  <div id="screen-new" class="screen dim" hidden>
+    <div class="form">
+      <h2>Nouvelle partie</h2>
+      <div class="row">
+        <label>TON NOM<input type="text" id="ng-name" maxlength="14" value="Pomme"></label>
+        <label>NOM DU VILLAGE<input type="text" id="ng-village" maxlength="16" value="Douce Vallée"></label>
+      </div>
+      <div class="fld">MODE DE JEU
+        <div class="modes">
+          <button class="mode on" data-mode="creatif"><b>🎨 Créatif</b><small>Catalogue illimité : arbres, lampes, bancs, maisons, terrain, cascades… Pas de monstres, pas de faim.</small></button>
+          <button class="mode" data-mode="survie"><b>⚔️ Survie</b><small>Cœurs et faim. Coupe, mine, pêche, fabrique, vends tes trouvailles contre des clochettes 🔔 !</small></button>
+        </div>
+      </div>
+      <div class="row">
+        <label>CARTE<select id="ng-map"><option value="classic">Vallée classique</option><option value="random">Carte aléatoire</option><option value="custom">Ma carte (éditeur)</option></select></label>
+        <label>GRAINE<input type="text" id="ng-seed" maxlength="10" value="1234"></label>
+      </div>
+      <div class="row" style="align-items:center">
+        <div class="fld">TON PERSONNAGE<span id="ng-look" style="font-weight:700;font-size:14px;color:var(--ink)">Personnage par défaut</span></div>
+        <button class="btn alt" id="ng-custom" type="button">🎨 Personnaliser de A à Z</button>
+      </div>
+      <div hidden><div class="swatches" id="sw-shirt"></div><div class="swatches" id="sw-hat"></div></div>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn alt" id="ng-back">Retour</button>
+        <button class="btn" id="ng-go">Commencer l'aventure</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="screen dim" hidden>
+    <div class="menu-box">
+      <h2 class="logo" style="font-size:54px">Pause</h2>
+      <button class="mbtn main" id="p-resume"><span class="e">▶️</span>Reprendre</button>
+      <button class="mbtn" id="p-save"><span class="e">💾</span>Sauvegarder</button>
+      <button class="mbtn" id="p-map"><span class="e">🗺️</span>Carte</button>
+      <button class="mbtn" id="p-options"><span class="e">⚙️</span>Options</button>
+      <button class="mbtn" id="p-controls"><span class="e">🎮</span>Commandes</button>
+      <button class="mbtn" id="p-quit"><span class="e">🚪</span>Menu principal</button>
+    </div>
+  </div>
+
+  <div id="screen-options" class="screen dim" hidden>
+    <div class="form">
+      <h2>Options</h2>
+      <div class="opt">Musique<input type="range" id="o-music" min="0" max="100" value="45"></div>
+      <div class="opt">Effets sonores<input type="range" id="o-sfx" min="0" max="100" value="70"></div>
+      <div class="opt">Durée d'une journée<select id="o-day"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="40">40 minutes</option><option value="real">Heure réelle</option></select></div>
+      <div class="opt">Monde arrondi (comme sur la route du village)<input type="checkbox" id="o-curve" checked></div>
+      <div class="opt">Ombres réalistes<input type="checkbox" id="o-shadow" checked></div>
+      <div class="opt">Qualité graphique<select id="o-quality"><option value="low">Basse (rapide)</option><option value="mid" selected>Moyenne</option><option value="high">Haute</option></select></div>
+      <div class="opt">Contrôles tactiles<select id="o-touch"><option value="auto" selected>Automatique</option><option value="on">Toujours</option><option value="off">Jamais</option></select></div>
+      <div class="opt">Caméra<select id="o-cam"><option value="village" selected>Village (vue du dessus)</option><option value="souris">Souris (style Minecraft / Valorant)</option></select></div>
+      <div class="opt">Vue à la première personne (mode souris, touche P)<input type="checkbox" id="o-fp"></div>
+      <div class="opt">Sensibilité de la souris<input type="range" id="o-sens" min="10" max="150" value="50"></div>
+      <div class="opt">Contours style animé<select id="o-outline"><option value="tout" selected>Tout</option><option value="perso">Personnages seulement</option><option value="aucun">Aucun</option></select></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="o-back">Retour</button></div>
+    </div>
+  </div>
+
+  <div id="screen-controls" class="screen dim" hidden>
+    <div class="form">
+      <h2>Commandes</h2>
+      <table class="ctrl-table">
+        <tr><td>ZQSD / WASD / Flèches</td><td>Marcher (Maj pour courir)</td></tr>
+        <tr><td>Espace (maintenir)</td><td>Charger le saut : relâche pour sauter. Charge max = 2× ta taille !</td></tr>
+        <tr><td>F ou clic gauche</td><td>Utiliser l'objet en main : couper, miner, creuser, pêcher, poser, manger…</td></tr>
+        <tr><td>E</td><td>Parler, ramasser, s'asseoir, secouer un arbre, entrer, dormir</td></tr>
+        <tr><td>X ou clic droit</td><td>Ranger / retirer l'objet devant toi</td></tr>
+        <tr><td>R</td><td>Tourner l'objet à poser</td></tr>
+        <tr><td>1 à 0 · molette + Ctrl</td><td>Choisir dans la barre d'objets</td></tr>
+        <tr><td>I ou Tab</td><td>Inventaire / Catalogue (créatif)</td></tr>
+        <tr><td>C</td><td>Fabrication (survie)</td></tr>
+        <tr><td>M</td><td>Carte du village</td></tr>
+        <tr><td>Molette · clic droit glissé · J / L</td><td>Zoom · tourner la caméra (V pour recentrer)</td></tr>
+        <tr><td>Espace dans l'eau</td><td>Sortir de l'eau en sautant (on peut nager partout !)</td></tr>
+        <tr><td>G · H · K</td><td>Émotes · Décorer la pièce · Encyclopédie</td></tr>
+        <tr><td>U</td><td>Me débloquer si je suis coincé·e</td></tr>
+        <tr><td>Caméra souris</td><td>Options → Caméra « Souris » : la souris tourne la vue, on avance vers où on regarde. P : 1re personne</td></tr>
+        <tr><td>Échap</td><td>Pause</td></tr>
+        <tr><td>Manette</td><td>Stick gauche : bouger · A : saut · X : outil · B : action · Y : inventaire · LB/RB : objets</td></tr>
+      </table>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="c-back">Retour</button></div>
+    </div>
+  </div>
+
+  <div id="editor" hidden>
+    <div class="ed-top">
+      <h2>Éditeur d'acres</h2>
+      <button class="btn alt" id="ed-classic">Vallée classique</button>
+      <button class="btn alt" id="ed-random">Aléatoire</button>
+      <button class="btn alt" id="ed-clear">Tout en prairie</button>
+      <label class="fld" style="flex:none;min-width:0;flex-direction:row;align-items:center">GRAINE <input type="text" id="ed-seed" class="search" style="width:90px" value="1234"></label>
+      <span style="flex:1"></span>
+      <button class="btn alt" id="ed-back">Retour</button>
+      <button class="btn" id="ed-play">Jouer sur cette carte</button>
+    </div>
+    <div class="ed-body">
+      <div class="ed-pal" id="ed-pal"></div>
+      <div class="ed-grid-wrap">
+        <div id="ed-grid"></div>
+        <div class="ed-note">Clique ou glisse pour peindre une acre. Clic droit : pipette. Les rivières se relient toutes seules aux acres d'eau voisines, et une cascade se forme dès qu'une rivière descend d'un niveau. La rangée du bas touche la mer.</div>
+      </div>
+      <div class="ed-side">
+        <canvas id="ed-preview" width="240" height="220"></canvas>
+        <div class="ed-note" id="ed-info">Aperçu de la carte générée.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirm" hidden><div class="form"><h2 id="cf-title">Confirmer</h2><p id="cf-text"></p><div class="row" id="cf-btns" style="justify-content:center"></div></div></div>
+  <div id="fade"></div>
+  <div id="loading"><div class="leaf">🍃</div><div id="load-msg">Plantation des arbres…</div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/models1.js"></script>
+<script src="js/models2.js"></script>
+<script src="js/models3.js"></script>
+<script src="js/avatar.js"></script>
+<script src="js/skin.js"></script>
+<script src="js/buildings.js"></script>
+<script src="js/world.js"></script>
+<script src="js/worldgen.js"></script>
+<script src="js/interiors2.js"></script>
+<script src="js/island.js"></script>
+<script src="js/player.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/features.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/minigames.js"></script>
+<script src="js/ui1.js"></script>
+<script src="js/ui2.js"></script>
+<script src="js/ui3.js"></script>
+<script src="js/ui4.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/fences.js"></script>
+<script src="js/bridges.js"></script>
+<script src="js/shops.js"></script>
+<script src="js/mainstreet.js"></script>
+<script src="js/plaza2.js"></script>
+<script src="js/rue2.js"></script>
+<script src="js/house2.js"></script>
+<script src="js/archi.js"></script>
+<script src="js/sea2.js"></script>
+<script src="js/ambiance.js"></script>
+<script src="js/perf.js"></script>
+<script src="js/perf2.js"></script>
+<script src="js/session.js"></script>
+<script src="js/net.js"></script>
+<script src="js/games2.js"></script>
+<script src="js/game.js"></script>

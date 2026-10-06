@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process \"C:\\\\Users\\\\binze\\\\Desktop\\\\DouceVallee\\\\index.html\")",
+      "PowerShell(foreach \\($f in 'style2','grass','sky2','music2','plaza2','mainstreet','house2','sea2'\\) { $p = \"js\\\\$f.js\"; if \\(Test-Path $p\\) { $len = \\(Get-Item $p\\).Length; $lines = \\(Get-Content $p | Measure-Object -Line\\).Lines; $r = node --check \\(Resolve-Path $p\\) 2>&1; $ok = if \\($LASTEXITCODE -eq 0\\) { 'syntaxe OK' } else { 'ERREUR' }; \"{0,-12} {1,7} octets {2,5} lignes  {3}\" -f $f, $len, $lines, $ok } else { \"{0,-12} absent\" -f $f } })",
+      "PowerShell($files = @\\('js\\\\game.js', 'C:\\\\Users\\\\binze\\\\Desktop\\\\DouceVallee\\\\js\\\\game.js'\\); foreach \\($f in $files\\) { $t = [IO.File]::ReadAllText\\(\\(Resolve-Path $f\\), [Text.Encoding]::UTF8\\); $n0 = \\([regex]::Matches\\($t, 'finishCam\\\\\\(C, p, m\\\\\\)'\\)\\).Count; $t = $t.Replace\\('finishCam\\(C, p, m\\); return;', 'finishCam\\(C, p, m, dt\\); return;'\\).Replace\\(\"    finishCam\\(C, p, m\\);`n  }\", \"    finishCam\\(C, p, m, dt\\);`n  }\"\\).Replace\\('function finishCam\\(C, p, m\\) {', 'function finishCam\\(C, p, m, dt\\) {'\\); [IO.File]::WriteAllText\\(\\(Resolve-Path $f\\), $t, \\(New-Object Text.UTF8Encoding\\($false\\)\\)\\); $c = \\([regex]::Matches\\($t, 'finishCam\\\\\\(C, p, m, dt\\\\\\)'\\)\\).Count; \"$f : appels corrigés = $c \\(avant: $n0\\)\" })",
+      "PowerShell(node --check js\\\\data.js)",
+      "PowerShell(foreach \\($f in @\\('js\\\\shops.js','js\\\\mainstreet.js','js\\\\avatar.js','js\\\\bridges.js'\\)\\) { node --check $f; if \\($LASTEXITCODE -eq 0\\) { \"ok $f\" } })",
+      "PowerShell(node --check js\\\\plaza2.js)"
+    ]
+  }
+}

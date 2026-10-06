@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "jeu", "runtimeExecutable": "node", "runtimeArgs": ["serve.js"], "port": 5180 },
+    { "name": "bureau", "runtimeExecutable": "node", "runtimeArgs": ["serve.js", "C:\\Users\\binze\\Desktop\\DouceVallee", "5181"], "port": 5181 }
+  ]
+}
