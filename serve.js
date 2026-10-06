@@ -58,9 +58,11 @@ function onMessage(c, txt) {
   // Présence : broadcast à la salle du client
   if (m.t === 'pres') {
     c.pres = m.d;
-    // Broadcast uniquement aux clients dans la même salle
-    const fr = frame(JSON.stringify({ t: 'pres', id: c.id, d: m.d }));
-    for (const o of clients.values()) if (o !== c && o.room === c.room) try { o.sock.write(fr); } catch (e) { }
+    // Broadcast uniquement si le client est dans une salle (pas quand room === null)
+    if (c.room) {
+      const fr = frame(JSON.stringify({ t: 'pres', id: c.id, d: m.d }));
+      for (const o of clients.values()) if (o !== c && o.room === c.room) try { o.sock.write(fr); } catch (e) { }
+    }
   }
   // Rejoindre une salle (code ami hashé)
   else if (m.t === 'join') {
@@ -97,9 +99,8 @@ server.on('upgrade', (req, sock) => {
       if (f.op === 1 || f.op === 0) { c.parts.push(f.data); if (f.fin) { const txt = Buffer.concat(c.parts).toString(); c.parts = []; onMessage(c, txt); } } } });
   const bye = () => {
     if (!clients.has(c.id)) return; clients.delete(c.id);
-    // Prévenir seulement la salle du client
+    // Prévenir seulement la salle du client (pas quand room est null)
     if (c.room) bcastRoom(c.room, { t: 'left', id: c.id });
-    else bcast({ t: 'left', id: c.id });
   };
   sock.on('close', bye); sock.on('end', bye); sock.on('error', bye);
 });
