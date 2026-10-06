@@ -361,14 +361,12 @@
   G.npcRoles.gare = v => {
     if (NET.visit && G.map.visit) return G.npcSay(v, ['Bienvenue à ' + NET.visit.vil + ' ! Tu es venu·e en visite, hi hi !'], ['Rentrer chez moi', 'Rester encore']).then(k => { if (k === 0) NET.goHome(); });
     const closed = NET.closed();
-    const serverInfo = NET.mode === 'server' && NET.remoteUrl ? ' (🌍 Serveur mondial actif)' : NET.mode === 'solo' ? ' (📴 Hors ligne — configure un serveur mondial !)' : '';
-    return G.npcSay(v, ['Bienvenue à la gare de ' + G.villageName + ' ! Hi hi !' + serverInfo, 'Ton code ami : ' + (myCode() || '—') + '. Ne le donne qu\'à tes amis : sans lui, personne ne peut entrer.' + (closed ? ' (Tes portes sont fermées en ce moment.)' : '')],
-      ['Visiter un ami', closed ? 'Ouvrir mon village aux amis' : 'Fermer mon village', 'Attendre le prochain train', 'Utiliser les casiers', '🌍 Serveur mondial (Render)', 'Au revoir']).then(k => {
+    return G.npcSay(v, ['Bienvenue à la gare de ' + G.villageName + ' ! Hi hi !', 'Ton code ami : ' + (myCode() || '—') + '. Ne le donne qu\'à tes amis : sans lui, personne ne peut entrer.' + (closed ? ' (Tes portes sont fermées en ce moment.)' : '')],
+      ['Visiter un ami', closed ? 'Ouvrir mon village aux amis' : 'Fermer mon village', 'Attendre le prochain train', 'Utiliser les casiers', 'Au revoir']).then(k => {
       if (k === 0) return NET.askVisit();
       if (k === 1) { NET.setClosed(!closed); return G.npcSay(v, closed ? ['C\'est ouvert ! Tes amis peuvent venir avec ton code ami.'] : ['C\'est fermé. Plus personne ne peut venir, même avec ton code. Reviens me voir pour rouvrir !']); }
       if (k === 2) { const ok = G.train && G.train.start(4); return G.npcSay(v, ok ? ['Le train arrive dans un instant ! Sors vite sur le quai, hi hi !'] : ['Un train est déjà en gare !']); }
       if (k === 3) G.ui.openStorage();
-      if (k === 4) NET.askServerUrl();
     });
   };
   G.on('init', () => { const ont = G.npcTalk; G.npcTalk = v => { if (NET.visit && v.npc === 'capitaine') return G.npcSay(v, ['Coâ ! Mon bateau n\'emmène que les habitants de ce village. Reviens avec ton propre capitaine !']); return ont(v); }; });
