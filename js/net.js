@@ -134,8 +134,9 @@
   function myPresence() {
     const p = G.player, m = G.map, s = G.session; if (!p || !m || G.state === 'title' || G.state === 'loading' || !s || !NET.curRoom) return OFF;
     const hs = Math.hypot(p.vx, p.vz), a = p.swim ? 3 : p.vehicle ? 8 : !p.onGround ? 4 : p.sit ? 5 : p.fish ? 6 : p.emote ? 7 : hs > 4.6 ? 2 : hs > .3 ? 1 : 0;
+    const canSendOps = (!NET.visit || NET.iAmAdmin()) && NET.ops.length;
     return { v: 2, idle: null, n: clean(G.playerName, 16), vil: clean(G.villageName, 24), home: NET.me(), vis: NET.visit ? 1 : null, at: NET.nroom ? null : NET.curRoom, m: mapKey(m), x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100, y: Math.round(p.y * 100) / 100, r: Math.round(p.yaw * 100) / 100, a, lk: NET.lk || (NET.lk = packLook(p.look)),
-      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: !NET.visit && NET.ops.length ? { ses: NET.ses, l: NET.ops } : null };
+      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: canSendOps ? { ses: NET.ses, l: NET.ops } : null, adm: !NET.visit && NET.adminFriends.size ? NET.getAdminList() : null };
   }
   function sendPresence(force) {
     const pr = myPresence(), s = JSON.stringify(pr); if (!force && s === NET.lastPres) return; NET.lastPres = s;
@@ -185,18 +186,40 @@
     } catch (e) { return { err: 'Connexion impossible pour le moment.' }; }
     return { err: 'Tu joues hors ligne : ouvre le jeu depuis son lien claude.ai, ou lance le serveur sur ton PC.' };
   };
-  // ---------- les modifications de l'hôte suivent en direct chez ses visiteurs ----------
+  // ---------- les modifications de l'hôte et des amis admin suivent en direct ----------
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
-  const rec = op => { NET.seq++; op.s = NET.seq; NET.ops.push(op); if (NET.ops.length > 24) NET.ops.shift(); };
-  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && this === G.world && G.state === 'play' && !NET.applying && NET.online()) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined }); return o; };
-  GP.removeObj = function (o) { orem.call(this, o); if (this === G.world && G.state === 'play' && !NET.applying && NET.online()) rec({ k: 'r', t: o.t, x: o.x, z: o.z }); };
-  function applyOps(pr) {
-    const v = NET.visit; if (!v || !pr.ops || !Array.isArray(pr.ops.l)) return; const ses = pr.ops.ses; if (v.opsSes !== ses) { v.opsSes = ses; v.lastSeq = ses === v.ses ? v.seq : 0; }
-    const m = v.map; NET.applying = true;
-    try { for (const op of pr.ops.l) { if (!op || typeof op.s !== 'number' || op.s <= v.lastSeq || !G.OBJ[op.t] || !m.inb(op.x | 0, op.z | 0)) continue; v.lastSeq = op.s;
-      if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
-      else if (op.k === 'a' && !m.objAt(op.x, op.z)) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); } } }
-    finally { NET.applying = false; }
+  const rec = op => { NET.seq++; op.s = NET.seq; NET.ops.push(op); if (NET.ops.length > 24) NET.ops.shift(); sendPresence(true); };
+  GP.addObj = function (t, tx, tz, r, extra) {
+    const o = oadd.call(this, t, tx, tz, r, extra);
+    const isTargetMap = (this === G.world && !NET.visit) || (NET.visit && this === NET.visit.map && NET.iAmAdmin());
+    if (o && isTargetMap && G.state === 'play' && !NET.applying && NET.online()) {
+      rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined });
+    }
+    return o;
+  };
+  GP.removeObj = function (o) {
+    orem.call(this, o);
+    const isTargetMap = (this === G.world && !NET.visit) || (NET.visit && this === NET.visit.map && NET.iAmAdmin());
+    if (isTargetMap && G.state === 'play' && !NET.applying && NET.online()) {
+      rec({ k: 'r', t: o.t, x: o.x, z: o.z });
+    }
+  };
+  function applyOps(pr, targetMap) {
+    const m = targetMap || (NET.visit ? NET.visit.map : G.world);
+    if (!m || !pr.ops || !Array.isArray(pr.ops.l)) return;
+    const ses = pr.ops.ses;
+    if (NET.visit) {
+      const v = NET.visit;
+      if (v.opsSes !== ses) { v.opsSes = ses; v.lastSeq = ses === v.ses ? v.seq : 0; }
+    }
+    NET.applying = true;
+    try {
+      for (const op of pr.ops.l) {
+        if (!op || typeof op.s !== 'number' || !G.OBJ[op.t] || !m.inb(op.x | 0, op.z | 0)) continue;
+        if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
+        else if (op.k === 'a' && !m.objAt(op.x, op.z)) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); }
+      }
+    } finally { NET.applying = false; }
   }
   // ---------- avatars des autres joueurs ----------
   const tagTex = (txt, sub, bg) => { const c = G.cv(256, sub ? 96 : 64), x = c.getContext('2d'); x.font = 'bold 30px Fredoka, Nunito, sans-serif'; const w = Math.min(248, Math.max(x.measureText(txt).width, sub ? 60 : 0) + 30);
@@ -220,7 +243,25 @@
   const isHost = pr => !!(NET.visit && pr && pr.home === ids(NET.visit.code).id && !pr.vis);
   function onPeers() {
     for (const id of [...NET.av.keys()]) if (!NET.peers.has(id)) dropAvatar(id);
-    for (const p of NET.peers.values()) if (isHost(p.pr)) applyOps(p.pr);
+    for (const p of NET.peers.values()) {
+      const pr = p.pr;
+      if (!pr) continue;
+      // Si nous sommes en visite et que l'op vient de l'hôte
+      if (isHost(pr)) applyOps(pr);
+      // Si nous sommes l'hôte (ou dans le village) et que l'op vient d'un visiteur admin approuvé
+      else if (!NET.visit && pr.vis && pr.home && NET.isAdminFriend(pr.home)) applyOps(pr, G.world);
+      // Si nous sommes en visite et que l'op vient d'un autre visiteur admin reconnu par l'hôte
+      else if (NET.visit && pr.vis && pr.home) {
+        let isApprovedAdmin = false;
+        for (const hostPeer of NET.peers.values()) {
+          if (isHost(hostPeer.pr) && hostPeer.pr.adm && hostPeer.pr.adm.includes(pr.home)) {
+            isApprovedAdmin = true;
+            break;
+          }
+        }
+        if (isApprovedAdmin) applyOps(pr, NET.visit.map);
+      }
+    }
     updBadge();
   }
   const live = pr => pr && pr.v === 2 && !pr.idle;
@@ -279,11 +320,31 @@
   function openPlayers() {
     G.ui.open('players', NET.visit ? '🔒 Joueurs à ' + NET.visit.vil : '🔒 Joueurs dans ton village'); const body = $('panel-body'), list = [...NET.peers.values()].filter(p => live(p.pr));
     body.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px"></div>'; const box = body.firstChild;
-    const row = (name, where) => { const d = document.createElement('div'); d.className = 'ss-card'; d.style.cursor = 'default'; const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = name; const s = document.createElement('small'); s.textContent = where; t.appendChild(b); t.appendChild(s); d.appendChild(t); box.appendChild(d); };
-    row(G.playerName + ' (toi)', NET.visit ? 'En visite à ' + NET.visit.vil : 'Chez toi à ' + G.villageName);
-    for (const p of list) { const pr = p.pr; row(clean(pr.n, 16) || 'Joueur', isHost(pr) ? 'Habitant·e de ce village' : pr.vis ? 'En visite · vient de ' + clean(pr.vil, 24) : 'Habitant·e de ' + clean(pr.vil, 24)); }
+    const isMyVillage = !NET.visit;
+    const row = (name, where, peerId, pr) => {
+      const d = document.createElement('div'); d.className = 'ss-card'; d.style.cursor = 'default';
+      const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = name;
+      const s = document.createElement('small'); s.textContent = where; t.appendChild(b); t.appendChild(s); d.appendChild(t);
+      // Bouton admin friend (visible seulement pour le propriétaire du village, et seulement pour les visiteurs)
+      if (peerId && isMyVillage && pr && pr.vis) {
+        const isAdmin = NET.isAdminFriend(pr.home);
+        const btn = document.createElement('button'); btn.className = 'btn' + (isAdmin ? ' warn' : '');
+        btn.style.cssText = 'margin-left:auto;padding:5px 10px;font-size:13px';
+        btn.textContent = isAdmin ? '⭐ Retirer admin' : '⭐ Donner admin';
+        btn.onclick = () => { NET.setAdminFriend(pr.home, !isAdmin); G.sfx('craft'); openPlayers(); };
+        d.appendChild(btn);
+      }
+      // Badge admin pour les visiteurs qui ont les droits
+      if (peerId && pr && pr.vis && NET.isAdminFriend(pr.home)) {
+        const badge = document.createElement('small'); badge.style.cssText = 'color:#e8a600;font-weight:800;margin-left:6px';
+        badge.textContent = ' ⭐ Admin'; s.appendChild(badge);
+      }
+      box.appendChild(d);
+    };
+    row(G.playerName + ' (toi)', NET.visit ? (NET.iAmAdmin() ? 'En visite ⭐ Admin' : 'En visite') + ' à ' + NET.visit.vil : 'Chez toi à ' + G.villageName);
+    for (const p of list) { const pr = p.pr; row(clean(pr.n, 16) || 'Joueur', isHost(pr) ? 'Habitant·e de ce village' : pr.vis ? 'En visite · vient de ' + clean(pr.vil, 24) : 'Habitant·e de ' + clean(pr.vil, 24), p.id, pr); }
     if (!list.length) { const d = document.createElement('p'); d.style.cssText = 'margin:4px;color:var(--bark);font-weight:700'; d.textContent = 'Personne d\'autre ici pour l\'instant. Donne ton code ami à tes amis : c\'est la seule façon d\'entrer dans ton village.'; box.appendChild(d); }
-    const f = $('panel-foot'); f.innerHTML = '<div class="desc">🔒 Villages privés : on ne voit que les joueurs du village où l\'on est. Entrée : discuter.</div>';
+    const f = $('panel-foot'); f.innerHTML = '<div class="desc">🔒 Villages privés : on ne voit que les joueurs du village où l\'on est. Entrée : discuter.' + (isMyVillage ? ' ⭐ = peut modifier ton village.' : '') + '</div>';
   }
   // ---------- visiter un village (code ami obligatoire) ----------
   NET.askVisit = () => {
@@ -325,8 +386,32 @@
   };
   const oexit = G.act.exitHouse; G.act.exitHouse = () => { const im = G.map, v = NET.visit; if (!v || !im.isVisit || G.ui.fading || G.act._exiting) return oexit(); G.act._exiting = true; const b = im.meta.door; G.sfx('door'); G.ui.fade(() => { G.enterMap(v.map, b.x, b.z, b.yaw); G.act._exiting = false; }); };
   const osleep = G.act.sleep; G.act.sleep = () => { if (G.map && G.map.isVisit) return G.ui.toast('Ce n\'est pas ton lit ! Rentre chez toi pour dormir.'); return osleep(); };
+  // ---------- admin friends : visiteurs autorisés à modifier le monde ----------
+  NET.adminFriends = new Set();
+  try { const stored = localStorage.getItem('dv_admin_friends'); if (stored) JSON.parse(stored).forEach(id => NET.adminFriends.add(id)); } catch (e) { }
+  const saveAdmins = () => { try { localStorage.setItem('dv_admin_friends', JSON.stringify([...NET.adminFriends])); } catch (e) { } };
+  NET.isAdminFriend = peerId => NET.adminFriends.has(peerId);
+  NET.setAdminFriend = (peerId, on) => { if (on) NET.adminFriends.add(peerId); else NET.adminFriends.delete(peerId); saveAdmins(); sendPresence(true); };
+  // Publier la liste des admins dans la présence pour que les visiteurs sachent s'ils ont les droits
+  NET.getAdminList = () => [...NET.adminFriends];
+  // Vérifier si on est admin friend dans le village visité
+  NET.iAmAdmin = () => {
+    if (!NET.visit) return false;
+    const myId = NET.me();
+    for (const p of NET.peers.values()) {
+      const pr = p.pr;
+      if (isHost(pr) && pr.adm && Array.isArray(pr.adm) && myId && pr.adm.includes(myId)) return true;
+    }
+    return false;
+  };
   G.on('init', () => {
-    const lk = G.isLockedMap; G.isLockedMap = m => lk(m) || !!(m && (m.visit || m.isVisit));
+    const lk = G.isLockedMap; G.isLockedMap = m => {
+      if (lk(m)) return true;
+      if (!m || (!m.visit && !m.isVisit)) return false;
+      // Si on est admin friend, la map n'est PAS verrouillée
+      if (NET.iAmAdmin()) return false;
+      return true;
+    };
     // pendant une visite, la sauvegarde nous range à la gare de notre propre village
     const os = G.serialize; G.serialize = () => { const out = os(); if (NET.visit && out.player) { const g = G.world.meta.gare || G.world.meta.spawn; out.player = Object.assign({}, out.player, { map: 'world', x: g.x, z: (g.z || 0) + .4, veh: null }); if (out.residents && out.residents[out.rid]) out.residents[out.rid].player = out.player; } return out; };
     const ott = G.toTitle; G.toTitle = () => { if (NET.visit) { const g = G.world.meta.gare || G.world.meta.spawn; G.enterMap(G.world, g.x, (g.z || 0) + .4, 0); leaveVisit(); } ott(); };

@@ -156,11 +156,20 @@
     reset() { if (G.rueMap) { G.scene.remove(G.rueMap.group); G.ents.removeNPCs(G.rueMap); for (const v of G.ents.villagers.slice()) if (v.map === G.rueMap) { G.scene.remove(v.root); G.scene.remove(v.blob); G.ents.villagers.splice(G.ents.villagers.indexOf(v), 1); } } G.rueMap = null; },
     go(x, z, yaw, instant) { const m = R.get(), s = m.meta.spawn, f = () => { G.enterMap(m, x != null ? x : s.x, z != null ? z : s.z, yaw != null ? yaw : Math.PI); if (!G.flags.rue) { G.flags.rue = 1; G.ui.toast('Bienvenue dans la rue commerçante ! 🏬 Neuf boutiques t\'attendent.'); } };
       if (instant) return f(); G.sfx('door'); G.ui.fade(f, .45); },
-    back() { const g = G.world.meta.rueGate || G.world.meta.gare || G.world.meta.spawn; G.sfx('door'); G.ui.fade(() => G.enterMap(G.world, g.sx || g.x, g.sz || g.z, 0), .45); }
+    back() {
+      const targetMap = (NET.visit && NET.visit.map) || G.world;
+      const g = targetMap.meta.rueGate || targetMap.meta.gare || targetMap.meta.spawn;
+      G.sfx('door');
+      G.ui.fade(() => G.enterMap(targetMap, g.sx || g.x, g.sz || g.z, 0), .45);
+    }
   };
   G.on('move', (p, m) => {
     if (G.ui.fading || p.vehicle || G.state !== 'play') return;
-    if (m === G.world) { const g = m.meta.rueGate; if (g && p.z < g.z && p.x >= g.x0 && p.x < g.x1) R.go(); }
+    const isWorldMap = m === G.world || (NET.visit && m === NET.visit.map);
+    if (isWorldMap) {
+      const g = m.meta.rueGate;
+      if (g && p.z < g.z && p.x >= g.x0 && p.x < g.x1) R.go();
+    }
     else if (m === G.rueMap && p.z > m.meta.exitZ && Math.abs(p.x - (m.meta.exitX != null ? m.meta.exitX : RX + 1)) < 1.4) R.back();
   });
   const oex = G.act.exitHouse; G.act.exitHouse = () => {
