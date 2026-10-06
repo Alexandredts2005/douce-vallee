@@ -228,7 +228,9 @@
   G.on('frame', dt => {
     const mk = mapKey(G.map), play = G.state === 'play' || G.state === 'pause', now = performance.now();
     for (const p of NET.peers.values()) { const pr = p.pr; let a = NET.av.get(p.id);
-      const here = play && live(pr) && pr.m === mk && typeof pr.x === 'number' && typeof pr.z === 'number';
+      // Ne pas afficher sa propre présence (doublon si 2 onglets ouverts avec le même compte)
+      const isSelf = pr.home && NET.me() && pr.home === NET.me() && !pr.vis;
+      const here = !isSelf && play && live(pr) && pr.m === mk && typeof pr.x === 'number' && typeof pr.z === 'number';
       if (!here) { if (a) { a.C && (a.C.root.visible = false); a.blob.visible = false; } continue; }
       a = avatar(p.id, pr); const C = a.C, k = Math.min(1, dt * 9), tx = pr.x, tz = pr.z, d = Math.hypot(tx - a.x, tz - a.z);
       if (d > 8) { a.x = tx; a.z = tz; } else { a.x += (tx - a.x) * k; a.z += (tz - a.z) * k; } a.y += ((typeof pr.y === 'number' ? pr.y : G.map.topAt(a.x, a.z)) - a.y) * Math.min(1, dt * 12); a.r = G.angLerp(a.r, pr.r || 0, Math.min(1, dt * 10));
