@@ -13,7 +13,7 @@
     const U = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 }, uTint: { value: new THREE.Color(1, 1, 1) } }]); U.uCurve = G.U.curve; U.uCC = G.U.cc; U.uCF = G.U.cf; GR.U = U;
     const mat = new THREE.ShaderMaterial({ uniforms: U, fog: true, side: THREE.DoubleSide,
       vertexShader: 'attribute vec3 gc; uniform float uT, uCurve; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; float sw = sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; ' + CURVE + ' vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc;\n#include <fog_vertex>\n}',
-      fragmentShader: 'uniform vec3 uTint; varying vec3 vC;\n#include <fog_pars_fragment>\nvoid main(){ gl_FragColor = vec4(vC * uTint, 1.0);\n#include <fog_fragment>\n}' });
+      fragmentShader: 'uniform vec3 uTint; varying vec3 vC;\n#include <fog_pars_fragment>\nvoid main(){ gl_FragColor = vec4(vC * uTint, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n#include <fog_fragment>\n}' });
     const m = new THREE.InstancedMesh(grassGeo(), mat, GR.N); m.count = 0; m.frustumCulled = false; m.renderOrder = 0; scene.add(m); GR.mesh = m;
   });
   const SC = new THREE.Color(), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
@@ -38,8 +38,6 @@
     // halos des lampes
     const c = G.cv(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,230,170,.9)'); gr.addColorStop(.25, 'rgba(255,200,120,.35)'); gr.addColorStop(1, 'rgba(255,180,90,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
     const tex = new THREE.CanvasTexture(c); A.halos = []; for (let i = 0; i < 24; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); s.visible = false; s.renderOrder = 7; scene.add(s); A.halos.push(s); }
-    // rendu cinéma (contraste doux, hautes lumières maîtrisées)
-    if (G.settings.cine === true) { G.renderer.toneMapping = THREE.ACESFilmicToneMapping; G.renderer.toneMappingExposure = 1.35; }
   });
   const auroraNight = d => G.hash2(d, 7, 31) < .45;
   // ---------- éclats d'étoile (vœux) ----------

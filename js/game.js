@@ -7,11 +7,11 @@
   G.cam = { yaw: 0, tyaw: 0, dist: 13, tdist: 13, pitch: .72, boost: 0, sh: 0, orbit: 0, shake(a) { this.sh = Math.max(this.sh, a); } };
   // ---------- ciel : dégradé, soleil, lune, étoiles ----------
   const SKY = [ // heure, haut, horizon, lumière, intensité, ciel hémi, sol hémi, intensité hémi
-    [0, 0x0a1030, 0x1c2550, 0x7c8cd6, .26, 0x34407a, 0x1c2438, .32], [4.6, 0x0f1840, 0x2a3164, 0x8a92d0, .26, 0x3a4680, 0x1e2638, .34],
-    [5.6, 0x3b4c8e, 0xf5a07e, 0xffb088, .5, 0x9aa0d0, 0x6a5a50, .52], [7, 0x5fb0f0, 0xffdcb4, 0xfff0d8, .85, 0xcfe6ff, 0x8a8a60, .62],
-    [9, 0x4aa3ee, 0xa6dbff, 0xffffff, .95, 0xd8ecff, 0x8f9a6a, .66], [16, 0x4aa3ee, 0xaee0ff, 0xfff8ec, .92, 0xd8ecff, 0x8f9a6a, .66],
-    [18, 0x6d8fd2, 0xffc890, 0xffcf96, .78, 0xe0d0d8, 0x8a7a60, .6], [19.3, 0x4b4a92, 0xff8f72, 0xff9a70, .55, 0xb090b8, 0x5a4a50, .52],
-    [20.5, 0x1b2152, 0x4d3b72, 0x9a90d8, .3, 0x4a4a88, 0x262838, .38], [22, 0x0a1030, 0x1c2550, 0x7c8cd6, .26, 0x34407a, 0x1c2438, .32], [24, 0x0a1030, 0x1c2550, 0x7c8cd6, .26, 0x34407a, 0x1c2438, .32]];
+    [0, 0x0a1030, 0x1c2550, 0x7c8cd6, .36, 0x34407a, 0x1c2438, .45], [4.6, 0x0f1840, 0x2a3164, 0x8a92d0, .36, 0x3a4680, 0x1e2638, .48],
+    [5.6, 0x3b4c8e, 0xf5a07e, 0xffb088, .75, 0x9aa0d0, 0x6a5a50, .75], [7, 0x5fb0f0, 0xffdcb4, 0xfff0d8, 1.25, 0xcfe6ff, 0x8a8a60, .85],
+    [9, 0x4aa3ee, 0xa6dbff, 0xffffff, 1.45, 0xd8ecff, 0x8f9a6a, .95], [16, 0x4aa3ee, 0xaee0ff, 0xfff8ec, 1.4, 0xd8ecff, 0x8f9a6a, .95],
+    [18, 0x6d8fd2, 0xffc890, 0xffcf96, 1.15, 0xe0d0d8, 0x8a7a60, .85], [19.3, 0x4b4a92, 0xff8f72, 0xff9a70, .85, 0xb090b8, 0x5a4a50, .75],
+    [20.5, 0x1b2152, 0x4d3b72, 0x9a90d8, .45, 0x4a4a88, 0x262838, .55], [22, 0x0a1030, 0x1c2550, 0x7c8cd6, .36, 0x34407a, 0x1c2438, .45], [24, 0x0a1030, 0x1c2550, 0x7c8cd6, .36, 0x34407a, 0x1c2438, .45]];
   const cA = new THREE.Color(), cB = new THREE.Color(), cTop = new THREE.Color(), cHor = new THREE.Color(), cLight = new THREE.Color(), cHs = new THREE.Color(), cHg = new THREE.Color();
   function skyAt(h) { let k = 0; while (k < SKY.length - 2 && SKY[k + 1][0] <= h) k++; const a = SKY[k], b = SKY[k + 1], t = G.smooth(G.clamp((h - a[0]) / (b[0] - a[0]), 0, 1));
     const mix = (out, i) => out.set(a[i]).lerp(cB.set(b[i]), t); mix(cTop, 1); mix(cHor, 2); mix(cLight, 3); mix(cHs, 5); mix(cHg, 6); return [G.lerp(a[4], b[4], t), G.lerp(a[7], b[7], t)]; }
@@ -47,8 +47,8 @@
     if (lampT < 0) { lampT = .5; const near = [];
       let lit = 0; for (const o of m.lights) { if (o.off) continue; lit++; const [cx, cz] = m.center(o), d = Math.hypot(cx - p.x, cz - p.z); if (d < 32) near.push([d, o, cx, cz]); }
       near.sort((a, b) => a[0] - b[0]); lamps.forEach((l, i) => { const e = near[i]; l.userData.o = e ? e[1] : null; if (e) l.position.set(e[2], e[1].y + (G.OBJ[e[1].t].h > 1.5 ? 2.3 : .9), e[3]); });
-      roomLight.intensity = m.interior ? .08 + Math.min(.3, lit * .1) : 0; }
-    const on = m.interior ? .34 : n; lamps.forEach(l => { const o = l.userData.o; l.intensity = o ? on * (G.OBJ[o.t].fire ? 1.3 + Math.sin(performance.now() / 90 + l.id) * .15 : 1.5) : 0; });
+      roomLight.intensity = m.interior ? .4 + Math.min(1.2, lit * .3) : 0; }
+    const on = m.interior ? 1.0 : n; lamps.forEach(l => { const o = l.userData.o; l.intensity = o ? on * (G.OBJ[o.t].fire ? 1.3 + Math.sin(performance.now() / 90 + l.id) * .15 : 1.5) : 0; });
   }
   G.lampRefresh = () => { lampT = 0; };
   G.setOutlines = mode => { if (mode === 'tout' && G.settings.quality === 'low') mode = 'perso'; G.M.outline.visible = mode !== 'aucun'; G.M.outlineI.visible = mode === 'tout'; for (const mp of [G.world, G.island, ...Object.values(G.interiors)]) if (mp) mp.objr.setOutlines(mode === 'tout'); };
@@ -62,12 +62,13 @@
   function resize() { if (!renderer) return; renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); G.U.pscale.value = renderer.getDrawingBufferSize(new THREE.Vector2()).y / (2 * Math.tan(camera.fov * Math.PI / 360)); }
   function init() {
     renderer = G.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
     $('gl').appendChild(renderer.domElement); G.bindPointer(renderer.domElement);
     scene = G.scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xcdeeff, 45, 125);
     camera = G.camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, .1, 900);
     G.makeTextures(); G.makeMaterials();
-    hemi = new THREE.HemisphereLight(0xd8ecff, 0x8f9a6a, .65); scene.add(hemi); amb = new THREE.AmbientLight(0xffffff, .12); scene.add(amb);
-    sun = new THREE.DirectionalLight(0xffffff, .9); sun.castShadow = true; const sc = sun.shadow.camera; sc.left = -26; sc.right = 26; sc.top = 26; sc.bottom = -26; sc.near = 1; sc.far = 140; sun.shadow.bias = -.0006; sun.shadow.normalBias = .03; sun.shadow.mapSize.set(1024, 1024); scene.add(sun); scene.add(sun.target);
+    hemi = new THREE.HemisphereLight(0xfff5e6, 0x8f9a6a, .85); scene.add(hemi); amb = new THREE.AmbientLight(0xffffff, .2); scene.add(amb);
+    sun = new THREE.DirectionalLight(0xffeedd, 1.4); sun.castShadow = true; const sc = sun.shadow.camera; sc.left = -26; sc.right = 26; sc.top = 26; sc.bottom = -26; sc.near = 1; sc.far = 140; sun.shadow.bias = -.0006; sun.shadow.normalBias = .03; sun.shadow.mapSize.set(1024, 1024); scene.add(sun); scene.add(sun.target);
     makeSky(); makeClouds(); makeLamps(); G.fx.init(scene); G.ents.init(scene);
     G.player = new G.Player({}); G.player.attach(scene); G.ui.buildHotbar();
     addEventListener('resize', resize); G.ui.applySettings(); resize();
@@ -83,7 +84,7 @@
     if (!m.group.parent) scene.add(m.group); m.group.visible = true; const outdoorChange = !m.interior && seaG && seaG.userData.map !== m; G.map = m;
     const inside = m.interior; sky.visible = stars.visible = sunM.visible = moonM.visible = !inside; if (outdoorChange) makeSea(m); seaG && (seaG.visible = !inside); clouds.forEach(c => c.visible = !inside);
     scene.background = inside ? new THREE.Color(0x24170f) : null; scene.fog.near = inside ? 200 : 45; scene.fog.far = inside ? 400 : 125;
-    G.audio.setInside(inside); roomLight.intensity = inside ? .3 : 0; if (inside) roomLight.position.set(m.W / 2, 2.7, m.H / 2);
+    G.audio.setInside(inside); roomLight.intensity = inside ? .8 : 0; if (inside) roomLight.position.set(m.W / 2, 2.7, m.H / 2);
     G.player.teleport(x, z, yaw); G.cam.cx = 0; if (!G.mouseMode()) G.cam.yaw = G.cam.tyaw = 0; else G.cam.tyaw = G.cam.yaw = (yaw || 0) + Math.PI; G.ui.mmRev = -1; lampT = 0;
     if (inside) G.ui.toast(m.meta.title || 'Maison');
     G.emit('enterMap', m);
@@ -145,7 +146,7 @@
   function updSky() {
     const h = G.clock.min / 60, [li, hi] = skyAt(h), n = G.night(), m = G.map, inside = m && m.interior;
     skyMat.uniforms.top.value.copy(cTop); skyMat.uniforms.hor.value.copy(cHor); scene.fog.color.copy(cHor);
-    const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); hemi.intensity = inside ? .14 + .2 * dayK : hi; amb.intensity = inside ? .05 + .05 * dayK : .1 + n * .08;
+    const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); hemi.intensity = inside ? .6 + .4 * dayK : hi; amb.intensity = inside ? .3 + .2 * dayK : .1 + n * .08;
     G.skyInfo = { h, n, inside, top: cTop, hor: cHor, light: cLight, day: h >= 5.2 && h < 19.6 };
     const day = h >= 5.2 && h < 19.6, a = day ? (h - 5.2) / 14.4 * Math.PI : ((h >= 19.6 ? h - 19.6 : h + 4.4) / 9.6) * Math.PI;
     SD.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize();

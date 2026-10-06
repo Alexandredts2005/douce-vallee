@@ -8,7 +8,7 @@
   // ---------- vignettes 3D façon catalogue ----------
   const thumbs = {}; let tScene, tCam, tRT, tBuf, tCv;
   function thumbSetup() {
-    tScene = new THREE.Scene(); tScene.add(new THREE.HemisphereLight(0xffffff, 0xb0a080, .75)); const d = new THREE.DirectionalLight(0xffffff, .7); d.position.set(3, 6, 5); tScene.add(d);
+    tScene = new THREE.Scene(); tScene.add(new THREE.HemisphereLight(0xfff5e6, 0xb0a080, 1.0)); const d = new THREE.DirectionalLight(0xffeedd, 1.4); d.position.set(3, 6, 5); tScene.add(d);
     tCam = new THREE.PerspectiveCamera(30, 1, .05, 100); tRT = new THREE.WebGLRenderTarget(96, 96); tBuf = new Uint8Array(96 * 96 * 4); tCv = G.cv(96, 96);
   }
   U.thumb = id => {

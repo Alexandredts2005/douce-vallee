@@ -58,7 +58,7 @@ G.curveMat = (m, o = {}) => {
   m.customProgramCacheKey = () => key;
   return m;
 };
-G.toon = (p = {}, o = { cloud: true }) => G.curveMat(new THREE.MeshToonMaterial(Object.assign({ gradientMap: G.TEX.toon }, p)), o);
+G.toon = (p = {}, o = { cloud: true }) => G.curveMat(new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0.05 }, p)), o);
 G.outlineGeo = geo => {
   if (geo._ol) return geo._ol; const p = geo.attributes.position, src = geo.attributes.normal, n = p.count, map = new Map(), nor = new Float32Array(n * 3);
   const key = i => Math.round(p.getX(i) * 400) + ',' + Math.round(p.getY(i) * 400) + ',' + Math.round(p.getZ(i) * 400);
@@ -171,10 +171,10 @@ G.makeMaterials = () => {
   M.trans = G.toon({ vertexColors: true, transparent: true, opacity: .62, depthWrite: false });
   M.ground = G.toon({ map: G.TEX.atlas, vertexColors: true });
   M.cliff = G.toon({ map: G.TEX.cliff, vertexColors: true });
-  M.water = G.curveMat(new THREE.MeshPhongMaterial({ map: G.TEX.water, vertexColors: true, transparent: true, opacity: .8, shininess: 70, specular: 0x6688aa, depthWrite: false }), { cloud: true });
-  M.outline = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x3a2619, side: THREE.BackSide }), { outline: .016 });
-  M.outlineI = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x2f3a22, side: THREE.BackSide }), { outline: .028 });
-  M.fall = G.curveMat(new THREE.MeshBasicMaterial({ map: G.TEX.fall, transparent: true, opacity: .92, side: THREE.DoubleSide, depthWrite: false }));
+  M.water = G.curveMat(new THREE.MeshStandardMaterial({ map: G.TEX.water, vertexColors: true, transparent: true, opacity: .85, roughness: 0.15, metalness: 0.6, depthWrite: false }), { cloud: true });
+  M.outline = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x3a2619, side: THREE.BackSide }), { outline: .007 });
+  M.outlineI = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x2f3a22, side: THREE.BackSide }), { outline: .012 });
+  M.fall = G.curveMat(new THREE.MeshStandardMaterial({ map: G.TEX.fall, transparent: true, opacity: .92, side: THREE.DoubleSide, depthWrite: false, roughness: 0.9, metalness: 0.05 }));
   M.ghost = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: .45, depthWrite: false }));
   M.shadow = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   M.cursor = G.curveMat(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));

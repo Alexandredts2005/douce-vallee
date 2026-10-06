@@ -94,7 +94,7 @@
   const portraits = {}; let pScene, pCam, pRT, pBuf, pCv;
   function portrait(look) {
     const key = JSON.stringify(look || {}); if (portraits[key]) return portraits[key]; const R = G.renderer; if (!R) return '';
-    if (!pScene) { pScene = new THREE.Scene(); pScene.add(new THREE.HemisphereLight(0xffffff, 0xd9c9a8, .85)); const d = new THREE.DirectionalLight(0xffffff, .55); d.position.set(2, 3, 4); pScene.add(d); pCam = new THREE.PerspectiveCamera(26, 1, .05, 50); pRT = new THREE.WebGLRenderTarget(128, 128); pBuf = new Uint8Array(128 * 128 * 4); pCv = G.cv(128, 128); }
+    if (!pScene) { pScene = new THREE.Scene(); pScene.add(new THREE.HemisphereLight(0xfff5e6, 0xd9c9a8, 1.0)); const d = new THREE.DirectionalLight(0xffeedd, 1.2); d.position.set(2, 3, 4); pScene.add(d); pCam = new THREE.PerspectiveCamera(26, 1, .05, 50); pRT = new THREE.WebGLRenderTarget(128, 128); pBuf = new Uint8Array(128 * 128 * 4); pCv = G.cv(128, 128); }
     try { const C = G.makeChar({ look: G.normLook(look) }); pScene.add(C.root); C.root.rotation.y = -.35; pCam.position.set(0, 1.0, 2.7); pCam.lookAt(0, .82, 0);
       const cu = G.U.curve.value; G.U.curve.value = 0; R.setRenderTarget(pRT); R.setClearColor(0x000000, 0); R.clear(); R.render(pScene, pCam); R.readRenderTargetPixels(pRT, 0, 0, 128, 128, pBuf); R.setRenderTarget(null); G.U.curve.value = cu; pScene.remove(C.root);
       const x = pCv.getContext('2d'), im = x.createImageData(128, 128); for (let y = 0; y < 128; y++) im.data.set(pBuf.subarray((127 - y) * 512, (128 - y) * 512), y * 512); x.putImageData(im, 0, 0); return portraits[key] = pCv.toDataURL(); } catch (e) { return ''; }
