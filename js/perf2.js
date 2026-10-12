@@ -27,7 +27,6 @@
       if (cu) { const dmax = Math.max(drop(x0, z0), drop(x1, z0), drop(x0, z1), drop(x1, z1)), dmin = Math.max(0, drop(Math.min(x1, Math.max(x0, cc.x)), Math.min(z1, Math.max(z0, cc.z))) - .5); y0 -= dmax; y1 -= dmin; }
       BX.min.set(x0 + Math.min(0, ox), y0, z0 + Math.min(0, oz)); BX.max.set(x1 + Math.max(0, ox), y1, z1 + Math.max(0, oz));
       let v = FR.intersectsBox(BX);
-      if (v && !cu) { const dx = Math.max(x0 - cp.x, 0, cp.x - x1), dz = Math.max(z0 - cp.z, 0, cp.z - z1); if (dx * dx + dz * dz > 130 * 130) v = false; }
       const b = v ? 1 : 0; if (V[k] !== b) { V[k] = b; changed = true; } vis += b;
     }
     if (changed || m.cullVer == null) m.cullVer = (m.cullVer || 0) + 1; C.vis = vis; C.total = n; return V;

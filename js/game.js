@@ -82,7 +82,7 @@
     if (G.map && G.map !== m) { G.map.group.visible = false; G.feat.clearFish(); }
     if (!m.group.parent) scene.add(m.group); m.group.visible = true; const outdoorChange = !m.interior && seaG && seaG.userData.map !== m; G.map = m;
     const inside = m.interior; sky.visible = stars.visible = sunM.visible = moonM.visible = !inside; if (outdoorChange) makeSea(m); seaG && (seaG.visible = !inside); clouds.forEach(c => c.visible = !inside);
-    scene.background = inside ? new THREE.Color(0x24170f) : null; scene.fog.near = inside ? 200 : 45; scene.fog.far = inside ? 400 : 125;
+    scene.background = inside ? new THREE.Color(0x24170f) : null; scene.fog.near = inside ? 200 : 110; scene.fog.far = inside ? 400 : 420;
     G.audio.setInside(inside); roomLight.intensity = inside ? .3 : 0; if (inside) roomLight.position.set(m.W / 2, 2.7, m.H / 2);
     G.player.teleport(x, z, yaw); G.cam.cx = 0; if (!G.mouseMode()) G.cam.yaw = G.cam.tyaw = 0; else G.cam.tyaw = G.cam.yaw = (yaw || 0) + Math.PI; G.ui.mmRev = -1; lampT = 0;
     if (inside) G.ui.toast(m.meta.title || 'Maison');

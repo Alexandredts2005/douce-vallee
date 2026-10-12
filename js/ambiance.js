@@ -38,7 +38,7 @@
     A.star = new THREE.Line(lg, lm); A.star.frustumCulled = false; A.star.renderOrder = -8; scene.add(A.star); A.starT = 8;
     // halos des lampes
     const c = G.cv(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,230,170,.45)'); gr.addColorStop(.25, 'rgba(255,200,120,.16)'); gr.addColorStop(1, 'rgba(255,180,90,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-    const tex = new THREE.CanvasTexture(c); A.halos = []; for (let i = 0; i < 24; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); s.visible = false; s.renderOrder = 7; scene.add(s); A.halos.push(s); }
+    const tex = new THREE.CanvasTexture(c); A.halos = []; for (let i = 0; i < 96; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); s.visible = false; s.renderOrder = 7; scene.add(s); A.halos.push(s); }
     // rendu cinéma (contraste doux, hautes lumières maîtrisées)
     if (G.settings.cine === true) { G.renderer.toneMapping = THREE.ACESFilmicToneMapping; G.renderer.toneMappingExposure = 1.35; }
   });
@@ -70,7 +70,7 @@
     // aurores
     const showA = out && n > .55 && auroraNight(G.clock.day) && G.settings.quality !== 'low'; A.aurora.visible = showA; if (showA) { A.aurora.position.copy(G.camera.position); A.aurora.position.y += 95; A.aurora.material.uniforms.uT.value = A.t; A.aurora.material.uniforms.uA.value = Math.min(1, (n - .55) * 2.5); }
     // halos des lampes
-    if ((haloT -= dt) < 0) { haloT = .4; let k = 0; if (out && n > .2) { const near = []; for (const o of m.lights) { if (o.off) continue; const [cx, cz] = m.center(o), d = Math.hypot(cx - p.x, cz - p.z); if (d < 40) near.push([d, o, cx, cz]); } near.sort((a, b) => a[0] - b[0]);
+    if ((haloT -= dt) < 0) { haloT = .4; let k = 0; if (out && n > .2) { const near = []; for (const o of m.lights) { if (o.off) continue; const [cx, cz] = m.center(o), d = Math.hypot(cx - p.x, cz - p.z); if (d < 170) near.push([d, o, cx, cz]); } near.sort((a, b) => a[0] - b[0]);
         for (const [d, o, cx, cz] of near) { if (k >= A.halos.length) break; const def = G.OBJ[o.t], s = A.halos[k++], tall = def.h > 1.5; s.position.set(cx, o.y + (o.t === 'grande_fontaine' ? 1.0 : tall ? 2.47 : def.fire ? .55 : .85), cz); const sc = (tall ? 2.2 : 1.3) * (def.fire ? 1.3 : 1); s.scale.set(sc, sc, 1); s.material.opacity = Math.min(1, n * 1.3) * (def.fire ? .9 : .75); s.visible = true; } }
       for (; k < A.halos.length; k++) A.halos[k].visible = false; }
   });
