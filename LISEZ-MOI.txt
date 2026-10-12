@@ -1,0 +1,56 @@
+﻿DOUCE VALLÉE — mode d'emploi (version 8.1)
+========================================
+
+JOUER SEUL
+  Double-clique sur « index.html ». Tout se sauvegarde dans ton navigateur.
+
+TES SESSIONS
+  - « Jouer » ouvre la liste de tes sessions. Une session = un village, protégé par un mot de passe.
+  - Chaque village a un CODE AMI (ex. DV-ABCD-1234). On ne le voit qu'une fois connecté :
+    sur l'écran « Qui joue ? », dans le menu Pause et à la gare.
+  - « 🔁 Nouveau code » (écran « Qui joue ? ») : l'ancien code ne marche plus du tout.
+  - Jusqu'à 4 habitants par village : chacun a sa maison, son inventaire et ses clochettes.
+
+VILLAGES PRIVÉS : ON N'ENTRE QU'AVEC LE CODE AMI
+  - Il n'y a aucune liste de villages : sans le code ami, impossible de trouver ton village,
+    de l'ouvrir, ou même de voir qui s'y promène.
+  - Le code n'est jamais envoyé sur Internet : le jeu n'envoie que des empreintes du code,
+    et ton village est chiffré avec lui.
+  - À la gare, Pablo peut aussi FERMER ton village : plus personne ne peut venir, même avec
+    le code. Reparle-lui pour rouvrir.
+
+JOUER EN LIGNE AVEC DES AMIS — 3 façons
+
+  0) Le serveur mondial (le plus simple pour jouer de partout)
+     Ouvre https://douce-vallee.onrender.com : rien à installer, ton PC n'a pas besoin d'être allumé.
+     Même depuis « index.html », le jeu s'y connecte tout seul. S'il dormait, il met jusqu'à
+     une minute à se réveiller : attends le badge « 🔒 En ligne ».
+
+  1) Par claude.ai (le plus simple, rien à installer)
+     Ouvre le jeu depuis son lien claude.ai, puis Partager → ajoute tes amis
+     avec le niveau « Contributeur ». Pour visiter un village : à la gare, parle à Pablo
+     → « Visiter un ami » (ou menu Pause → « Visiter un ami ») → entre son code ami.
+
+  2) Avec TON PC comme serveur
+     a. Double-clique sur « Lancer le serveur.bat » (il faut Node.js : https://nodejs.org).
+        Si Windows demande l'autorisation du pare-feu, accepte pour les « réseaux privés ».
+     b. Le jeu s'ouvre sur http://localhost:5180.
+     c. Tes amis sur le même Wi-Fi ouvrent l'adresse affichée dans la fenêtre noire
+        (par exemple http://192.168.1.20:5180), puis entrent ton code ami à la gare.
+     d. Par Internet : sur ta box, redirige le port 5180 vers ton PC,
+        puis donne à tes amis ton adresse IP publique : http://TON-IP:5180
+     Les villages publiés sont gardés, chiffrés, dans « douce-vallee-serveur.json ».
+     (Le fichier de l'ancienne version est ignoré puis remplacé automatiquement.)
+
+FLUIDITÉ SUR PC
+  - Options › Fluidité : images par seconde max, résolution automatique, herbe 3D,
+    compteur d'images par seconde, et le nom de la carte graphique utilisée.
+  - PC portable avec carte NVIDIA ou AMD : si le jeu indique « puce intégrée »,
+    va dans Paramètres Windows › Système › Écran › Graphiques, choisis ton navigateur,
+    mets « Hautes performances », puis relance le navigateur. C'est souvent LA solution
+    quand ça rame.
+  - Branche le chargeur : sur batterie, Windows ralentit la carte graphique.
+
+EN JEU
+  Entrée : discuter (en ligne)        G : émotes        K : encyclopédie
+  Échap : pause (code ami, visiter un ami, changer d'habitant, sauvegarder)

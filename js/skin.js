@@ -29,7 +29,8 @@
       const ranges = []; if (Array.isArray(o.material)) { const grs = g.groups.length ? g.groups : [{ start: 0, count: n, materialIndex: 0 }]; for (const gr of grs) ranges.push([gr.start, Math.min(n, gr.start + gr.count), slot(S.mats[gr.materialIndex] || S.mats[0])]); }
       else { const m = o.material; m.skinning = true; m.needsUpdate = true; ranges.push([0, n, slot(m)]); }
       const ol = o.children.find(c => c.isMesh && c.material === G.M.outline);
-      chunks.push({ g, n, rel, b, ranges, ol: ol ? ol.geometry : null }); total += n; if (ol) olTotal += ol.geometry.attributes.position.count; drop.push(o); }
+      const og = ol ? G.outlineGeo(g) : null; // coque calculée sur la géométrie dépliée (un cylindre indexé donnait des triangles décalés)
+      chunks.push({ g, n, rel, b, ranges, ol: og }); total += n; if (og) olTotal += og.attributes.position.count; drop.push(o); }
     // une géométrie, triée par matériau (un groupe = un appel de dessin)
     const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), col = new Float32Array(total * 3).fill(1), uv = new Float32Array(total * 2), si = new Float32Array(total * 4), sw = new Float32Array(total * 4);
     const geo = new THREE.BufferGeometry(); let w = 0;
@@ -55,5 +56,5 @@
     P.skinned = mesh; P.meshes = [mesh]; P.faceMesh = null; return P;
   }
   G.skinify = skinify;
-  const omc = G.makeChar; G.makeChar = o => { const P = omc(o); try { skinify(P); } catch (e) { console.warn('personnage non fusionné', e); } return P; };
+  const omc = G.makeChar; G.makeChar = o => { const P = omc(o); if (G.noSkin) return P; try { skinify(P); } catch (e) { console.warn('personnage non fusionné', e); } return P; };
 })();

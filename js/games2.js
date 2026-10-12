@@ -31,7 +31,7 @@
   GM.start = (id, o = {}) => {
     if (GM.a || (G.mini && G.mini.active)) return G.ui.toast('Une partie est déjà en cours !'); const m = G.map; if (!m || m.interior) return;
     const c = center(m), seed = o.seed || (1 + Math.floor(Math.random() * 1e9)), dur = o.dur || ({ cache: 120, peche: 150, safari: 120, etoiles2: 50, cueillette: 120, papillons: 120, gros: 150, tresor: 150 }[id]);
-    const a = GM.a = { id, map: m, seed, dur, t0: o.t0 || Date.now(), duo: !!o.duo, host: o.host || (G.session && G.session.code), hostName: o.hostName || G.playerName, score: 0, got: [], items: [], objs: [], cx: c.x, cz: c.z, isle: !!o.isle };
+    const a = GM.a = { id, map: m, seed, dur, t0: o.t0 || Date.now(), duo: !!o.duo, host: o.host || (G.net && G.net.me ? G.net.me() : null), hostName: o.hostName || G.playerName, score: 0, got: [], items: [], objs: [], cx: c.x, cz: c.z, isle: !!o.isle };
     if (id === 'cache') { const sp = hideSpots(m, c.x, c.z, seed, 3); a.items = sp.map((s, k) => makeHider((seed + k) % 5, s)); hideVillagers(true); if (!a.items.length) { GM.a = null; return G.ui.toast('Pas de cachette par ici…'); } }
     if (id === 'etoiles2') { a.spots = starSpots(m, c.x, c.z, seed); a.stars = new Map(); }
     if (id === 'peche' || id === 'gros') G.player.tempTool = 'canne';
@@ -91,9 +91,9 @@
     return odig(tx, tz, o); };
   // ---------- invitations à jouer à deux ----------
   function invitations() { const net = NET(); if (!net || !net.online()) return;
-    for (const p of net.peersHere()) { const g = p.pr.g; if (!g || !g.open || g.host !== p.pr.code || !NAMES[g.id] || Date.now() - g.t0 > g.dur * 1000) continue; if (GM.invited[g.seed]) continue; GM.invited[g.seed] = 1;
+    for (const p of net.peersHere()) { const g = p.pr.g; if (!g || !g.open || g.host !== p.pr.home || !NAMES[g.id] || Date.now() - g.t0 > g.dur * 1000) continue; if (GM.invited[g.seed]) continue; GM.invited[g.seed] = 1;
       G.ui.toast('👥 ' + (p.pr.n || 'Un ami') + ' t\'invite à « ' + NAMES[g.id] + ' » ! Parle à Filou pour rejoindre la partie.'); G.sfx('pop'); } }
-  const openGame = () => { const net = NET(); if (!net) return null; for (const p of net.peersHere()) { const g = p.pr.g; if (g && g.open && g.host === p.pr.code && NAMES[g.id] && Date.now() - g.t0 < (g.dur - 5) * 1000) return { n: p.pr.n || 'Ami', g }; } return null; };
+  const openGame = () => { const net = NET(); if (!net) return null; for (const p of net.peersHere()) { const g = p.pr.g; if (g && g.open && g.host === p.pr.home && NAMES[g.id] && Date.now() - g.t0 < (g.dur - 5) * 1000) return { n: p.pr.n || 'Ami', g }; } return null; };
   // ---------- Filou ----------
   const SOLO = [['etoiles', 'Attrape-étoiles'], ['ballons', 'Tir aux ballons'], ['anneaux', 'Course des anneaux'], ['cache', 'Cache-cache'], ['peche', 'Concours de pêche'], ['safari', 'Safari insectes']];
   const DUO = [['etoiles2', 'Attrape-étoiles à deux'], ['cache', 'Cache-cache à deux'], ['peche', 'Pêche à deux']];

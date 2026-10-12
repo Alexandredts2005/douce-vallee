@@ -54,63 +54,27 @@
     if (room) room.onPeers(ch => { if (!NET.nroom && NET.curRoom) setPeers(ch.peers, true); }, () => {});
     return true;
   }
-  // ---------- serveur distant (Render.com ou autre) ----------
-  // L'URL du serveur distant est stockée dans localStorage sous la clé 'dv_server_url'.
-  NET.remoteUrl = null;
-  function detectRemoteUrl() {
-    // Si on est déjà sur un hôte non-local, c'est notre serveur Render
-    if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && !location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./)) {
-      return location.origin;
-    }
-    try { return localStorage.getItem('dv_server_url') || null; } catch (e) { return null; }
-  }
-  async function pingUrl(base) {
-    try {
-      const r = await fetch(base + '/api/ping', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
-      if (!r.ok) return false;
-      const j = await r.json();
-      return j && j.server === 'douce-vallee';
-    } catch (e) { return false; }
-  }
+  // serveur : celui qui sert la page (ton PC ou Render), sinon le serveur mondial sur Render (il s'endort après 15 min : on le réveille)
+  const WORLD = 'https://douce-vallee.onrender.com';
+  async function pingUrl(base, ms) { const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, t = ctl && setTimeout(() => ctl.abort(), ms || 6000);
+    try { const r = await fetch(base + '/api/ping', { cache: 'no-store', signal: ctl ? ctl.signal : undefined }); if (!r.ok) return false; const j = await r.json(); return !!(j && j.server === 'douce-vallee'); } catch (e) { return false; } finally { t && clearTimeout(t); } }
   async function bootServer() {
-    if (location.protocol === 'file:') return false;
-    // 1. Essayer le serveur local
-    const localOk = await pingUrl(location.origin);
-    if (localOk) { NET.mode = 'server'; NET.serverBase = location.origin; connectWS(location.origin); return true; }
-    // 2. Essayer le serveur distant configuré
-    const remote = detectRemoteUrl();
-    if (remote && remote !== location.origin) {
-      const remoteOk = await pingUrl(remote);
-      if (remoteOk) { NET.mode = 'server'; NET.serverBase = remote; NET.remoteUrl = remote; connectWS(remote); return true; }
-    }
+    if (location.protocol !== 'file:' && await pingUrl(location.origin)) { NET.serverBase = location.origin; NET.mode = 'server'; connectWS(); return true; }
+    let w = WORLD; try { w = localStorage.getItem('dv_server_url') || WORLD; } catch (e) { }
+    if (!w || w === location.origin) return false;
+    for (let i = 0; i < 6; i++) if (await pingUrl(w, i ? 20000 : 8000)) { NET.serverBase = w; NET.remoteUrl = w; NET.mode = 'server'; connectWS(); if (i) { NET.presT = 0; updBadge(); console.log('Douce Vallée : serveur mondial réveillé'); } return true; }
     return false;
   }
-  function connectWS(base) {
-    const b = base || NET.serverBase || location.origin;
-    const wsUrl = b.replace(/^http/, 'ws') + '/ws';
-    let ws; try { ws = new WebSocket(wsUrl); } catch (e) { return; } NET.ws = ws;
-    ws.onopen = () => { NET.wsOk = true; NET.lastPres = ''; NET.curRoom = null; if (NET.remoteUrl) console.log('🌍 Connecté au serveur mondial : ' + b); };
-    ws.onclose = () => { NET.wsOk = false; NET.curRoom = null; NET.peers.clear(); onPeers(); setTimeout(() => connectWS(b), 3000); };
+  function connectWS() {
+    const base = NET.serverBase || location.origin; let ws; try { ws = new WebSocket(base.replace(/^http/, 'ws') + '/ws'); } catch (e) { return; } NET.ws = ws;
+    ws.onopen = () => { NET.wsOk = true; NET.lastPres = ''; NET.curRoom = null; };
+    ws.onclose = () => { NET.wsOk = false; NET.curRoom = null; NET.peers.clear(); onPeers(); setTimeout(connectWS, 3000); };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; }
       if (m.t === 'pres' && m.id != null) { NET.peers.set(m.id, { id: m.id, pr: m.d || {} }); onPeers(); }
       else if (m.t === 'left') { NET.peers.delete(m.id); onPeers(); }
       else if (m.t === 'res') { const cb = NET.req.get(m.rid); if (cb) { NET.req.delete(m.rid); cb(m.data); } } };
   }
   const wsReq = (msg, ms = 15000) => new Promise(res => { if (!NET.wsOk) return res(null); const rid = ++NET.rid; msg.rid = rid; NET.req.set(rid, res); NET.ws.send(JSON.stringify(msg)); setTimeout(() => { if (NET.req.has(rid)) { NET.req.delete(rid); res(null); } }, ms); });
-  // Configurer l'URL du serveur distant depuis le menu
-  NET.setRemoteServer = async url => {
-    url = (url || '').trim().replace(/\/$/, '');
-    if (!url) { try { localStorage.removeItem('dv_server_url'); } catch (e) { } NET.remoteUrl = null; G.ui.toast('URL du serveur supprimée.'); return; }
-    if (!/^https?:\/\//.test(url)) url = 'https://' + url;
-    G.ui.toast('Connexion à ' + url + '…');
-    const ok = await pingUrl(url);
-    if (!ok) { G.ui.toast('❌ Serveur inaccessible. Vérifie l\'URL.'); return; }
-    try { localStorage.setItem('dv_server_url', url); } catch (e) { }
-    NET.remoteUrl = url; NET.serverBase = url;
-    if (NET.ws) try { NET.ws.close(); } catch (e) { }
-    NET.mode = 'server'; connectWS(url);
-    G.ui.toast('🌍 Connecté à ' + url + ' !');
-  };
   function setPeers(list, lobby) {
     NET.peers.clear();
     for (const p of list) { if (p.sameTab || p.kind !== 'viewer') continue; const pr = p.presence || {}; if (lobby && pr.at !== NET.curRoom) continue; NET.peers.set(p.peer, { id: p.peer, by: p.by, pr }); }
@@ -130,13 +94,12 @@
     } finally { NET.roomBusy = false; }
   }
   // ---------- ma présence (visible seulement dans la salle du village) ----------
-  const OFF = { v: 2, idle: 1, n: null, vil: null, home: null, vis: null, at: null, m: null, x: null, z: null, y: null, r: null, a: null, lk: null, em: null, say: null, g: null, ops: null };
+  const OFF = { v: 2, idle: 1, n: null, vil: null, home: null, vis: null, at: null, m: null, x: null, z: null, y: null, r: null, a: null, lk: null, em: null, say: null, g: null, ops: null, adm: null };
   function myPresence() {
     const p = G.player, m = G.map, s = G.session; if (!p || !m || G.state === 'title' || G.state === 'loading' || !s || !NET.curRoom) return OFF;
     const hs = Math.hypot(p.vx, p.vz), a = p.swim ? 3 : p.vehicle ? 8 : !p.onGround ? 4 : p.sit ? 5 : p.fish ? 6 : p.emote ? 7 : hs > 4.6 ? 2 : hs > .3 ? 1 : 0;
-    const canSendOps = (!NET.visit || NET.iAmAdmin()) && NET.ops.length;
     return { v: 2, idle: null, n: clean(G.playerName, 16), vil: clean(G.villageName, 24), home: NET.me(), vis: NET.visit ? 1 : null, at: NET.nroom ? null : NET.curRoom, m: mapKey(m), x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100, y: Math.round(p.y * 100) / 100, r: Math.round(p.yaw * 100) / 100, a, lk: NET.lk || (NET.lk = packLook(p.look)),
-      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: canSendOps ? { ses: NET.ses, l: NET.ops } : null, adm: !NET.visit && NET.adminFriends.size ? NET.getAdminList() : null };
+      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: (!NET.visit || NET.iAmAdmin()) && NET.ops.length ? { ses: NET.ses, l: NET.ops } : null, adm: !NET.visit && admins().size ? [...admins()].slice(0, 20) : null };
   }
   function sendPresence(force) {
     const pr = myPresence(), s = JSON.stringify(pr); if (!force && s === NET.lastPres) return; NET.lastPres = s;
@@ -186,41 +149,27 @@
     } catch (e) { return { err: 'Connexion impossible pour le moment.' }; }
     return { err: 'Tu joues hors ligne : ouvre le jeu depuis son lien claude.ai, ou lance le serveur sur ton PC.' };
   };
-  // ---------- les modifications de l'hôte et des amis admin suivent en direct ----------
-  const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
-  const rec = op => { NET.seq++; op.s = NET.seq; NET.ops.push(op); if (NET.ops.length > 24) NET.ops.shift(); sendPresence(true); };
-  GP.addObj = function (t, tx, tz, r, extra) {
-    const o = oadd.call(this, t, tx, tz, r, extra);
-    const isTargetMap = (this === G.world && !NET.visit) || (NET.visit && this === NET.visit.map && NET.iAmAdmin());
-    if (o && isTargetMap && G.state === 'play' && !NET.applying && NET.online()) {
-      rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined });
-    }
-    return o;
-  };
-  GP.removeObj = function (o) {
-    orem.call(this, o);
-    const isTargetMap = (this === G.world && !NET.visit) || (NET.visit && this === NET.visit.map && NET.iAmAdmin());
-    if (isTargetMap && G.state === 'play' && !NET.applying && NET.online()) {
-      rec({ k: 'r', t: o.t, x: o.x, z: o.z });
-    }
-  };
-  function applyOps(pr, targetMap) {
-    const m = targetMap || (NET.visit ? NET.visit.map : G.world);
-    if (!m || !pr.ops || !Array.isArray(pr.ops.l)) return;
-    const ses = pr.ops.ses;
-    if (NET.visit) {
-      const v = NET.visit;
-      if (v.opsSes !== ses) { v.opsSes = ses; v.lastSeq = ses === v.ses ? v.seq : 0; }
-    }
+  // ---------- les modifications de l'hôte (et de ses amis « admin ») suivent en direct ----------
+  const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj, seen = new Map();
+  const rec = op => { NET.seq++; op.s = NET.seq; NET.ops.push(op); if (NET.ops.length > 24) NET.ops.shift(); };
+  const tracked = m => (m === G.world && !NET.visit) || !!(NET.visit && m === NET.visit.map && NET.iAmAdmin());
+  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined }); return o; };
+  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'r', t: o.t, x: o.x, z: o.z }); };
+  function applyOps(pr, m, key) {
+    if (!m || !pr.ops || !Array.isArray(pr.ops.l)) return; const sk = key + ':' + pr.ops.ses; let last = seen.get(sk);
+    if (last === undefined) last = NET.visit && m === NET.visit.map && isHost(pr) && pr.ops.ses === NET.visit.ses ? NET.visit.seq : 0;
     NET.applying = true;
-    try {
-      for (const op of pr.ops.l) {
-        if (!op || typeof op.s !== 'number' || !G.OBJ[op.t] || !m.inb(op.x | 0, op.z | 0)) continue;
-        if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
-        else if (op.k === 'a' && !m.objAt(op.x, op.z)) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); }
-      }
-    } finally { NET.applying = false; }
+    try { for (const op of pr.ops.l) { if (!op || typeof op.s !== 'number' || op.s <= last || !G.OBJ[op.t] || !m.inb(op.x | 0, op.z | 0)) continue; last = op.s;
+      if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
+      else if (op.k === 'a' && !m.objAt(op.x, op.z)) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); } } }
+    finally { NET.applying = false; seen.set(sk, last); }
   }
+  // amis « admin » : visiteurs autorisés par l'hôte à modifier son village (liste propre à chaque session)
+  let admSid = null, admSet = new Set();
+  const admins = () => { const sid = G.session && G.session.sid; if (sid !== admSid) { admSid = sid; admSet = new Set((G.store.get('dv_admin_' + sid, []) || []).filter(x => typeof x === 'string')); } return admSet; };
+  NET.isAdminFriend = id => !!id && admins().has(id);
+  NET.setAdminFriend = (id, on) => { const a = admins(); if (on) a.add(id); else a.delete(id); if (admSid) G.store.set('dv_admin_' + admSid, [...a]); sendPresence(true); };
+  NET.iAmAdmin = () => { if (!NET.visit) return false; const me = NET.me(); if (!me) return false; for (const p of NET.peers.values()) if (isHost(p.pr) && Array.isArray(p.pr.adm) && p.pr.adm.includes(me)) return true; return false; };
   // ---------- avatars des autres joueurs ----------
   const tagTex = (txt, sub, bg) => { const c = G.cv(256, sub ? 96 : 64), x = c.getContext('2d'); x.font = 'bold 30px Fredoka, Nunito, sans-serif'; const w = Math.min(248, Math.max(x.measureText(txt).width, sub ? 60 : 0) + 30);
     x.fillStyle = bg || 'rgba(255,250,240,.92)'; G.rrect(x, (256 - w) / 2, 6, w, 48, 22); x.fill(); x.fillStyle = '#5a3a22'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(txt, 128, 31);
@@ -243,25 +192,11 @@
   const isHost = pr => !!(NET.visit && pr && pr.home === ids(NET.visit.code).id && !pr.vis);
   function onPeers() {
     for (const id of [...NET.av.keys()]) if (!NET.peers.has(id)) dropAvatar(id);
-    for (const p of NET.peers.values()) {
-      const pr = p.pr;
-      if (!pr) continue;
-      // Si nous sommes en visite et que l'op vient de l'hôte
-      if (isHost(pr)) applyOps(pr);
-      // Si nous sommes l'hôte (ou dans le village) et que l'op vient d'un visiteur admin approuvé
-      else if (!NET.visit && pr.vis && pr.home && NET.isAdminFriend(pr.home)) applyOps(pr, G.world);
-      // Si nous sommes en visite et que l'op vient d'un autre visiteur admin reconnu par l'hôte
-      else if (NET.visit && pr.vis && pr.home) {
-        let isApprovedAdmin = false;
-        for (const hostPeer of NET.peers.values()) {
-          if (isHost(hostPeer.pr) && hostPeer.pr.adm && hostPeer.pr.adm.includes(pr.home)) {
-            isApprovedAdmin = true;
-            break;
-          }
-        }
-        if (isApprovedAdmin) applyOps(pr, NET.visit.map);
-      }
-    }
+    let hostAdm = null; if (NET.visit) for (const p of NET.peers.values()) if (isHost(p.pr) && Array.isArray(p.pr.adm)) hostAdm = p.pr.adm;
+    for (const p of NET.peers.values()) { const pr = p.pr; if (!pr) continue;
+      if (isHost(pr)) applyOps(pr, NET.visit.map, p.id);
+      else if (!NET.visit && pr.vis && NET.isAdminFriend(pr.home)) applyOps(pr, G.world, p.id);
+      else if (NET.visit && pr.vis && pr.home && hostAdm && hostAdm.includes(pr.home)) applyOps(pr, NET.visit.map, p.id); }
     updBadge();
   }
   const live = pr => pr && pr.v === 2 && !pr.idle;
@@ -269,9 +204,7 @@
   G.on('frame', dt => {
     const mk = mapKey(G.map), play = G.state === 'play' || G.state === 'pause', now = performance.now();
     for (const p of NET.peers.values()) { const pr = p.pr; let a = NET.av.get(p.id);
-      // Ne pas afficher sa propre présence (doublon si 2 onglets ouverts avec le même compte)
-      const isSelf = pr.home && NET.me() && pr.home === NET.me() && !pr.vis;
-      const here = !isSelf && play && live(pr) && pr.m === mk && typeof pr.x === 'number' && typeof pr.z === 'number';
+      const self = !pr.vis && pr.home && pr.home === NET.me() && !NET.visit, here = !self && play && live(pr) && pr.m === mk && typeof pr.x === 'number' && typeof pr.z === 'number';
       if (!here) { if (a) { a.C && (a.C.root.visible = false); a.blob.visible = false; } continue; }
       a = avatar(p.id, pr); const C = a.C, k = Math.min(1, dt * 9), tx = pr.x, tz = pr.z, d = Math.hypot(tx - a.x, tz - a.z);
       if (d > 8) { a.x = tx; a.z = tz; } else { a.x += (tx - a.x) * k; a.z += (tz - a.z) * k; } a.y += ((typeof pr.y === 'number' ? pr.y : G.map.topAt(a.x, a.z)) - a.y) * Math.min(1, dt * 12); a.r = G.angLerp(a.r, pr.r || 0, Math.min(1, dt * 10));
@@ -320,31 +253,13 @@
   function openPlayers() {
     G.ui.open('players', NET.visit ? '🔒 Joueurs à ' + NET.visit.vil : '🔒 Joueurs dans ton village'); const body = $('panel-body'), list = [...NET.peers.values()].filter(p => live(p.pr));
     body.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px"></div>'; const box = body.firstChild;
-    const isMyVillage = !NET.visit;
-    const row = (name, where, peerId, pr) => {
-      const d = document.createElement('div'); d.className = 'ss-card'; d.style.cursor = 'default';
-      const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = name;
-      const s = document.createElement('small'); s.textContent = where; t.appendChild(b); t.appendChild(s); d.appendChild(t);
-      // Bouton admin friend (visible seulement pour le propriétaire du village, et seulement pour les visiteurs)
-      if (peerId && isMyVillage && pr && pr.vis) {
-        const isAdmin = NET.isAdminFriend(pr.home);
-        const btn = document.createElement('button'); btn.className = 'btn' + (isAdmin ? ' warn' : '');
-        btn.style.cssText = 'margin-left:auto;padding:5px 10px;font-size:13px';
-        btn.textContent = isAdmin ? '⭐ Retirer admin' : '⭐ Donner admin';
-        btn.onclick = () => { NET.setAdminFriend(pr.home, !isAdmin); G.sfx('craft'); openPlayers(); };
-        d.appendChild(btn);
-      }
-      // Badge admin pour les visiteurs qui ont les droits
-      if (peerId && pr && pr.vis && NET.isAdminFriend(pr.home)) {
-        const badge = document.createElement('small'); badge.style.cssText = 'color:#e8a600;font-weight:800;margin-left:6px';
-        badge.textContent = ' ⭐ Admin'; s.appendChild(badge);
-      }
-      box.appendChild(d);
-    };
-    row(G.playerName + ' (toi)', NET.visit ? (NET.iAmAdmin() ? 'En visite ⭐ Admin' : 'En visite') + ' à ' + NET.visit.vil : 'Chez toi à ' + G.villageName);
-    for (const p of list) { const pr = p.pr; row(clean(pr.n, 16) || 'Joueur', isHost(pr) ? 'Habitant·e de ce village' : pr.vis ? 'En visite · vient de ' + clean(pr.vil, 24) : 'Habitant·e de ' + clean(pr.vil, 24), p.id, pr); }
+    const row = (name, where, pr) => { const d = document.createElement('div'); d.className = 'ss-card'; d.style.cursor = 'default'; const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = name; const s = document.createElement('small'); s.textContent = where; t.appendChild(b); t.appendChild(s); d.appendChild(t);
+      if (pr && pr.vis && pr.home && !NET.visit) { const on = NET.isAdminFriend(pr.home), k = document.createElement('button'); k.className = 'btn' + (on ? ' warn' : ''); k.style.cssText = 'margin-left:auto;padding:5px 10px;font-size:13px'; k.textContent = on ? '⭐ Retirer admin' : '⭐ Donner admin'; k.title = 'Un ami admin peut poser et retirer des objets dans ton village'; k.onclick = () => { NET.setAdminFriend(pr.home, !on); G.sfx('craft'); openPlayers(); }; d.appendChild(k); }
+      box.appendChild(d); };
+    row(G.playerName + ' (toi)', NET.visit ? 'En visite à ' + NET.visit.vil + (NET.iAmAdmin() ? ' · ⭐ admin : tu peux modifier ce village' : '') : 'Chez toi à ' + G.villageName);
+    for (const p of list) { const pr = p.pr; row(clean(pr.n, 16) || 'Joueur', (isHost(pr) ? 'Habitant·e de ce village' : pr.vis ? 'En visite · vient de ' + clean(pr.vil, 24) : 'Habitant·e de ' + clean(pr.vil, 24)) + (pr.vis && (NET.isAdminFriend(pr.home) || (NET.visit && [...NET.peers.values()].some(h => isHost(h.pr) && Array.isArray(h.pr.adm) && h.pr.adm.includes(pr.home)))) ? ' · ⭐ admin' : ''), pr); }
     if (!list.length) { const d = document.createElement('p'); d.style.cssText = 'margin:4px;color:var(--bark);font-weight:700'; d.textContent = 'Personne d\'autre ici pour l\'instant. Donne ton code ami à tes amis : c\'est la seule façon d\'entrer dans ton village.'; box.appendChild(d); }
-    const f = $('panel-foot'); f.innerHTML = '<div class="desc">🔒 Villages privés : on ne voit que les joueurs du village où l\'on est. Entrée : discuter.' + (isMyVillage ? ' ⭐ = peut modifier ton village.' : '') + '</div>';
+    const f = $('panel-foot'); f.innerHTML = '<div class="desc">🔒 Villages privés : on ne voit que les joueurs du village où l\'on est. Entrée : discuter.' + (NET.visit ? '' : ' ⭐ Un ami admin peut modifier ton village.') + '</div>';
   }
   // ---------- visiter un village (code ami obligatoire) ----------
   NET.askVisit = () => {
@@ -365,7 +280,7 @@
     G.ui.closePanel && G.ui.modal === 'panel' && G.ui.closePanel();
     m.id = 'world'; m.kind = 'world'; m.visit = true; G.scene.add(m.group); m.buildAll(); m.group.visible = false;
     if (m.meta.rueGate && G.mapLabel) G.mapLabel(m, '🏬 Rue commerçante', m.meta.rueGate.sx, 3.25, 2.25, 1.1);
-    const old = NET.visit; if (old) cleanupVisit(old);
+    const old = NET.visit; if (old) cleanupVisit(old); seen.clear();
     NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses };
     G.ents.spawnVillagers(m); trainSfx();
     G.ui.fade(() => { const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start(0); G.ui.toast('🚂 Bienvenue à ' + NET.visit.vil + ' ! Rentre quand tu veux avec 🏠 ou par la gare.'); sendPresence(true); }, 1.6);
@@ -386,32 +301,8 @@
   };
   const oexit = G.act.exitHouse; G.act.exitHouse = () => { const im = G.map, v = NET.visit; if (!v || !im.isVisit || G.ui.fading || G.act._exiting) return oexit(); G.act._exiting = true; const b = im.meta.door; G.sfx('door'); G.ui.fade(() => { G.enterMap(v.map, b.x, b.z, b.yaw); G.act._exiting = false; }); };
   const osleep = G.act.sleep; G.act.sleep = () => { if (G.map && G.map.isVisit) return G.ui.toast('Ce n\'est pas ton lit ! Rentre chez toi pour dormir.'); return osleep(); };
-  // ---------- admin friends : visiteurs autorisés à modifier le monde ----------
-  NET.adminFriends = new Set();
-  try { const stored = localStorage.getItem('dv_admin_friends'); if (stored) JSON.parse(stored).forEach(id => NET.adminFriends.add(id)); } catch (e) { }
-  const saveAdmins = () => { try { localStorage.setItem('dv_admin_friends', JSON.stringify([...NET.adminFriends])); } catch (e) { } };
-  NET.isAdminFriend = peerId => NET.adminFriends.has(peerId);
-  NET.setAdminFriend = (peerId, on) => { if (on) NET.adminFriends.add(peerId); else NET.adminFriends.delete(peerId); saveAdmins(); sendPresence(true); };
-  // Publier la liste des admins dans la présence pour que les visiteurs sachent s'ils ont les droits
-  NET.getAdminList = () => [...NET.adminFriends];
-  // Vérifier si on est admin friend dans le village visité
-  NET.iAmAdmin = () => {
-    if (!NET.visit) return false;
-    const myId = NET.me();
-    for (const p of NET.peers.values()) {
-      const pr = p.pr;
-      if (isHost(pr) && pr.adm && Array.isArray(pr.adm) && myId && pr.adm.includes(myId)) return true;
-    }
-    return false;
-  };
   G.on('init', () => {
-    const lk = G.isLockedMap; G.isLockedMap = m => {
-      if (lk(m)) return true;
-      if (!m || (!m.visit && !m.isVisit)) return false;
-      // Si on est admin friend, la map n'est PAS verrouillée
-      if (NET.iAmAdmin()) return false;
-      return true;
-    };
+    const lk = G.isLockedMap; G.isLockedMap = m => { if (lk(m)) return true; if (!m || (!m.visit && !m.isVisit)) return false; return !(m.visit && NET.iAmAdmin()); };
     // pendant une visite, la sauvegarde nous range à la gare de notre propre village
     const os = G.serialize; G.serialize = () => { const out = os(); if (NET.visit && out.player) { const g = G.world.meta.gare || G.world.meta.spawn; out.player = Object.assign({}, out.player, { map: 'world', x: g.x, z: (g.z || 0) + .4, veh: null }); if (out.residents && out.residents[out.rid]) out.residents[out.rid].player = out.player; } return out; };
     const ott = G.toTitle; G.toTitle = () => { if (NET.visit) { const g = G.world.meta.gare || G.world.meta.spawn; G.enterMap(G.world, g.x, (g.z || 0) + .4, 0); leaveVisit(); } ott(); };
@@ -421,28 +312,6 @@
   // ---------- nouveau code ami (l'ancien ne marche plus) ----------
   NET.newCode = rec => { const old = rec.code; rec.code = G.sessions.newCode(); G.sessions.put(rec); if (G.session && G.session.sid === rec.sid) G.session.code = rec.code; if (NET.online() && old) unpublish(old, rec.sid); NET.pubRev = -1; NET.pubT = 2; return rec.code; };
   // Pablo et le capitaine connaissent les visites
-  // Dialogue pour configurer le serveur mondial
-  NET.askServerUrl = () => {
-    const cur = NET.remoteUrl || (() => { try { return localStorage.getItem('dv_server_url'); } catch(e) { return ''; } })() || '';
-    G.ui.open('server-cfg', '🌍 Serveur mondial');
-    const body = G.el('panel-body');
-    const serverStatus = NET.mode === 'server' ? (NET.remoteUrl ? '🌍 Connecté à ' + NET.remoteUrl : '💻 Serveur local (' + location.hostname + ')') : (NET.mode === 'claude' ? '☁️ Mode claude.ai' : '📴 Hors ligne');
-    body.innerHTML = '<div style="display:flex;flex-direction:column;gap:14px">'
-      + '<p style="margin:0;color:var(--bark);font-weight:700">État : ' + serverStatus + '</p>'
-      + '<label class="fld" style="font-weight:800;color:var(--bark)">URL DU SERVEUR RENDER (ex: https://douce-vallee.onrender.com)<input id="srv-url" type="url" maxlength="120" placeholder="https://votre-app.onrender.com" autocomplete="off" spellcheck="false" style="border:none;border-radius:14px;padding:10px 14px;font:700 15px Nunito,sans-serif;background:#fff;color:#3d2b1d" value="' + (NET.remoteUrl || '') + '"></label>'
-      + '<p style="margin:0;color:var(--bark);font-size:13px;font-weight:700">💡 Déploie serve.js sur <b>Render.com</b> (gratuit) pour jouer depuis n\'importe où dans le monde, même en Afrique ! Ton PC n\'a pas besoin d\'être allumé.</p>'
-      + '<div id="srv-err" class="err"></div></div>';
-    const f = G.el('panel-foot');
-    f.innerHTML = '';
-    const go = document.createElement('button'); go.className = 'btn'; go.textContent = '🌍 Connecter';
-    const clear = document.createElement('button'); clear.className = 'btn alt'; clear.textContent = 'Supprimer l\'URL';
-    f.appendChild(clear); f.appendChild(go);
-    const inp = G.el('srv-url');
-    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') go.click(); });
-    go.onclick = async () => { go.disabled = true; await NET.setRemoteServer(inp.value); go.disabled = false; G.ui.closePanel && G.ui.closePanel(); };
-    clear.onclick = async () => { await NET.setRemoteServer(''); G.ui.closePanel && G.ui.closePanel(); };
-    setTimeout(() => inp.focus(), 50);
-  };
   G.npcRoles.gare = v => {
     if (NET.visit && G.map.visit) return G.npcSay(v, ['Bienvenue à ' + NET.visit.vil + ' ! Tu es venu·e en visite, hi hi !'], ['Rentrer chez moi', 'Rester encore']).then(k => { if (k === 0) NET.goHome(); });
     const closed = NET.closed();
@@ -450,9 +319,7 @@
       ['Visiter un ami', closed ? 'Ouvrir mon village aux amis' : 'Fermer mon village', 'Attendre le prochain train', 'Utiliser les casiers', 'Au revoir']).then(k => {
       if (k === 0) return NET.askVisit();
       if (k === 1) { NET.setClosed(!closed); return G.npcSay(v, closed ? ['C\'est ouvert ! Tes amis peuvent venir avec ton code ami.'] : ['C\'est fermé. Plus personne ne peut venir, même avec ton code. Reviens me voir pour rouvrir !']); }
-      if (k === 2) { const ok = G.train && G.train.start(4); return G.npcSay(v, ok ? ['Le train arrive dans un instant ! Sors vite sur le quai, hi hi !'] : ['Un train est déjà en gare !']); }
-      if (k === 3) G.ui.openStorage();
-    });
+      if (k === 2) { const ok = G.train && G.train.start(4); return G.npcSay(v, ok ? ['Le train arrive dans un instant ! Sors vite sur le quai, hi hi !'] : ['Un train est déjà en gare !']); } if (k === 3) G.ui.openStorage(); });
   };
   G.on('init', () => { const ont = G.npcTalk; G.npcTalk = v => { if (NET.visit && v.npc === 'capitaine') return G.npcSay(v, ['Coâ ! Mon bateau n\'emmène que les habitants de ce village. Reviens avec ton propre capitaine !']); return ont(v); }; });
   // ---------- démarrage ----------

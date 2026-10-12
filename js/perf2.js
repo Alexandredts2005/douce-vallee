@@ -66,7 +66,7 @@
   });
   // ---------- limite d'images par seconde (économise la batterie, image plus régulière) ----------
   let gateLast = 0;
-  G.frameGate = now => { const cap = +(G.settings.fpsCap || 0); if (!cap) return true; const iv = 1000 / cap; if (now - gateLast < iv - 1.5) return false; gateLast = now - gateLast > iv * 2 ? now : gateLast + iv; return true; };
+  G.frameGate = now => { const cap = +(G.settings.fpsCap || 0); if (!cap) { gateLast = now; return true; } const iv = 1000 / cap, d = now - gateLast; if (d < 0 || d > iv * 2) { gateLast = now; return true; } if (d < iv - 1.5) return false; gateLast += iv; return true; };
   // ---------- options « Fluidité » ----------
   function buildOptions(gi) {
     const scr = G.el('screen-options'), form = scr && scr.querySelector('.form'), back = G.el('o-back'); if (!form || G.el('o-fps')) return;

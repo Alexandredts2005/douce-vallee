@@ -4,3 +4,8 @@ douce-vallee-serveur.json
 .env
 .DS_Store
 Thumbs.db
+
+# tests et réglages locaux
+_tests.js
+*.jpg
+.claude/

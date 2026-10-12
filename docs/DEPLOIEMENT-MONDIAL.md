@@ -61,20 +61,17 @@ Le jeu utilise maintenant un **serveur mondial gratuit sur Render.com**. Une foi
 
 ---
 
-## Étape 4 : Configurer le jeu pour se connecter au serveur Render
+## Étape 4 : Se connecter au serveur mondial
 
-### Si tu joues depuis le fichier local (double-clic sur index.html)
+C'est **automatique** :
 
-1. Lance le jeu
-2. Va à la **gare** dans ton village
-3. Parle à l'agent de la gare → choisis **"🌍 Serveur mondial (Render)"**
-4. Entre l'URL Render : `https://douce-vallee-xxxx.onrender.com`
-5. Clique **Connecter**
-6. Le badge "🌍 En ligne" apparaît → tu es connecté !
+- Si tu ouvres `https://douce-vallee.onrender.com`, le jeu et le serveur sont directement connectés.
+- Si tu joues depuis le fichier `index.html` (double-clic), le jeu se connecte tout seul au serveur mondial `https://douce-vallee.onrender.com`.
+  S'il dormait, il le réveille (jusqu'à une minute environ) : le badge « 🔒 En ligne » apparaît dès que c'est prêt.
+- Si tu lances « Lancer le serveur.bat » sur ton PC, c'est ton PC qui sert de serveur (amis sur le même Wi-Fi).
 
-### Si tu héberges le jeu sur Render (accès via l'URL Render)
-
-Rien à faire ! Si tu ouvres `https://douce-vallee-xxxx.onrender.com` dans le navigateur, le jeu et le serveur sont automatiquement connectés.
+> 🔒 Les villages sont privés : on n'entre chez quelqu'un qu'avec son **code ami**. Le serveur ne reçoit jamais le code,
+> seulement des empreintes, et chaque village y est stocké chiffré. Il n'existe aucune liste de villages.
 
 ---
 
@@ -82,7 +79,7 @@ Rien à faire ! Si tu ouvres `https://douce-vallee-xxxx.onrender.com` dans le na
 
 1. Donne-leur l'URL du jeu : `https://douce-vallee-xxxx.onrender.com`
    OU ils peuvent jouer depuis leur propre copie en configurant la même URL serveur
-2. Partage ton **code ami** (visible dans le menu gare ou sur l'écran de sélection de session)
+2. Partage ton **code ami** (écran « Qui joue ? », menu Pause ou gare) — uniquement à tes amis : sans lui, personne ne peut entrer
 3. Ils entrent ton code ami → prennent le train → arrivent dans ton village ! 🚂
 
 ---
@@ -115,6 +112,9 @@ git commit -m "Mes modifications"
 git push
 ```
 Render redéploie automatiquement en 1-2 minutes ! ✅
+
+> ⚠️ Render suit la branche **`master`** (choisie à l'étape 3). Si tu travailles sur `main`, envoie aussi sur `master` :
+> `git push origin main:master`
 
 ---
 

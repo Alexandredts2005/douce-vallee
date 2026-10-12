@@ -94,7 +94,7 @@
   const portraits = {}; let pScene, pCam, pRT, pBuf, pCv;
   function portrait(look) {
     const key = JSON.stringify(look || {}); if (portraits[key]) return portraits[key]; const R = G.renderer; if (!R) return '';
-    if (!pScene) { pScene = new THREE.Scene(); pScene.add(new THREE.HemisphereLight(0xfff5e6, 0xd9c9a8, 1.0)); const d = new THREE.DirectionalLight(0xffeedd, 1.2); d.position.set(2, 3, 4); pScene.add(d); pCam = new THREE.PerspectiveCamera(26, 1, .05, 50); pRT = new THREE.WebGLRenderTarget(128, 128); pBuf = new Uint8Array(128 * 128 * 4); pCv = G.cv(128, 128); }
+    if (!pScene) { pScene = new THREE.Scene(); pScene.add(new THREE.HemisphereLight(0xffffff, 0xd9c9a8, .85)); const d = new THREE.DirectionalLight(0xffffff, .55); d.position.set(2, 3, 4); pScene.add(d); pCam = new THREE.PerspectiveCamera(26, 1, .05, 50); pRT = new THREE.WebGLRenderTarget(128, 128); pBuf = new Uint8Array(128 * 128 * 4); pCv = G.cv(128, 128); }
     try { const C = G.makeChar({ look: G.normLook(look) }); pScene.add(C.root); C.root.rotation.y = -.35; pCam.position.set(0, 1.0, 2.7); pCam.lookAt(0, .82, 0);
       const cu = G.U.curve.value; G.U.curve.value = 0; R.setRenderTarget(pRT); R.setClearColor(0x000000, 0); R.clear(); R.render(pScene, pCam); R.readRenderTargetPixels(pRT, 0, 0, 128, 128, pBuf); R.setRenderTarget(null); G.U.curve.value = cu; pScene.remove(C.root);
       const x = pCv.getContext('2d'), im = x.createImageData(128, 128); for (let y = 0; y < 128; y++) im.data.set(pBuf.subarray((127 - y) * 512, (128 - y) * 512), y * 512); x.putImageData(im, 0, 0); return portraits[key] = pCv.toDataURL(); } catch (e) { return ''; }
@@ -123,7 +123,7 @@
   host.appendChild(mk(`<div id="screen-login" class="screen dim" hidden><div class="form" style="width:min(460px,100%)"><h2 id="lg-title">Connexion</h2><p id="lg-sub" style="margin:0;color:var(--bark);font-weight:700"></p>
     <label class="fld">MOT DE PASSE<input type="password" id="lg-pass" maxlength="40" autocomplete="current-password"></label><label class="fld" id="lg-new-wrap" hidden>CONFIRME LE NOUVEAU MOT DE PASSE<input type="password" id="lg-pass2" maxlength="40" autocomplete="new-password"></label><div id="lg-err" class="err"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn alt" id="lg-back">Retour</button><button class="btn" id="lg-go">Se connecter</button></div></div></div>`));
-  host.appendChild(mk(`<div id="screen-residents" class="screen dim" hidden><div class="form" style="width:min(760px,100%)"><h2 id="rs-title">Qui joue ?</h2><p style="margin:0;color:var(--bark);font-weight:700">Code ami du village : <span class="code-chip" id="rs-code"></span> <button class="btn alt" id="rs-copy" style="padding:4px 10px;font-size:13px">Copier</button></p>
+  host.appendChild(mk(`<div id="screen-residents" class="screen dim" hidden><div class="form" style="width:min(760px,100%)"><h2 id="rs-title">Qui joue ?</h2><p style="margin:0;color:var(--bark);font-weight:700">Code ami du village : <span class="code-chip" id="rs-code"></span> <button class="btn alt" id="rs-copy" style="padding:4px 10px;font-size:13px">Copier</button> <button class="btn alt" id="rs-newcode" style="padding:4px 10px;font-size:13px" title="L'ancien code ne marchera plus">🔁 Nouveau code</button></p><p style="margin:0;color:var(--bark);font-size:13px;font-weight:700">🔒 Seuls ceux qui ont ce code peuvent trouver ton village et y entrer. Ne le donne qu'à tes amis.</p>
     <div id="rs-list" class="rs-grid"></div><div class="row" style="justify-content:space-between"><button class="btn alt" id="rs-back">Changer de session</button><button class="btn warn" id="rs-del">Supprimer cette session</button></div></div></div>`));
   host.appendChild(mk(`<div id="screen-resnew" class="screen dim" hidden><div class="form" style="width:min(560px,100%)"><h2>🏡 Nouvel habitant</h2>
     <div class="row"><label>TON NOM<input type="text" id="rn-name" maxlength="14" value=""></label><div class="fld">TU ES<div class="gsel"><button class="tab on" id="rn-f" type="button">👧 Une fille</button><button class="tab" id="rn-g" type="button">👦 Un garçon</button></div></div></div>
@@ -147,7 +147,7 @@
     migrate(); const l = S.list().sort((a, b) => (b.at || 0) - (a.at || 0)), box = $('ss-list'); box.innerHTML = '';
     if (!l.length) box.innerHTML = '<div class="ss-empty">Aucune session pour l\'instant. Crée ton premier village !</div>';
     for (const rec of l) { const b = document.createElement('button'); b.className = 'ss-card';
-      b.innerHTML = `<div><b>${esc(rec.village)}</b><small>${(rec.residents || []).filter(Boolean).map(r => esc(r.name)).join(' · ') || 'Aucun habitant'} — ${rec.mode === 'survie' ? 'Survie' : 'Créatif'}${rec.hash ? ' · 🔒' : ''}</small><small>Code ami : ${esc(rec.code)}</small></div><div class="faces">${(rec.residents || []).filter(Boolean).map(r => `<img src="${portrait(r.look)}" alt="">`).join('')}</div>`;
+      b.innerHTML = `<div><b>${esc(rec.village)}</b><small>${(rec.residents || []).filter(Boolean).map(r => esc(r.name)).join(' · ') || 'Aucun habitant'} — ${rec.mode === 'survie' ? 'Survie' : 'Créatif'}${rec.hash ? ' · 🔒' : ''}</small><small>${rec.closed ? '🔒 Portes fermées' : '🚉 Visites avec code ami'}</small></div><div class="faces">${(rec.residents || []).filter(Boolean).map(r => `<img src="${portrait(r.look)}" alt="">`).join('')}</div>`;
       b.onclick = () => { G.sfx('ui'); UI.rec = rec; showLogin(); }; box.appendChild(b); }
     G.ui.show('screen-sessions');
   }
@@ -186,11 +186,13 @@
   for (const id of ['rn-name', 'ng-pass', 'ng-pass2']) $(id).addEventListener('keydown', e => e.stopPropagation());
   $('rs-back').onclick = () => showSessions();
   $('rs-copy').onclick = () => { const t = $('rs-code').textContent; try { navigator.clipboard.writeText(t); G.ui.toast('Code ami copié : ' + t); } catch (e) { G.ui.toast(t); } };
+  $('rs-newcode').onclick = async () => { const rec = UI.rec; const k = await G.ui.confirm('Nouveau code ami ?', 'L\'ancien code ne marchera plus : tes amis auront besoin du nouveau pour venir.', [{ t: 'Changer de code' }, { t: 'Annuler', alt: 1 }]); if (k !== 0) return; const c = G.net && G.net.newCode ? G.net.newCode(rec) : (rec.code = S.newCode(), S.put(rec), rec.code); $('rs-code').textContent = c; G.ui.toast('Nouveau code ami : ' + c); };
   $('rs-del').onclick = async () => { const rec = UI.rec; const k = await G.ui.confirm('Supprimer « ' + rec.village + ' » ?', 'Le village et ses habitants seront effacés de ce navigateur. C\'est définitif !', [{ t: 'Supprimer', warn: 1 }, { t: 'Annuler', alt: 1 }]); if (k !== 0) return; S.del(rec.sid); if (G.session && G.session.sid === rec.sid) { G.session = null; G.saveKey = null; } refreshTitle(); showSessions(); };
   // ---------- menu pause : code ami et changement d'habitant ----------
   const pm = $('p-resume').parentNode, chip = mk(`<p id="p-code" style="margin:0;text-align:center;color:#fff;font-weight:800;text-shadow:0 2px 0 rgba(0,0,0,.25)"></p>`), sw = mk(`<button class="mbtn" id="p-switch"><span class="e">👥</span>Changer d'habitant</button>`);
-  pm.insertBefore(chip, $('p-resume')); pm.insertBefore(sw, $('p-quit'));
+  const vis = mk(`<button class="mbtn" id="p-visit"><span class="e">🚂</span>Visiter un ami (code)</button>`); pm.insertBefore(chip, $('p-resume')); pm.insertBefore(vis, $('p-quit')); pm.insertBefore(sw, $('p-quit'));
+  vis.onclick = () => { if (!G.net || !G.net.askVisit) return; G.ui.resume(); setTimeout(() => G.net.askVisit(), 60); };
   sw.onclick = () => { if (!G.session) return; G.saveGame(true); const rec = S.get(G.session.sid); G.toTitle(); if (rec) { UI.rec = rec; showResidents(); } };
-  const opause = G.ui.pause; G.ui.pause = () => { opause(); const s = G.session; chip.textContent = s ? (G.villageName + ' · ' + G.playerName + ' · Code ami ' + s.code) : ''; sw.hidden = !s; };
+  const opause = G.ui.pause; G.ui.pause = () => { opause(); const s = G.session; chip.textContent = s ? (G.villageName + ' · ' + G.playerName + ' · Code ami ' + s.code + (G.net && G.net.closed && G.net.closed() ? ' · portes fermées' : '')) : ''; sw.hidden = !s; vis.hidden = !s || !(G.net && G.net.online && G.net.online()); };
   G.on('init', () => { migrate(); refreshTitle(); });
 })();
