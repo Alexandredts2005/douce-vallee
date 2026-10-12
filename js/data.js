@@ -220,11 +220,11 @@ G.DEFAULT_LAYOUT = [
 
 // ---------- Habitants ----------
 G.VILLAGERS = [
-  { n: 'Bibi', sp: 'lapin', col: 0xf4d9e4, acc: 0xff7fa8, catch: 'carotte', pitch: 1.35, house: 2 },
-  { n: 'Moka', sp: 'chat', col: 0xe0a46a, acc: 0x7a4b2a, catch: 'miaou', pitch: 1.15, house: 1 },
-  { n: 'Pépin', sp: 'ours', col: 0x9a6a46, acc: 0x5a3a24, catch: 'grrnon', pitch: .8, house: 3 },
-  { n: 'Lulu', sp: 'canard', col: 0xfff3c4, acc: 0xffa62b, catch: 'coin coin', pitch: 1.25, house: 0 },
-  { n: 'Gaston', sp: 'blaireau', col: 0x8b8f99, acc: 0xfaf7f0, catch: 'bonnaffaire', pitch: .95, shop: 1 }
+  { n: 'Bibi', sp: 'lapin', col: 0xf4d9e4, acc: 0xff7fa8, shirt: 0xffb9ca, accent: 0xffe7c5, neckwear: 0xff7fa8, eyeCol: 0x6a3e57, eyes: 'doux', mouth: 'petit', catch: 'carotte', pitch: 1.35, house: 2 },
+  { n: 'Moka', sp: 'chat', col: 0xe0a46a, acc: 0x7a4b2a, shirt: 0x79b9a2, accent: 0xd9f1d5, neckwear: 0xe8434a, eyeCol: 0x52976a, eyes: 'chat', mouth: 'chat', stripes: 1, catch: 'miaou', pitch: 1.15, house: 1 },
+  { n: 'Pépin', sp: 'ours', col: 0x9a6a46, acc: 0x5a3a24, shirt: 0x7290b8, accent: 0xd6c18e, eyeCol: 0x443126, eyes: 'rond', mouth: 'sourire', catch: 'grrnon', pitch: .8, house: 3 },
+  { n: 'Lulu', sp: 'canard', col: 0xfff3c4, acc: 0xffa62b, shirt: 0x5b8fd6, accent: 0xfaf7f0, neckwear: 0xe8434a, eyeCol: 0x3b454f, eyes: 'brillants', mouth: 'petit', catch: 'coin coin', pitch: 1.25, house: 0 },
+  { n: 'Gaston', sp: 'blaireau', col: 0x8b8f99, acc: 0xfaf7f0, shirt: 0x4fb35f, accent: 0xd9b84a, eyeCol: 0x413c36, eyes: 'doux', mouth: 'sourire', catch: 'bonnaffaire', pitch: .95, shop: 1 }
 ];
 G.LINES = {
   hello: ['Oh, salut {p} ! Belle journée à {v}, {c} !', 'Coucou {p} ! Tu sens ce petit vent ? J\'adore, {c} !', '{p} ! Justement je pensais à toi, {c}.', 'Hé {p}, tu as vu les nuages ce matin ? On dirait de la barbe à papa, {c} !'],

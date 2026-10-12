@@ -21,11 +21,12 @@
     b.cyl(.015, .015, 1.1, 4, 0x6b4426, 0, 4.4, -.25); b.box(.5, .3, .02, 0xffd23f, .26, 4.82, -.25);
     return b.done(); };
   MD.porte_int = v => { const b = G.mb(240); b.box(1.0, 2.15, .12, 0xf7f5ee, 0, 1.07, -.44); b.box(.82, 1.95, .14, 0x85552f, 0, .98, -.43); b.sph(.045, 0xffd23f, .28, .95, -.35); b.box(.95, .03, .5, 0xc9a26b, 0, .015, -.15); return b.done(); };
-  MD.escalier = v => { const b = G.mb(241);
-    if (v === 1) { b.box(1.9, .03, .9, 0x2a1a12, 0, .015, -.02); for (let i = 0; i < 4; i++) b.box(.42, .035, .82, 0x8a5a34, -.68 + i * .45, .025, -.02); b.box(1.98, .06, .06, 0x6b4426, 0, .82, .44); for (let k = 0; k < 7; k++) b.box(.05, .82, .05, 0x6b4426, -.96 + k * .32, .41, .44); return b.done(); }
-    for (let i = 0; i < 6; i++) b.box(.32, .3 * (i + 1), .86, i % 2 ? 0xc08850 : 0xb07a48, -.8 + i * .32, .15 * (i + 1), -.04);
-    for (let k = 0; k < 6; k++) b.box(.05, .7, .05, 0x6b4426, -.8 + k * .32, .3 * (k + 1) + .35, .4); b.box(2.0, .06, .06, 0x6b4426, -.05, 1.38, .4, 0, 0, .74);
-    return b.done(); };
+  MD.escalier = v => { const b=G.mb(241),wood=0xb07a48,light=0xc89157,dark=0x81502f;
+    b.box(1.94,.08,.98,0x69462f,0,.04,0);
+    for(let i=0;i<6;i++){const high=v===1?5-i:i,z=.37-i*.15,h=.15*(high+1);b.box(1.84,h,.155,i%2?light:wood,0,h/2,z);b.box(1.84,.025,.145,0xd9aa73,0,h-.012,z+.008);}
+    const yLow=v===1 ? .96 : .17,yHigh=v===1 ? .17 : .96,zLow=.43,zHigh=-.43,run=zHigh-zLow,dy=yHigh-yLow,angle=Math.atan2(run,dy),len=Math.hypot(run,dy);
+    for(const x of [-.88,.88]){b.cyl(.035,.045,len,12,dark,x,(yLow+yHigh)/2,(zLow+zHigh)/2,angle,0,0,0,true);for(let k=0;k<4;k++){const t=(k+1)/5,y=yLow+dy*t,z=zLow+run*t;b.cyl(.027,.03,.14,10,dark,x,y-.07,z,0,0,0,0,true);b.sph(.045,0xd2a363,x,y,z,1,1,.8,0,12,8);}}
+    const endZ=v===1 ? .45 : -.45;b.box(1.93,.09,.16,0x825333,0,.98,endZ);b.box(1.9,.06,.13,0xd5a16a,0,.94,endZ);return b.done(); };
   MD.trone = v => { const b = G.mb(242); b.box(.8, .5, .7, 0xc0283a, 0, .25, 0); b.box(.86, .08, .76, 0xd9b84a, 0, .52, 0); b.box(.8, 1.3, .14, 0xc0283a, 0, 1.0, -.3); b.box(.86, .08, .2, 0xd9b84a, 0, 1.66, -.3); for (const s of [-1, 1]) { b.box(.1, .45, .6, 0xd9b84a, s * .42, .72, 0); b.sph(.07, 0xd9b84a, s * .42, 1.75, -.3); } b.sph(.09, 0xd9b84a, 0, 1.8, -.3); return b.done(); };
   const obj = (id, n, model, p) => O[id] = Object.assign({ id, n, model, v: 0, fp: [1, 1], h: 0 }, p);
   obj('maison_etage', 'Maison à étage', 'house2', { h: 4.6, fp: [3, 3], enter: 'maison', take: 0 });
@@ -48,11 +49,14 @@
   }
   // passer d'une pièce à l'autre : E devant une porte ou l'escalier
   const oint = G.act.interact; G.act.interact = () => {
-    const p = G.player, m = G.map; if (m && m.interior && !p.act && !p.sit && !G.ents.villagerInFront(p)) { const [tx, tz] = p.target(); let o = m.objAt(tx, tz); const here = m.objAt(Math.floor(p.x), Math.floor(p.z)); if (!(o && G.OBJ[o.t].portal) && here && G.OBJ[here.t].portal) o = here;
-      if (o && G.OBJ[o.t].portal && o.iid) { const to = G.interiors[o.iid] || (G.net && G.net.visit && G.net.visit.interiors[o.iid]); if (!to) return G.ui.toast('Cette porte est fermée.');
-        const back = [...to.list].find(q => G.OBJ[q.t].portal && q.iid === m.id), F = back ? G.FR[back.r] : [0, 1]; let x = to.W / 2, z = to.H / 2;
-        if (back) { const [cx, cz] = to.center(back); x = cx + F[0] * (back.t === 'escalier' ? 0 : 1.1); z = cz + F[1] * 1.15; }
-        G.sfx('door'); G.ui.fade(() => G.enterMap(to, x, z, Math.atan2(F[0], F[1]))); return; } }
+    const p=G.player,m=G.map;if(m&&m.interior&&!p.act&&!p.sit&&!G.ents.villagerInFront(p)){
+      const [tx,tz]=p.target();let o=m.objAt(tx,tz),here=m.objAt(Math.floor(p.x),Math.floor(p.z));
+      if(!(o&&G.OBJ[o.t].portal)&&here&&G.OBJ[here.t].portal)o=here;
+      if(!(o&&G.OBJ[o.t].portal)){let best=Infinity;for(const q of m.list){if(!G.OBJ[q.t].portal||!q.iid)continue;const [cx,cz]=m.center(q),d=Math.hypot(p.x-cx,p.z-cz),limit=q.t==='escalier'?1.65:1.2;if(d<limit&&d<best){best=d;o=q;}}}
+      if(o&&G.OBJ[o.t].portal&&o.iid){const to=G.interiors[o.iid]||(G.net&&G.net.visit&&G.net.visit.interiors[o.iid]);if(!to)return G.ui.toast('Cette porte est fermée.');
+        const back=[...to.list].find(q=>G.OBJ[q.t].portal&&q.iid===m.id),F=back?G.FR[back.r]:[0,1];let x=to.W/2,z=to.H/2,yaw=Math.atan2(F[0],F[1]);
+        if(back){const [cx,cz]=to.center(back);if(back.t==='escalier'){x=cx+F[0]*.15;z=cz+F[1]*1.25;yaw=Math.atan2(-F[0],-F[1]);}else{x=cx+F[0]*1.1;z=cz+F[1]*1.15;}}
+        G.sfx('door');G.ui.fade(()=>G.enterMap(to,x,z,yaw));return;}}
     return oint();
   };
   // ---------- l'extérieur suit les travaux ----------

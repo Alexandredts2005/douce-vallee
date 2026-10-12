@@ -34,7 +34,7 @@
     const k = (expr === 'surprised' ? 1.18 : 1) * sz, st = o.eyes || 'rond';
     const ell = (rx, ry, fill, dx = 0, dy = 0) => { x.fillStyle = fill; x.beginPath(); x.ellipse(cx + dx * sz, cy + dy * sz, rx * k, ry * k, 0, 0, TAU); x.fill(); };
     if (st === 'points') { ell(3.8, 4.2, ink); return lashes(); }
-    if (st === 'rond') { ell(7, 9, ink); ell(2.6, 2.6, '#fff', 2.4 * side, -3); ell(1.2, 1.2, '#fff', -2, 3.2); return lashes(); }
+    if (st === 'rond') { ell(7.4, 9.5, '#fff'); ell(5.7, 7.5, col); ell(3.1, 5.2, ink, 0, 1); ell(2.5, 2.8, '#fff', 2.4 * side, -3.5); ell(1.15, 1.25, '#fff', -2, 3.2); return lashes(); }
     if (st === 'chat') { x.fillStyle = '#fff'; x.beginPath(); x.ellipse(cx, cy, 9 * k, 7.5 * k, side * .18, 0, TAU); x.fill(); ell(6, 7, col); ell(1.7, 5.6, ink); ell(1.8, 1.8, '#fff', 2, -3); x.strokeStyle = ink; x.lineWidth = 2.6; x.beginPath(); x.ellipse(cx, cy, 9 * k, 7.5 * k, side * .18, Math.PI * 1.05, Math.PI * 1.95); x.stroke(); return lashes(); }
     if (st === 'doux' || st === 'endormis') { const top = st === 'endormis' ? 1 : -2; x.save(); x.beginPath(); x.rect(cx - 12 * sz, cy + top, 24 * sz, 16 * sz); x.clip(); ell(8, 9, '#fff'); ell(6.5, 8, col); ell(3.3, 4.4, ink); ell(1.8, 1.8, '#fff', 2.2, 1); x.restore(); x.strokeStyle = ink; x.lineWidth = 3; x.beginPath(); x.moveTo(cx - 9 * sz, cy + top + 1); x.quadraticCurveTo(cx, cy + top - 3, cx + 9 * sz, cy + top + 1); x.stroke(); return lashes(); }
     if (st === 'coeurs') { ell(8.6, 10.5, '#fff'); x.fillStyle = col; const h = 6.2 * k; x.beginPath(); x.moveTo(cx, cy + h * .9); x.bezierCurveTo(cx - h * 1.6, cy - h * .2, cx - h * .6, cy - h * 1.3, cx, cy - h * .35); x.bezierCurveTo(cx + h * .6, cy - h * 1.3, cx + h * 1.6, cy - h * .2, cx, cy + h * .9); x.fill(); ell(1.8, 1.8, '#fff', -2 * side, -3); x.strokeStyle = ink; x.lineWidth = 3; x.beginPath(); x.ellipse(cx, cy, 9 * sz, 11 * sz, 0, Math.PI * 1.1, Math.PI * 1.9); x.stroke(); return lashes(); }
@@ -157,18 +157,25 @@
     // torse (texture de motif possible)
     const dz = human && L.design >= 0 ? G.designTex(L.design) : null, robe = top === 'robe' || top === 'kimono' || top === 'manteau', longSkirt = bottom === 'jupe_longue' && !robe;
     const torsoMat = G.toon({ color: dz ? 0xffffff : topCol, map: dz }, {});
-    const tg = robe ? new THREE.CylinderGeometry(.15, top === 'manteau' ? .23 : .27, .44, 16) : new THREE.CylinderGeometry(.15, .19, .32, 16);
-    tg.translate(0, robe ? .35 : .41, 0); add(body, tg, torsoMat);
+    const tg = robe ? new THREE.CylinderGeometry(.15, top === 'manteau' ? .23 : .27, .44, 18) : new THREE.SphereGeometry(1, 18, 14);
+    if (robe) tg.translate(0, .35, 0); else { tg.scale(.225, .235, .19); tg.translate(0, .41, 0); }
+    add(body, tg, torsoMat);
     let b = G.mb(5); b.sph(.155, topCol, 0, robe ? .56 : .57, 0, 1, .45, 1, 0, 12, 8);
     if (!robe && bottom !== 'jupe' && !longSkirt) b.cyl(.19, .18, .08, 14, botCol, 0, .27, 0, 0, 0, 0, 0, true);
     if (bottom === 'jupe' && !robe) b.cyl(.19, .27, .17, 14, botCol, 0, .22, 0, 0, 0, 0, 0, true);
     if (longSkirt) b.cyl(.19, .29, .34, 16, botCol, 0, .14, 0, 0, 0, 0, 0, true);
     if (top === 'salopette') { b.box(.2, .17, .02, botCol, 0, .38, .175); for (const s of [-1, 1]) b.box(.04, .2, .02, botCol, s * .08, .48, .16, -.15); b.cyl(.195, .19, .1, 14, botCol, 0, .3, 0, 0, 0, 0, 0, true); }
-    if (top === 'veste') { b.box(.08, .27, .02, 0xfaf7f0, 0, .42, .176); }
+    if (top === 'veste' || top === 'manteau') { b.box(.07, .3, .018, 0xfaf7f0, 0, .42, .183); b.cone(.07, .1, 3, 0xfaf7f0, -.09, .54, .13, .2, 0, -.2); b.cone(.07, .1, 3, 0xfaf7f0, .09, .54, .13, .2, 0, .2); }
     if (top === 'kimono') b.cyl(.2, .2, .06, 14, new THREE.Color(topCol).multiplyScalar(.6).getHex(), 0, .4, 0, 0, 0, 0, 0, true);
     if (top === 'hoodie') { b.sph(.17, topCol, 0, .6, -.14, 1.15, .8, .7); for (const s of [-1, 1]) b.cyl(.008, .008, .12, 4, 0xffffff, s * .05, .5, .168); b.box(.17, .07, .02, dark(topCol), 0, .33, .187); }
     if (top === 'chemise') { for (const s of [-1, 1]) b.box(.075, .045, .02, 0xffffff, s * .045, .555, .14, .4, 0, s * .5); for (let i = 0; i < 3; i++) b.sph(.013, 0xffffff, 0, .5 - i * .07, .168 + i * .006); }
     if (top === 'marin') for (const y of [.33, .41, .49]) b.add(new THREE.TorusGeometry(.19 - (y - .25) * .125, .012, 4, 22), topCol === 0x2f4f9a ? 0xffffff : 0x2f4f9a, b.M(0, y, 0, Math.PI / 2, 0, 0), 0, true);
+    if (!human) {
+      const accent = o.accent || new THREE.Color(topCol).lerp(new THREE.Color(0xffffff), .46).getHex();
+      b.sph(.11, accent, 0, .49, .153, 1.2, .26, .35, 0, 10, 6);
+      if (o.stripes) for (let i = 0; i < 2; i++) b.box(.25, .035, .018, accent, 0, .35 + i * .1, .174);
+      if (o.neckwear) { b.tor(.13, .028, o.neckwear, 0, .59, 0, Math.PI / 2, 0, 0, 0, 12); b.cone(.06, .09, 4, o.neckwear, 0, .5, .19, Math.PI, 0, 0); }
+    }
     if (top === 'manteau') { for (let i = 0; i < 3; i++) b.sph(.018, 0xd9b84a, .035, .5 - i * .1, .18 + i * .016); b.box(.025, .4, .02, dark(topCol), 0, .36, .19); for (const s of [-1, 1]) b.box(.06, .05, .02, dark(topCol), s * .1, .3, .2); }
     if (acc === 'echarpe') { b.add(new THREE.TorusGeometry(.13, .046, 6, 16), accCol, b.M(0, .6, 0, Math.PI / 2, 0, 0), 0, true); b.box(.07, .22, .04, accCol, .07, .49, .15, .1, 0, .12); b.box(.07, .02, .041, dark(accCol), .07, .4, .16, .1, 0, .12); }
     if (acc === 'sac') { b.box(.26, .3, .13, accCol, 0, .42, -.21); b.box(.2, .1, .04, dark(accCol), 0, .36, -.285); for (const s of [-1, 1]) b.box(.03, .32, .03, 0x6b4a32, s * .1, .45, .14, .12, 0, 0); }
@@ -176,15 +183,19 @@
     if (sp === 'chat' || sp === 'singe') b.cyl(.025, .035, .36, 5, skin, 0, .36, -.3, 1.1);
     if (sp === 'renard') b.cone(.09, .35, 6, skin, 0, .3, -.3, -1.2);
     if (sp === 'tortue') b.sph(.24, 0x6f9a52, 0, .42, -.12, 1, 1.05, .7);
-    if (o.apron) b.box(.3, .26, .02, o.apron, 0, .4, .2);
+    if (o.apron) { b.box(.3, .27, .025, o.apron, 0, .4, .2); b.box(.25, .035, .03, new THREE.Color(o.apron).multiplyScalar(.78).getHex(), 0, .27, .218); b.box(.1, .07, .012, 0xf3d1a8, 0, .35, .218); }
+    if (!human && ['chat', 'singe'].includes(sp)) { b.tor(.15, .035, skin, 0, .31, -.2, Math.PI / 2, 0, 0, 0, 12); b.sph(.075, new THREE.Color(skin).lerp(new THREE.Color(0xffffff), .5).getHex(), 0, .34, -.35, .9, .9, .85); }
+    else if (!human && sp === 'renard') { b.sph(.09, skin, 0, .33, -.23, .85, .85, 1.25); b.sph(.06, new THREE.Color(skin).multiplyScalar(.62).getHex(), 0, .35, -.3); }
+    else if (!human && sp === 'lapin') b.sph(.07, skin, 0, .34, -.22, 1, 1, .9);
+    else if (!human && sp === 'canard') for (let i = -1; i <= 1; i++) b.cone(.045, .14, 5, new THREE.Color(skin).multiplyScalar(.82).getHex(), i * .07, .43, -.22 - Math.abs(i) * .025, -Math.PI / 2, 0, i * .3);
     add(body, b.done());
     // tête (un peu plus grosse : mignon)
-    const head = new THREE.Group(); head.position.set(0, .87, 0); head.scale.setScalar(1.07); body.add(head); P.head = head;
-    b = G.mb(6); b.sph(.3, skin, 0, 0, 0, 1.06, .97, 1, 0, 18, 14);
+    const head = new THREE.Group(); head.position.set(0, .89, 0); head.scale.setScalar(human ? 1.1 : 1.16); body.add(head); P.head = head;
+    b = G.mb(6); b.sph(.3, skin, 0, 0, 0, 1.08, 1, 1.02, 0, 20, 16);
     if (human) { for (const s of [-1, 1]) b.sph(.06, skin, s * .31, -.03, 0, .6, 1, 1); hairOn(b, ['casquette', 'bonnet', 'bandana', 'beret'].includes(L.hat) ? (['herisse', 'crete', 'afro'].includes(L.hair) ? 'court' : L.hair) : L.hair, L.hairCol); hatOn(b, L.hat, L.hatCol); accOn(b, L.acc); }
     else speciesOn(b, sp, skin, o.acc);
     add(head, b.done());
-    const fl = Object.assign({ sp }, human ? L : { eyes: o.eyes || 'rond', eyeCol: 0x2a1b12, mouth: o.mouth || 'sourire', blush: true });
+    const fl = Object.assign({ sp }, human ? L : { eyes: o.eyes || 'rond', eyeCol: o.eyeCol || 0x3a2a1a, eyeSize: o.eyeSize || 'grands', mouth: o.mouth || 'sourire', blush: true, cheek: o.cheek || 'rose', brows: o.brows || 'aucun' });
     P.faceMat = G.toon({ map: tex(drawFace(fl, 'normal')), transparent: true, alphaTest: .35, polygonOffset: true, polygonOffsetFactor: -3 }, {});
     P.faces.normal = P.faceMat.map; P.faceOpts = fl;
     const fg = new THREE.SphereGeometry(.302, 22, 16, Math.PI / 2 - .95, 1.9, Math.PI / 2 - .78, 1.3); fg.scale(1.06, .97, 1);

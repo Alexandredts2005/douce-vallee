@@ -4,21 +4,61 @@
   const MD = G.MODELS, O = G.OBJ, TAU = Math.PI * 2, GD = 0xd9b84a, MB = 0xeee9df, M2 = 0xdcd5c6, WL = 0xcdeeff, WA = 0x6fc3f0;
   // ---------- la fontaine immense (6×6) ----------
   MD.grande_fontaine = v => {
-    const b = G.mb(180);
-    b.cyl(2.98, 3.0, .2, 32, 0xcfc8b8, 0, .1, 0); b.cyl(2.75, 2.8, .62, 32, MB, 0, .5, 0, 0, 0, 0, 0, true);
-    b.add(new THREE.TorusGeometry(2.76, .09, 6, 40), GD, b.M(0, .82, 0, Math.PI / 2, 0, 0), 0, true); b.cyl(2.6, 2.6, .04, 32, WA, 0, .72, 0, 0, 0, 0, 2);
-    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; b.box(.3, .5, .22, M2, Math.cos(a) * 2.79, .47, Math.sin(a) * 2.79, 0, -a, 0); b.sph(.07, GD, Math.cos(a) * 2.84, .84, Math.sin(a) * 2.84); }
-    b.cyl(.55, .8, .35, 16, M2, 0, .9, 0); b.cyl(.38, .5, 1.4, 16, MB, 0, 1.75, 0, 0, 0, 0, 0, true);
-    b.cyl(1.55, .95, .32, 28, MB, 0, 2.5, 0, 0, 0, 0, 0, true); b.add(new THREE.TorusGeometry(1.55, .06, 6, 32), GD, b.M(0, 2.66, 0, Math.PI / 2, 0, 0), 0, true); b.cyl(1.45, 1.45, .03, 28, WA, 0, 2.62, 0, 0, 0, 0, 2);
-    b.geo(new THREE.CylinderGeometry(1.5, 2.45, 1.85, 28, 1, true), WL, b.M(0, 1.72, 0), 2);
-    b.cyl(.22, .32, 1.0, 12, MB, 0, 3.15, 0, 0, 0, 0, 0, true); b.cyl(.85, .5, .22, 20, MB, 0, 3.7, 0, 0, 0, 0, 0, true); b.add(new THREE.TorusGeometry(.85, .045, 6, 24), GD, b.M(0, 3.81, 0, Math.PI / 2, 0, 0), 0, true);
-    b.cyl(.78, .78, .03, 20, WA, 0, 3.78, 0, 0, 0, 0, 2); b.geo(new THREE.CylinderGeometry(.8, 1.48, .95, 20, 1, true), WL, b.M(0, 3.18, 0), 2);
-    b.cyl(.14, .2, .35, 10, GD, 0, 3.98, 0); b.sph(.22, GD, 0, 4.35, 0, 1, 1.2, 1); b.cone(.12, .5, 10, GD, 0, 4.78, 0); b.sph(.06, 0xfff3b0, 0, 5.08, 0, 1, 1, 1, 1); b.cyl(.04, .08, .6, 8, WL, 0, 5.4, 0, 0, 0, 0, 2);
-    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + TAU / 8, x = Math.cos(a), z = Math.sin(a);
-      b.add(new THREE.SphereGeometry(.2, 10, 8), GD, b.M(x * 1.12, 1.3, z * 1.12, 0, -a, .55, 1.6, .75, .8), 0, true); b.cone(.1, .3, 6, GD, x * .82, 1.05, z * .82, 0, -a, 2.4);
-      b.add(new THREE.TorusGeometry(.7, .05, 5, 14, Math.PI * .6), WL, b.M(x * 1.55, .75, z * 1.55, 0, -a, 0), 2, true); }
-    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; b.cyl(.025, .05, .9, 6, WL, Math.cos(a) * 2.25, 1.15, Math.sin(a) * 2.25, 0, 0, 0, 2); b.sph(.07, 0xffffff, Math.cos(a) * 2.25, 1.62, Math.sin(a) * 2.25, 1, 1, 1, 2); }
-    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + .2; b.sph(.09, 0xbfe9ff, Math.cos(a) * 2.35, .7, Math.sin(a) * 2.35, 1, .5, 1, 1); }
+    const b = G.mb(180), GOLD = 0xc99f50, STONE = 0xf2ead9, SHADOW = 0xd4c8b2, WATER = 0x79c8ed, FOAM = 0xd9f4ff;
+    // Marche de pierre polie et large bassin inférieur, avec un rebord lisible.
+    b.cyl(3.0, 3.12, .16, 40, SHADOW, 0, .08, 0, 0, 0, 0, 0, true);
+    b.cyl(2.88, 3.0, .16, 40, STONE, 0, .23, 0, 0, 0, 0, 0, true);
+    b.tor(2.9, .045, GOLD, 0, .31, 0, Math.PI / 2, 0, 0, 0, 40);
+    b.add(new THREE.CylinderGeometry(2.58, 2.82, .55, 40, 4, true), STONE, b.M(0, .52, 0), 0, true);
+    b.tor(2.62, .105, STONE, 0, .81, 0, Math.PI / 2, 0, 0, 0, 44);
+    b.tor(2.61, .035, GOLD, 0, .83, 0, Math.PI / 2, 0, 0, 0, 40);
+    b.cyl(2.53, 2.53, .035, 40, WATER, 0, .68, 0, 0, 0, 0, 2, true);
+    b.tor(1.98, .018, FOAM, 0, .705, 0, Math.PI / 2, 0, 0, 2, 40);
+    // Médaillons et pétales sculptés tout autour de la margelle.
+    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, x = Math.cos(a), z = Math.sin(a);
+      b.sph(.135, SHADOW, x * 2.72, .53, z * 2.72, 1.15, 1, .75, 0, 14, 10);
+      b.sph(.07, GOLD, x * 2.78, .56, z * 2.78, 1, 1, .6, 1, 12, 8);
+      b.sph(.075, FOAM, x * 2.14, .72, z * 2.14, 1.3, .55, 1, 2, 12, 8);
+    }
+    // Pied et colonnette finement baguettés.
+    b.cyl(.72, .82, .28, 24, SHADOW, 0, 1.0, 0, 0, 0, 0, 0, true);
+    b.tor(.69, .055, GOLD, 0, 1.15, 0, Math.PI / 2, 0, 0, 0, 24);
+    b.cyl(.4, .52, 1.18, 24, STONE, 0, 1.72, 0, 0, 0, 0, 0, true);
+    b.tor(.43, .055, GOLD, 0, 1.22, 0, Math.PI / 2, 0, 0, 0, 24);
+    b.tor(.39, .045, GOLD, 0, 2.25, 0, Math.PI / 2, 0, 0, 0, 24);
+    b.cyl(.62, .4, .22, 28, SHADOW, 0, 2.43, 0, 0, 0, 0, 0, true);
+    // Bassin médian : paroi ouverte, eau visible et chute translucide vers le grand bassin.
+    b.add(new THREE.CylinderGeometry(1.4, .82, .38, 36, 3, true), STONE, b.M(0, 2.7, 0), 0, true);
+    b.tor(1.4, .095, STONE, 0, 2.89, 0, Math.PI / 2, 0, 0, 0, 36);
+    b.tor(1.4, .032, GOLD, 0, 2.91, 0, Math.PI / 2, 0, 0, 0, 36);
+    b.cyl(1.31, 1.31, .035, 36, WATER, 0, 2.86, 0, 0, 0, 0, 2, true);
+    b.add(new THREE.CylinderGeometry(1.12, 1.52, 1.56, 32, 12, true), 0xa8e4f8, b.M(0, 1.91, 0), 2, true);
+    // Petit bassin supérieur, posé sur un col élancé.
+    b.cyl(.27, .42, .72, 20, STONE, 0, 3.28, 0, 0, 0, 0, 0, true);
+    b.tor(.32, .045, GOLD, 0, 2.95, 0, Math.PI / 2, 0, 0, 0, 20);
+    b.cyl(.44, .29, .18, 24, SHADOW, 0, 3.67, 0, 0, 0, 0, 0, true);
+    b.add(new THREE.CylinderGeometry(.76, .4, .3, 32, 3, true), STONE, b.M(0, 3.88, 0), 0, true);
+    b.tor(.76, .075, STONE, 0, 4.03, 0, Math.PI / 2, 0, 0, 0, 32);
+    b.tor(.76, .026, GOLD, 0, 4.045, 0, Math.PI / 2, 0, 0, 0, 32);
+    b.cyl(.7, .7, .03, 32, WATER, 0, 3.99, 0, 0, 0, 0, 2, true);
+    b.add(new THREE.CylinderGeometry(.58, .82, .82, 28, 8, true), 0xa8e4f8, b.M(0, 3.57, 0), 2, true);
+    // Fleur de lys dorée au sommet, avec quatre pétales arrondis.
+    b.cyl(.18, .24, .24, 18, GOLD, 0, 4.16, 0, 0, 0, 0, 0, true);
+    b.sph(.2, GOLD, 0, 4.38, 0, .9, 1.08, .9, 0, 18, 14);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + Math.PI / 4, x = Math.cos(a), z = Math.sin(a);
+      b.sph(.16, GOLD, x * .19, 4.5, z * .19, .68, 1.35, .68, 0, 16, 12);
+    }
+    b.cone(.11, .42, 12, GOLD, 0, 4.72, 0);
+    b.sph(.075, 0xfff2bb, 0, 4.96, 0, 1, 1.2, 1, 1, 14, 10);
+    b.cyl(.035, .055, .55, 12, FOAM, 0, 5.25, 0, 0, 0, 0, 2, true);
+    // Huit jets gracieux et leurs éclats, dans l'eau du grand bassin.
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, x = Math.cos(a), z = Math.sin(a);
+      b.cyl(.025, .05, .43, 12, 0xa8e4f8, x * 2.2, 1.02, z * 2.2, z * .5, 0, -x * .5, 2, true);
+      b.sph(.065, FOAM, x * 2.32, 1.28, z * 2.32, .85, 1.45, .85, 2, 12, 8);
+      b.sph(.07, 0xbfe9ff, x * 2.32, .73, z * 2.32, 1.3, .52, 1, 1, 12, 8);
+    }
+    // Quelques remous lisibles donnent de la profondeur à la surface.
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + .25; b.tor(.19 + (i % 2) * .05, .018, FOAM, Math.cos(a) * 1.85, .711, Math.sin(a) * 1.85, Math.PI / 2, 0, 0, 2, 18); }
     return b.done();
   };
   // ---------- kiosque à musique (4×4) ----------
@@ -101,9 +141,9 @@
   });
   Object.assign(G.ROOMNPC, { voyante: ['voyante', 2.5, 1.3], rounard: ['rounard', 3.5, 1.7] });
   Object.assign(G.NPCS, {
-    voyante: { n: 'Madame Étoile', sp: 'chat', col: 0x3a3050, shirt: 0x8a3fbf, pitch: .95, eyes: 'doux' },
-    rounard: { n: 'Rounard', sp: 'renard', col: 0x5a8fb8, shirt: 0xe8a23a, pitch: 1.1, eyes: 'anime', mouth: 'chat' },
-    musicien: { n: 'Dédé', sp: 'chien', col: 0xfaf7f0, shirt: 0x2a2d33, pitch: .9 }
+    voyante: { n: 'Madame Étoile', sp: 'chat', col: 0x3a3050, shirt: 0x8a3fbf, neckwear: 0xffd23f, accent: 0xd9b8ff, eyeCol: 0xbba8ff, pitch: .95, eyes: 'doux' },
+    rounard: { n: 'Rounard', sp: 'renard', col: 0x5a8fb8, shirt: 0xe8a23a, neckwear: 0x3a4f78, accent: 0xfaf7f0, eyeCol: 0x6788ba, pitch: 1.1, eyes: 'anime', mouth: 'chat' },
+    musicien: { n: 'Dédé', sp: 'chien', col: 0xfaf7f0, shirt: 0x2a2d33, neckwear: 0xe8434a, accent: 0xd9b84a, eyeCol: 0x40352f, pitch: .9 }
   });
   // ---------- les attractions ----------
   const say = (v, l, c) => G.npcSay(v, l, c), PN = () => G.playerName, surv = () => G.mode === 'survie';

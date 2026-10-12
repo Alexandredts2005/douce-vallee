@@ -86,7 +86,7 @@
   // ----- habitants -----
   E.spawnVillagers = map => {
     for (const h of map.meta.homes || []) {
-      const D = G.VILLAGERS[h.vi]; if (!D) continue; const C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.acc, pants: 0x5a4a3a });
+      const D = G.VILLAGERS[h.vi]; if (!D) continue; const C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.shirt || D.acc, pants: D.pants || 0x5a4a3a, eyes: D.eyes, eyeCol: D.eyeCol, eyeSize: D.eyeSize, mouth: D.mouth, cheek: D.cheek, neckwear: D.neckwear, accent: D.accent, stripes: D.stripes });
       const v = { D, C, root: C.root, x: h.x, z: h.z + .4, y: 0, yaw: 0, home: h, st: 'idle', t: 1 + Math.random() * 3, walkT: 0, map, visible: true, blob: blob(), gift: -1 };
       scene.add(v.root); E.villagers.push(v);
     }
@@ -94,7 +94,7 @@
   };
   // personnages fixes : commerçants, guichetier, capitaine… (role → G.NPCS[role])
   E.addNPC = (role, map, x, z, yaw = 0) => {
-    const D = G.NPCS[role]; if (!D) return null; const C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.shirt, apron: D.apron, eyes: D.eyes, mouth: D.mouth });
+    const D = G.NPCS[role]; if (!D) return null; const C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.shirt, pants: D.pants, apron: D.apron, eyes: D.eyes, eyeCol: D.eyeCol, eyeSize: D.eyeSize, mouth: D.mouth, cheek: D.cheek, neckwear: D.neckwear, accent: D.accent, stripes: D.stripes });
     const v = { D, C, root: C.root, x, z, y: 0, yaw, home: { x, z, yaw }, st: 'npc', t: 0, walkT: 0, map, visible: true, blob: blob(), npc: role, shop: role === 'shop' ? 1 : 0, fixed: 1 };
     scene.add(v.root); E.villagers.push(v); return v;
   };
@@ -126,9 +126,11 @@
     // coucou quand on s'approche, petits sauts de joie au repos (kawaii !)
     if (!v.fixed && !v.talking && dp < 3.2 && G.map === m) { if (!v.greeted) { v.greeted = 1; v.waveT = 1.4; v.st = 'idle'; v.t = 2; } v.yaw = G.angLerp(v.yaw, Math.atan2(p.x - v.x, p.z - v.z), Math.min(1, 5 * dt)); } else if (dp > 6) v.greeted = 0;
     if (!hs && !v.talking && !(v.hopT > 0) && Math.random() < dt * .08) v.hopT = .5; if (v.hopT > 0) v.hopT -= dt; if (v.waveT > 0) v.waveT -= dt;
-    if (hs) { v.walkT += dt * 7; const s = Math.sin(v.walkT); C.legL.rotation.x = s * .7; C.legR.rotation.x = -s * .7; C.armL.rotation.x = -s * .5; C.armR.rotation.x = s * .5; C.armR.rotation.z = 0; C.body.position.y = Math.abs(Math.cos(v.walkT)) * .04; C.head.rotation.y = Math.sin(v.walkT * .5) * .08; }
-    else { C.legL.rotation.x = C.legR.rotation.x = 0; C.armL.rotation.x = v.talking ? -.4 + Math.sin(tn * 6.2) * .3 : 0; C.armR.rotation.x = v.waveT > 0 ? -2.6 + Math.sin(tn * 14) * .25 : C.armL.rotation.x; C.armR.rotation.z = v.waveT > 0 ? .5 + Math.sin(tn * 14) * .3 : 0;
-      C.body.position.y = v.hopT > 0 ? Math.sin((1 - v.hopT / .5) * Math.PI) * .16 : Math.sin(tn * 2) * .012; C.body.scale.y = 1 + Math.sin(tn * 2.4 + v.home.x) * .015; C.head.rotation.y = Math.sin(tn * .4 + v.home.x) * .15; }
+    C.body.scale.set(1, 1, 1); C.body.rotation.set(0, 0, 0); C.body.position.x = 0;
+    C.armL.rotation.set(0, 0, 0); C.armR.rotation.set(0, 0, 0); C.legL.rotation.set(0, 0, 0); C.legR.rotation.set(0, 0, 0);
+    if (hs) { v.walkT += dt * 7; const s = Math.sin(v.walkT), stride = Math.abs(Math.cos(v.walkT)); C.legL.rotation.x = s * .62; C.legR.rotation.x = -s * .62; C.armL.rotation.x = -s * .38; C.armR.rotation.x = s * .38; C.body.position.y = stride * .045; C.body.scale.set(1 + stride * .025, 1 - stride * .025, 1 + stride * .025); C.head.rotation.y = Math.sin(v.walkT * .5) * .07; }
+    else { C.armL.rotation.x = v.talking ? -.4 + Math.sin(tn * 6.2) * .3 : 0; C.armR.rotation.x = v.waveT > 0 ? -2.6 + Math.sin(tn * 14) * .25 : C.armL.rotation.x; C.armR.rotation.z = v.waveT > 0 ? .5 + Math.sin(tn * 14) * .3 : 0;
+      const hop = v.hopT > 0 ? Math.sin((1 - v.hopT / .5) * Math.PI) : 0; C.body.position.y = hop * .16 + Math.sin(tn * 2 + v.home.x) * .012; C.body.scale.set(1 + hop * .06, 1 - hop * .1, 1 + hop * .06); C.head.rotation.y = Math.sin(tn * .4 + v.home.x) * .15; }
     if (C.setExpr) C.setExpr(v.talking ? ((tn / .7 | 0) % 3 === 0 ? 'happy' : 'normal') : v.waveT > 0 || v.hopT > 0 ? 'happy' : ((tn + v.home.x) % 3.7 < .12 ? 'blink' : 'normal')); else C.eyes.scale.y = (tn + v.home.x) % 3.7 < .12 ? .15 : 1;
   }
   // ----- insectes -----

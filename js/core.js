@@ -94,8 +94,8 @@ function blades(ctx, n, cols, P, r) {
 function rrect(ctx, x, y, w, h, rad) { ctx.beginPath(); ctx.moveTo(x + rad, y); ctx.arcTo(x + w, y, x + w, y + h, rad); ctx.arcTo(x + w, y + h, x, y + h, rad); ctx.arcTo(x, y + h, x, y, rad); ctx.arcTo(x, y, x + w, y, rad); ctx.closePath(); }
 G.rrect = rrect;
 const CELL_DRAW = [
-  (c, P, r) => { c.fillStyle = '#86d16a'; c.fillRect(0, 0, P, P); speck(c, 40, ['#7cc860', '#93da74'], 2, 5, P, r); blades(c, 55, ['#6db954', '#5fae4a', '#9be07c'], P, r); },
-  (c, P, r) => { c.fillStyle = '#6cb756'; c.fillRect(0, 0, P, P); speck(c, 40, ['#62ab4c', '#78c160'], 2, 5, P, r); blades(c, 60, ['#5a9f45', '#4f923e', '#80c766'], P, r); speck(c, 8, ['#8a6a3d', '#a07a45'], 1.5, 2.5, P, r); },
+  (c, P, r) => { c.fillStyle = '#86d16a'; c.fillRect(0, 0, P, P); speck(c, 58, ['#7cc860', '#93da74', '#a1df7d'], 1.5, 4.5, P, r); blades(c, 72, ['#6db954', '#5fae4a', '#9be07c'], P, r); speck(c, 12, ['rgba(255,255,210,.9)', '#ffe27a'], 1, 1.8, P, r); },
+  (c, P, r) => { c.fillStyle = '#6cb756'; c.fillRect(0, 0, P, P); speck(c, 58, ['#62ab4c', '#78c160', '#8ac969'], 1.5, 4.5, P, r); blades(c, 78, ['#5a9f45', '#4f923e', '#80c766'], P, r); speck(c, 13, ['#8a6a3d', '#a07a45', '#c5985d'], 1.2, 2.5, P, r); },
   (c, P, r) => { c.fillStyle = '#d2ab72'; c.fillRect(0, 0, P, P); speck(c, 70, ['#c39a62', '#dcb985', '#b88f5a'], 1.5, 4, P, r); speck(c, 12, ['#a88050', '#e6c999'], 2, 3.5, P, r); },
   (c, P, r) => { c.fillStyle = '#86d16a'; c.fillRect(0, 0, P, P); blades(c, 30, ['#6db954', '#9be07c'], P, r); const st = [[24, 24, 20], [70, 26, 17], [26, 70, 17], [72, 72, 21], [48, 48, 9]];
     for (const [x, y, s] of st) { c.fillStyle = '#8b8a80'; c.beginPath(); c.ellipse(x, y + 2, s, s * .82, 0, 0, 7); c.fill(); c.fillStyle = '#c9c7bc'; c.beginPath(); c.ellipse(x, y, s, s * .8, 0, 0, 7); c.fill(); c.fillStyle = '#dcdad0'; c.beginPath(); c.ellipse(x - s * .25, y - s * .25, s * .45, s * .3, 0, 0, 7); c.fill(); } },
@@ -140,9 +140,9 @@ G.makeTextures = () => {
   const ct = new THREE.CanvasTexture(C); ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.anisotropy = 4; G.TEX.cliff = ct;
   // eau
   const W = cv(128, 128), wc = W.getContext('2d'), rw = G.rng(9);
-  wc.fillStyle = '#d8eef8'; wc.fillRect(0, 0, 128, 128);
+  const wg = wc.createLinearGradient(0, 0, 128, 128); wg.addColorStop(0, '#c9eff7'); wg.addColorStop(.46, '#8bd3e8'); wg.addColorStop(1, '#5aaecf'); wc.fillStyle = wg; wc.fillRect(0, 0, 128, 128);
   wc.lineCap = 'round';
-  for (let i = 0; i < 26; i++) { const x = rw() * 128, yy = rw() * 128, l = 10 + rw() * 22; wc.strokeStyle = rw() < .6 ? 'rgba(255,255,255,.95)' : 'rgba(170,215,240,.9)'; wc.lineWidth = 2 + rw() * 2;
+  for (let i = 0; i < 32; i++) { const x = rw() * 128, yy = rw() * 128, l = 8 + rw() * 23; wc.strokeStyle = rw() < .62 ? 'rgba(255,255,255,.94)' : 'rgba(184,232,245,.9)'; wc.lineWidth = 1.4 + rw() * 2.2;
     for (const ox of [-128, 0, 128]) for (const oy of [-128, 0, 128]) { wc.beginPath(); wc.moveTo(x + ox, yy + oy); wc.quadraticCurveTo(x + ox + l / 2, yy + oy - 4, x + ox + l, yy + oy); wc.stroke(); } }
   const wt = new THREE.CanvasTexture(W); wt.wrapS = wt.wrapT = THREE.RepeatWrapping; G.TEX.water = wt;
   // cascade

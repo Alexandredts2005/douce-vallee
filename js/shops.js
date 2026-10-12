@@ -111,12 +111,12 @@
   });
   Object.assign(G.ROOMNPC, { cafe: ['cafe', 4.5, .6], salon: ['salon', 3.6, 2.4], chausseur: ['chausseur', 3.5, .55], jardinerie: ['jardin', 4.5, .6], agence: ['agence', 4, .6], club: ['club', 4.5, 1.1] });
   Object.assign(G.NPCS, {
-    cafe: { n: 'Robusto', sp: 'pigeon', col: 0x9aa3b8, shirt: 0x6b4426, apron: 0xf7f5ee, pitch: .85 },
-    salon: { n: 'Frisette', sp: 'caniche', col: 0xffe4ef, shirt: 0xb06ab3, pitch: 1.35, eyes: 'doux' },
-    chausseur: { n: 'Lacet', sp: 'mouffette', col: 0x3a3440, shirt: 0xe8a23a, pitch: 1.05 },
-    jardin: { n: 'Feuillu', sp: 'paresseux', col: 0xa08a6a, shirt: 0x4fb35f, apron: 0x2f8a45, pitch: .7, eyes: 'doux' },
-    agence: { n: 'Léon', sp: 'loutre', col: 0xa0724a, shirt: 0x3d4f7a, pitch: 1.0 },
-    club: { n: 'Dr Rigolo', sp: 'axolotl', col: 0xffb3c8, shirt: 0x5b3f8f, pitch: 1.45, eyes: 'anime' }
+    cafe: { n: 'Robusto', sp: 'pigeon', col: 0x9aa3b8, shirt: 0x6b4426, apron: 0xf7f5ee, neckwear: 0xe8a23a, accent: 0xd4b28a, eyeCol: 0x44352b, pitch: .85 },
+    salon: { n: 'Frisette', sp: 'caniche', col: 0xffe4ef, shirt: 0xb06ab3, neckwear: 0xffd23f, accent: 0xffffff, eyeCol: 0x735779, pitch: 1.35, eyes: 'doux' },
+    chausseur: { n: 'Lacet', sp: 'mouffette', col: 0x3a3440, shirt: 0xe8a23a, accent: 0xfaf7f0, eyeCol: 0x423d4d, pitch: 1.05 },
+    jardin: { n: 'Feuillu', sp: 'paresseux', col: 0xa08a6a, shirt: 0x4fb35f, apron: 0x2f8a45, neckwear: 0xffd23f, accent: 0xbfe8b0, eyeCol: 0x514638, pitch: .7, eyes: 'doux' },
+    agence: { n: 'Léon', sp: 'loutre', col: 0xa0724a, shirt: 0x3d4f7a, neckwear: 0xffd23f, accent: 0xfaf7f0, eyeCol: 0x49372d, pitch: 1.0 },
+    club: { n: 'Dr Rigolo', sp: 'axolotl', col: 0xffb3c8, shirt: 0x5b3f8f, neckwear: 0x6fbfda, accent: 0xfaf7f0, eyeCol: 0x6b416d, pitch: 1.45, eyes: 'anime' }
   });
   // un arrosoir décoratif pour la jardinerie (ne se ramasse pas)
   MD.arrosoir_deco = v => { const b = G.mb(162); b.cyl(.18, .2, .3, 10, 0x4fb35f, 0, .15, 0); b.cyl(.025, .035, .35, 6, 0x4fb35f, .26, .25, 0, 0, 0, -.9); b.add(new THREE.TorusGeometry(.12, .02, 4, 10, Math.PI), 0x3f8f45, b.M(-.05, .3, 0), 0, true); return b.done(); };

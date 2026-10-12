@@ -113,7 +113,7 @@
     SLOTS.forEach(([x, z], k) => { const id = art[k] ? 'tableau_art_' + k : 'cadre_vide'; if (m.canPlace(id, x, z)) m.addObj(id, x, z); }); }
   G.ROOMFILL.melimelo = (m, P) => { P('comptoir', 4, 1); for (const [t, x, z] of [['canape', 0, 3], ['table', 3, 4], ['chaise', 4, 4, 3], ['lampe', 0, 0], ['etagere', 9, 0], ['tonneau', 9, 3], ['caisse', 9, 5], ['tv', 2, 0], ['horloge', 7, 0], ['aquarium', 6, 5], ['plante', 0, 6], ['tapis', 2, 5], ['lanterne', 8, 6]]) P(t, x, z); };
   Object.assign(G.ROOMNPC, { galerie: ['galerie', 6, 6.2], melimelo: ['melimelo', 5.5, .6] });
-  Object.assign(G.NPCS, { galerie: { n: 'Céleste', sp: 'hibou', col: 0xf3b6d0, shirt: 0x8d6fd1, pitch: 1.2, eyes: 'doux' }, melimelo: { n: 'Mélo', sp: 'alpaga', col: 0xf3e6c8, shirt: 0xe8a23a, apron: 0x6b4426, pitch: 1.1 } });
+  Object.assign(G.NPCS, { galerie: { n: 'Céleste', sp: 'hibou', col: 0xf3b6d0, shirt: 0x8d6fd1, neckwear: 0xffd23f, accent: 0xfaf7f0, eyeCol: 0x9270bf, pitch: 1.2, eyes: 'doux' }, melimelo: { n: 'Mélo', sp: 'alpaga', col: 0xf3e6c8, shirt: 0xe8a23a, apron: 0x6b4426, neckwear: 0x4fb35f, accent: 0xfaf7f0, eyeCol: 0x655449, pitch: 1.1 } });
   // la galerie se met à jour à chaque visite
   const oenter = G.act.enterHouse; G.act.enterHouse = o => { const r = oenter(o); if (G.OBJ[o.t].enter === 'galerie') setTimeout(() => { const im = G.interiors[o.iid] || (G.net && G.net.visit && G.net.visit.interiors[o.iid]); if (im) fillGallery(im); }, 450); return r; };
   // ---------- personnages ----------

@@ -17,6 +17,7 @@
     for (let i = 0; i < 3; i++) b.box(1.7, .06, .14, slat, 0, .45, -.16 + i * .16);
     b.box(1.7, .12, .05, slat, 0, .7, -.27, -.15, 0, 0); b.box(1.7, .12, .05, slat, 0, .88, -.3, -.15, 0, 0);
     for (const sx of [-.72, .72]) { b.box(.08, .45, .08, leg, sx, .22, .15); b.box(.08, .9, .08, leg, sx, .45, -.25); if (v) b.box(.08, .06, .48, leg, sx, .62, -.05); }
+    for (const x of [-.5, .5]) b.sph(.035, 0xffd23f, x, .57, .16, 1, 1, .45, 1, 6, 4);
     return b.done();
   };
   MD.chair = v => { const b = G.mb(41); b.box(.5, .06, .48, LWOOD, 0, .46, 0); legs(b, .46, .44, .45, DWOOD); b.box(.5, .5, .06, LWOOD, 0, .75, -.21); b.box(.36, .1, .07, 0xd77a61, 0, .85, -.17); return b.done(); };
@@ -27,7 +28,7 @@
     return b.done();
   };
   MD.lamp_post = v => {
-    const b = G.mb(44); b.cyl(.16, .2, .25, 8, IRON, 0, .12, 0); b.cyl(.05, .07, 2.15, 6, IRON, 0, 1.2, 0);
+    const b = G.mb(44); b.cyl(.16, .2, .25, 8, IRON, 0, .12, 0); b.cyl(.05, .07, 2.15, 6, IRON, 0, 1.2, 0); b.tor(.09, .018, 0xd9b84a, 0, .28, 0, 0, 0, 0, 1, 10);
     b.box(.34, .05, .34, IRON, 0, 2.27, 0); b.box(.26, .34, .26, WIN, 0, 2.46, 0, 0, 0, 0, 1);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.box(.04, .36, .04, IRON, sx * .14, 2.46, sz * .14);
     b.cone(.26, .22, 4, IRON, 0, 2.74, 0, 0, Math.PI / 4); b.sph(.04, IRON, 0, 2.88, 0); return b.done();
@@ -46,7 +47,7 @@
     else { for (const x of [-.44, .44]) b.box(.12, .9, .12, DWOOD, x, .45, 0); b.box(1, .1, .06, WOOD, 0, .35, 0); b.box(1, .1, .06, WOOD, 0, .7, 0); }
     return b.done();
   };
-  MD.hedge = v => { const b = G.mb(50); b.jit(.12); b.box(.92, .9, .92, 0x3f8f45, 0, .45, 0); for (let i = 0; i < 4; i++) b.ico(.32, 1, 0x4a9e4f, (i % 2 - .5) * .4, .92, (Math.floor(i / 2) - .5) * .4, 1, .6, 1); return b.done(); };
+  MD.hedge = v => { const b=G.mb(50),cols=[0x438b43,0x4f9d4c,0x62aa56];b.jit(.025);b.sph(.48,cols[0],0,.42,0,1.18,.86,1.12,0,16,10);for(const [x,y,z,r] of [[-.35,.38,.1,.32],[.34,.38,-.08,.31],[0,.68,-.06,.3],[-.22,.64,.29,.25],[.24,.62,.25,.24]])b.sph(r,cols[(Math.abs(Math.round(x*10))+Math.round(y*10))%3],x,y,z,1,.9,1,0,14,9);b.jit(0);if(v%2)for(const [cx,cy,cz] of [[-.3,.68,.3],[.25,.6,.31],[.08,.82,-.08]]){const c=v%3?0xffa4bb:0xf2d178;for(let i=0;i<5;i++){const a=i*TAU/5;b.sph(.055,c,cx+Math.cos(a)*.06,cy+Math.sin(a)*.06,cz,1,.82,.78,0,12,8);}b.sph(.032,0xffe9a6,cx,cy,cz+.035,1,1,.7,1,10,7);}return b.done(); };
   MD.barrel = v => { const b = G.mb(51); b.cyl(.33, .3, .9, 9, WOOD, 0, .45, 0); b.cyl(.345, .345, .07, 9, IRON, 0, .2, 0); b.cyl(.345, .345, .07, 9, IRON, 0, .7, 0); b.cyl(.28, .28, .02, 9, LWOOD, 0, .905, 0); return b.done(); };
   MD.crate = v => { const b = G.mb(52); b.box(.76, .76, .76, LWOOD, 0, .38, 0); for (const z of [-.39, .39]) { b.box(.8, .1, .03, WOOD, 0, .1, z); b.box(.8, .1, .03, WOOD, 0, .66, z); b.box(.1, .76, .03, WOOD, 0, .38, z, 0, 0, .78); } for (const x of [-.39, .39]) { b.box(.03, .1, .8, WOOD, x, .1, 0); b.box(.03, .1, .8, WOOD, x, .66, 0); } return b.done(); };
   MD.mailbox = v => { const b = G.mb(53); b.box(.09, .9, .09, DWOOD, 0, .45, 0); b.box(.34, .26, .5, 0x5b8fd6, 0, 1.0, 0); b.cyl(.17, .17, .5, 10, 0x5b8fd6, 0, 1.13, 0, Math.PI / 2); b.box(.03, .22, .04, 0xe8443a, .19, 1.15, -.1); b.box(.03, .08, .12, 0xe8443a, .19, 1.24, -.05); b.box(.2, .04, .01, 0x2a3b55, 0, 1.0, .255); return b.done(); };
@@ -58,9 +59,9 @@
     return b.done();
   };
   MD.fountain = v => {
-    const b = G.mb(56); b.cyl(.95, 1, .45, 14, STONE, 0, .22, 0); b.cyl(.8, .8, .04, 14, 0x5fb6e8, 0, .4, 0, 0, 0, 0, 2);
+    const b = G.mb(56); b.cyl(.95, 1, .45, 14, STONE, 0, .22, 0); b.tor(.93, .055, 0xe5dfd2, 0, .45, 0, Math.PI / 2, 0, 0, 0, 18); b.cyl(.8, .8, .04, 14, 0x5fb6e8, 0, .4, 0, 0, 0, 0, 2);
     b.cyl(.14, .2, .9, 8, STONE, 0, .6, 0); b.cyl(.42, .16, .16, 10, STONE, 0, 1.05, 0); b.cyl(.36, .36, .03, 10, 0x6fc3f0, 0, 1.12, 0, 0, 0, 0, 2);
-    b.cyl(.05, .09, .35, 6, 0xbfe6fa, 0, 1.3, 0, 0, 0, 0, 2); b.sph(.1, 0xdff4ff, 0, 1.48, 0, 1, 1, 1, 2);
+    b.cyl(.05, .09, .35, 6, 0xbfe6fa, 0, 1.3, 0, 0, 0, 0, 2); b.sph(.1, 0xdff4ff, 0, 1.48, 0, 1, 1, 1, 2); b.sph(.045, 0xffffff, .07, 1.52, .04, 1, 1, 1, 1, 6, 4);
     for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; b.cyl(.015, .03, .5, 4, 0xbfe6fa, Math.cos(a) * .45, .85, Math.sin(a) * .45, Math.sin(a) * .6, 0, -Math.cos(a) * .6, 2); }
     return b.done();
   };
@@ -103,7 +104,7 @@
   const WALLS = [0xfaf1dc, 0xf2f2ea, 0xfff4f6, 0xf3f7e8, 0xfff1dd, 0xf0ebff, 0xe8fbf9, 0xfffae6, 0xf7efe2];
   function windowAt(b, x, y, z, ry = 0, w = .5, h = .5) {
     b.box(w + .1, h + .1, .06, 0xf7f5ee, x, y, z, 0, ry); b.box(w, h, .07, WIN, x, y, z + (ry ? 0 : .005), 0, ry, 0, 1);
-    b.box(w, .04, .08, 0xf7f5ee, x, y, z, 0, ry); b.box(.04, h, .08, 0xf7f5ee, x, y, z, 0, ry);
+    b.box(w, .04, .08, 0xf7f5ee, x, y, z, 0, ry); b.box(.04, h, .08, 0xf7f5ee, x, y, z, 0, ry); b.box(w + .13, .045, .11, 0xd9b84a, x, y - h / 2 - .04, z + .02, 0, ry);
   }
   G.windowAt = windowAt;
   function door(b, x, z, col = DWOOD) { b.box(.62, 1.15, .08, col, x, .6, z); b.box(.68, .06, .1, 0xf7f5ee, x, 1.2, z); b.sph(.04, 0xffd23f, x + .2, .58, z + .05); b.box(.8, .08, .4, STONE, x, .04, z + .2); }
@@ -115,7 +116,7 @@
     b.box(.38, .9, .38, 0xa9553e, .75, 2.75, -.5); b.box(.46, .1, .46, 0x8e4532, .75, 3.2, -.5);
     door(b, 0, 1.12, v % 2 ? 0x6b4a32 : DWOOD); windowAt(b, -.82, 1.15, 1.11); windowAt(b, .82, 1.15, 1.11);
     windowAt(b, 1.31, 1.1, -.05, Math.PI / 2); windowAt(b, -1.31, 1.1, -.05, Math.PI / 2);
-    b.box(.9, .06, .3, roof, -.82, 1.48, 1.2); b.box(.9, .06, .3, roof, .82, 1.48, 1.2);
+    b.box(.9, .06, .3, roof, -.82, 1.48, 1.2); b.box(.9, .06, .3, roof, .82, 1.48, 1.2); b.box(1.05, .08, .42, 0xd9b84a, 0, .17, 1.42); b.cyl(.05,.05,.55,6,0x4f9a46,-.34,.39,1.45,0,0,.45); b.sph(.11,0xff8fc0,-.46,.66,1.45,1,.65,1); b.sph(.11,0xffd23f,-.22,.63,1.45,1,.65,1);
     b.jit(.12); b.ico(.28, 1, 0x4fa847, -1.35, .25, 1.15, 1, .8, 1); b.ico(.25, 1, 0x58b54a, 1.35, .22, 1.15, 1, .8, 1); b.jit(0);
     return b.done();
   };

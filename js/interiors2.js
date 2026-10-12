@@ -18,7 +18,17 @@
     ['damier', 'Damier pastel', x => grid(x, 4, (a, b, s, i, j) => { x.fillStyle = (i + j) % 2 ? '#e7e0ff' : '#fff6e0'; x.fillRect(a, b, s, s); })],
     ['jungle', 'Jungle', (x, r) => { x.fillStyle = '#9fd18a'; x.fillRect(0, 0, S, S); for (let i = 0; i < 14; i++) { const px = r() * S, py = r() * S, a = r() * TAU; x.fillStyle = i % 2 ? '#4f9a46' : '#6cb756'; x.save(); x.translate(px, py); x.rotate(a); x.beginPath(); x.ellipse(0, 0, 16, 6, 0, 0, TAU); x.fill(); x.restore(); } }],
     ['carreaux', 'Carreaux bleus', x => grid(x, 4, (a, b, s, i, j) => { x.fillStyle = '#ffffff'; x.fillRect(a, b, s, s); x.fillStyle = '#5b8fd6'; x.beginPath(); x.moveTo(a + s / 2, b + 3); x.lineTo(a + s - 3, b + s / 2); x.lineTo(a + s / 2, b + s - 3); x.lineTo(a + 3, b + s / 2); x.fill(); })],
-    ['coeurs', 'Petits cœurs', x => { x.fillStyle = '#ffe3ea'; x.fillRect(0, 0, S, S); x.fillStyle = '#ff7f9f'; grid(x, 4, (a, b, s, i, j) => { const cx = a + s / 2 + (j % 2) * s / 2, cy = b + s / 2; x.beginPath(); x.arc(cx - 4, cy - 2, 4.5, 0, TAU); x.arc(cx + 4, cy - 2, 4.5, 0, TAU); x.fill(); x.beginPath(); x.moveTo(cx - 8.5, cy); x.lineTo(cx, cy + 9); x.lineTo(cx + 8.5, cy); x.fill(); }); }]
+    ['coeurs', 'Petits cœurs', x => { x.fillStyle = '#ffe3ea'; x.fillRect(0, 0, S, S); x.fillStyle = '#ff7f9f'; grid(x, 4, (a, b, s, i, j) => { const cx = a + s / 2 + (j % 2) * s / 2, cy = b + s / 2; x.beginPath(); x.arc(cx - 4, cy - 2, 4.5, 0, TAU); x.arc(cx + 4, cy - 2, 4.5, 0, TAU); x.fill(); x.beginPath(); x.moveTo(cx - 8.5, cy); x.lineTo(cx, cy + 9); x.lineTo(cx + 8.5, cy); x.fill(); }); }],
+    ['fleurs_cottage', 'Fleurs de cottage', (x,r) => { x.fillStyle='#f8eee0';x.fillRect(0,0,S,S);x.strokeStyle='#9bb486';x.lineWidth=2;for(let i=0;i<7;i++){let px=r()*S,py=r()*S;x.beginPath();x.moveTo(px,py);x.quadraticCurveTo(px-12,py+18,px+5,py+34);x.stroke();for(let k=0;k<3;k++){x.fillStyle=k%2?'#e9a4b8':'#f3c979';x.beginPath();x.ellipse(px+(k%2?8:-8),py+k*11,5,8,k*.5,0,TAU);x.fill();}}}],
+    ['sauge', 'Rayures sauge', x => { x.fillStyle='#f6f2e8';x.fillRect(0,0,S,S);for(let i=0;i<8;i++){x.fillStyle=i%2?'#c8d8c2':'#e4ebd9';x.fillRect(i*16,0,8,S);}x.fillStyle='rgba(255,255,255,.55)';x.fillRect(0,8,S,3); }],
+    ['vichy_rose', 'Vichy rose', x => grid(x,8,(a,b,s,i,j)=>{x.fillStyle=(i+j)%2?'#fff7f4':'#f3c9d1';x.fillRect(a,b,s,s);x.fillStyle='rgba(255,255,255,.35)';x.fillRect(a,b,s/2,s/2);})],
+    ['lambris_ivoire', 'Lambris ivoire', x => {x.fillStyle='#f5ead6';x.fillRect(0,0,S,S);for(let y=0;y<S;y+=24){x.fillStyle='#e8d8bf';x.fillRect(0,y,S,2);x.fillStyle='rgba(255,255,255,.55)';x.fillRect(0,y+3,S,2);for(let xx=(y/24%2)*32;xx<S;xx+=64){x.fillStyle='rgba(180,145,105,.22)';x.fillRect(xx,y+5,1,18);}}}],
+    ['feuillage_doux', 'Feuillage doux', (x,r) => {x.fillStyle='#e6f0df';x.fillRect(0,0,S,S);for(let i=0;i<20;i++){const px=r()*S,py=r()*S,a=r()*TAU;x.save();x.translate(px,py);x.rotate(a);x.fillStyle=i%3?'#b6d0a7':'#c6a9bc';x.beginPath();x.ellipse(0,0,12,5,0,0,TAU);x.fill();x.strokeStyle='rgba(92,133,83,.55)';x.beginPath();x.moveTo(-10,0);x.lineTo(10,0);x.stroke();x.restore();}}],
+    ['nuits_lilas', 'Crépuscule lilas', (x,r) => {x.fillStyle='#c6c5e8';x.fillRect(0,0,S,S);dots(x,24,'#fff1c6',1.4,r);x.fillStyle='rgba(255,255,255,.65)';for(const [a,b] of [[25,25],[92,76],[52,112]]){x.beginPath();x.arc(a,b,13,0,TAU);x.arc(a+12,b-5,10,0,TAU);x.arc(a+24,b,12,0,TAU);x.fill();}}],
+    ['coquillages', 'Coquillages', (x,r) => {x.fillStyle='#f3dfc5';x.fillRect(0,0,S,S);for(let i=0;i<14;i++){const px=r()*S,py=r()*S;x.fillStyle=i%2?'#e6a9a2':'#d7b991';x.beginPath();x.ellipse(px,py,8,5,r()*TAU,0,TAU);x.fill();x.strokeStyle='rgba(255,255,255,.6)';for(let k=-2;k<=2;k++){x.beginPath();x.arc(px,py,3+k*1.2,.2,Math.PI-.2);x.stroke();}}}],
+    ['bibliotheque', 'Bibliothèque', x => {x.fillStyle='#e9dfd0';x.fillRect(0,0,S,S);for(let y=8;y<S;y+=32){x.fillStyle='#b78b65';x.fillRect(0,y,S,3);for(let xx=5;xx<S;xx+=13){x.fillStyle=['#d97572','#718bb7','#88a878','#dfbd75'][Math.floor((xx+y)/13)%4];x.fillRect(xx,y-15,8,15);}}}],
+    ['toile_bleue', 'Toile de Jouy bleue', (x,r) => {x.fillStyle='#f7f3e9';x.fillRect(0,0,S,S);x.strokeStyle='#7894b4';x.lineWidth=1.5;for(let i=0;i<10;i++){const px=r()*S,py=r()*S;x.beginPath();x.ellipse(px,py,9,13,r()*TAU,0,TAU);x.stroke();x.beginPath();x.arc(px,py-4,3,0,TAU);x.stroke();x.beginPath();x.moveTo(px,py+4);x.quadraticCurveTo(px-7,py+8,px-3,py+13);x.moveTo(px,py+4);x.quadraticCurveTo(px+7,py+8,px+3,py+13);x.stroke();}}],
+    ['briques_creme', 'Briques crème', x => {x.fillStyle='#eee5d7';x.fillRect(0,0,S,S);for(let y=0;y<S;y+=20){x.fillStyle=y%40?'#dfd2bf':'#e4d8c8';x.fillRect(0,y,S,18);x.fillStyle='#f8f3eb';for(let xx=(y%40?16:0);xx<S;xx+=32)x.fillRect(xx,y,2,18);x.fillRect(0,y+18,S,2);}}]
   ];
   G.FLOORS = [
     ['parquet', 'Parquet', x => { for (let j = 0; j < 4; j++) { x.fillStyle = j % 2 ? '#c08850' : '#d09a62'; x.fillRect(0, j * 32, S, 32); x.fillStyle = '#8f5d33'; x.fillRect(0, j * 32, S, 2); x.fillRect((j * 45) % S, j * 32, 2, 32); x.fillRect((j * 45 + 64) % S, j * 32, 2, 32); } }],
@@ -32,7 +42,18 @@
     ['tatami', 'Tatami', x => { x.fillStyle = '#d9cf8a'; x.fillRect(0, 0, S, S); x.strokeStyle = 'rgba(120,110,50,.25)'; for (let i = 0; i < S; i += 4) { x.beginPath(); x.moveTo(0, i); x.lineTo(S, i); x.stroke(); } x.fillStyle = '#3f6a3a'; x.fillRect(0, 0, S, 5); x.fillRect(0, 64, S, 5); }],
     ['damier_noir', 'Damier noir et blanc', x => grid(x, 4, (a, b, s, i, j) => { x.fillStyle = (i + j) % 2 ? '#2a2d33' : '#f7f5ee'; x.fillRect(a, b, s, s); })],
     ['bois_clair', 'Bois clair', x => { for (let j = 0; j < 8; j++) { x.fillStyle = j % 2 ? '#e8c99a' : '#f0d6ac'; x.fillRect(0, j * 16, S, 16); x.fillStyle = 'rgba(150,100,50,.3)'; x.fillRect(0, j * 16, S, 1); } }],
-    ['nuages_sol', 'Nuages', G => 0]
+    ['nuages_sol', 'Nuages', G => 0],
+    ['bois_chene', 'Chêne blond', x => {for(let j=0;j<8;j++){x.fillStyle=j%2?'#d6b17a':'#e6c996';x.fillRect(0,j*16,S,16);x.strokeStyle='rgba(129,86,48,.28)';x.beginPath();x.moveTo(0,j*16+2);x.lineTo(S,j*16+2);x.stroke();for(let i=0;i<3;i++){x.fillStyle='rgba(128,82,43,.12)';x.beginPath();x.ellipse(18+i*43,(j*16)+8,12,1.4,0,0,TAU);x.fill();}}}],
+    ['chevrons', 'Parquet chevrons', x => {x.fillStyle='#c9915e';x.fillRect(0,0,S,S);x.strokeStyle='#885d3d';x.lineWidth=2;for(let y=-S;y<S*2;y+=32){x.beginPath();x.moveTo(0,y+16);x.lineTo(32,y);x.lineTo(64,y+16);x.lineTo(96,y);x.lineTo(128,y+16);x.stroke();x.beginPath();x.moveTo(32,y);x.lineTo(32,y+16);x.moveTo(96,y);x.lineTo(96,y+16);x.stroke();}}],
+    ['noyer', 'Noyer satiné', x => {x.fillStyle='#775039';x.fillRect(0,0,S,S);for(let y=0;y<S;y+=24){x.fillStyle=y%48?'#886043':'#96704d';x.fillRect(0,y,S,23);x.strokeStyle='rgba(45,27,18,.45)';x.beginPath();x.moveTo(0,y+1);x.lineTo(S,y+1);x.stroke();for(let xx=(y%48?20:0);xx<S;xx+=40)x.fillRect(xx,y,1,23);}}],
+    ['terre_cuite', 'Terre cuite', x => grid(x,4,(a,b,s,i,j)=>{x.fillStyle=(i+j)%2?'#d18a68':'#bd7258';x.fillRect(a+2,b+2,s-4,s-4);x.fillStyle='rgba(255,235,215,.3)';x.fillRect(a+4,b+4,s-8,2);})],
+    ['pierre_miel', 'Pierre miel', x => grid(x,3,(a,b,s,i,j)=>{x.fillStyle=['#d8c7a8','#c8b48f','#e2d4b8'][(i+j*2)%3];x.fillRect(a+1,b+1,s-2,s-2);x.strokeStyle='rgba(121,98,68,.3)';x.strokeRect(a+1,b+1,s-2,s-2);})],
+    ['terrazzo_rose', 'Terrazzo poudré', (x,r) => {x.fillStyle='#f4eae3';x.fillRect(0,0,S,S);for(let i=0;i<95;i++){x.fillStyle=['#d99b91','#cfb87c','#9bb89e','#c7b8d3'][i%4];x.beginPath();x.ellipse(r()*S,r()*S,1+r()*2,1+r()*1.5,r()*TAU,0,TAU);x.fill();}}],
+    ['carreaux_menthe', 'Carreaux menthe', x => grid(x,4,(a,b,s,i,j)=>{x.fillStyle=(i+j)%2?'#f4f0df':'#c6ded0';x.fillRect(a+2,b+2,s-4,s-4);x.strokeStyle='rgba(255,255,255,.8)';x.strokeRect(a+6,b+6,s-12,s-12);})],
+    ['bambou', 'Lattes de bambou', x => {x.fillStyle='#d4d59b';x.fillRect(0,0,S,S);for(let i=0;i<8;i++){x.fillStyle=i%2?'#b8bf7e':'#c8ce8e';x.fillRect(i*16,0,14,S);x.fillStyle='rgba(77,103,55,.3)';x.fillRect(i*16,0,2,S);for(let y=25;y<S;y+=36)x.fillRect(i*16,y,14,2);}}],
+    ['lin_sauge', 'Lin sauge', (x,r) => {x.fillStyle='#d9e4d6';x.fillRect(0,0,S,S);for(let i=0;i<100;i++){x.fillStyle=i%2?'rgba(255,255,255,.2)':'rgba(100,125,93,.08)';x.fillRect(r()*S,r()*S,1+r()*2,1);}}],
+    ['dalles_ivoire', 'Dalles ivoire', x => grid(x,2,(a,b,s,i,j)=>{x.fillStyle=(i+j)%2?'#eee8dc':'#e3dacb';x.fillRect(a+2,b+2,s-4,s-4);x.strokeStyle='rgba(255,255,255,.65)';x.strokeRect(a+4,b+4,s-8,s-8);})],
+    ['tapis_fleuri', 'Tapis jardin', x => {x.fillStyle='#c9828f';x.fillRect(0,0,S,S);x.strokeStyle='#f2dca9';x.lineWidth=3;x.strokeRect(7,7,S-14,S-14);x.fillStyle='#f2dca9';for(const [a,b] of [[32,32],[96,32],[32,96],[96,96]]){x.beginPath();for(let i=0;i<8;i++){const q=i*TAU/8;x.ellipse(a+Math.cos(q)*7,b+Math.sin(q)*7,4,6,q,0,TAU);}x.fill();x.beginPath();x.arc(a,b,3,0,TAU);x.fill();}}]
   ];
   G.FLOORS[G.FLOORS.length - 1][2] = G.WALLS.find(w => w[0] === 'nuages')[2];
   const texCache = {};
@@ -80,7 +101,7 @@
   };
   // ---------- types de pièces ----------
   const KINDS = G.ROOMKINDS = {
-    maison: { W: 8, H: 7, floor: 'parquet', wall: 'creme', trim: 0xd9a066 }, villa: { W: 10, H: 8, floor: 'parquet', wall: 'carreaux', trim: 0x8aa0d8 },
+    maison: { W: 8, H: 7, floor: 'bois_chene', wall: 'fleurs_cottage', trim: 0xd9a066 }, villa: { W: 10, H: 8, floor: 'chevrons', wall: 'toile_bleue', trim: 0x8aa0d8 },
     cabane: { W: 7, H: 6, floor: 'parquet_fonce', wall: 'lambris', trim: 0x8a5d38 }, tente: { W: 5, H: 5, floor: 'tatami', wall: 'rose', trim: 0xd8742a },
     habitant: { W: 7, H: 6, floor: 'carrelage', wall: 'menthe', trim: 0xf08bb0 }, boutique: { W: 10, H: 8, floor: 'bois_clair', wall: 'pois', trim: 0x4fb35f },
     mairie: { W: 10, H: 8, floor: 'marbre', wall: 'creme', trim: 0x5b8fd6 }, musee: { W: 15, H: 11, floor: 'marbre', wall: 'damier', trim: 0x8a6a46 },
@@ -100,14 +121,14 @@
     else if (G.ROOMFILL[kind]) G.ROOMFILL[kind](m, P, opt);
     else if (kind === 'tente') { P('sac_couchage', 1, 1); P('lanterne', 3, 1); P('coffre', 3, 3); P('tapis', 1, 3); }
     else if (kind === 'cabane') { P('lit', 1, 1); P('cheminee', 3, 0); P('table', 5, 3); P('chaise', 5, 4, 2); P('tonneau', 1, 4); P('coffre', 6, 1); }
-    else if (kind === 'habitant') { P('lit', 1, 1); P('canape', 3, 1); P('lampe', 5, 1); P('table', 3, 3); P('plante', 5, 3); P('etagere', 1, 4); }
+    else if (kind === 'habitant') { P('lit_fleuri', 0, 0); P('commode_fleurie', 2, 0); P('lampe_arc', 5, 0); P('fauteuil_nuage', 4, 1); P('table_basse', 4, 2); P('bibliotheque', 0, 3); P('plante', 6, 4); }
     else if (kind === 'boutique') { P('comptoir', 4, 2); P('rayon', 0, 0); P('rayon', 8, 0); P('rayon', 0, 4, 1); P('rayon', 9, 4, 1); P('tonneau', 2, 5); P('caisse', 7, 5); P('plante', 1, 6); P('lampe', 2, 0); }
     else if (kind === 'mairie') { P('bureau', 4, 2); P('plante', 1, 1); P('plante', 8, 1); P('tableau', 1, 4); P('banc_parc', 6, 5); P('horloge', 8, 4); P('tapis', 4, 4); P('lampe', 2, 2); }
     else if (kind === 'couturiere') { P('comptoir', 3, 2); for (let i = 0; i < 3; i++) P('mannequin', 1 + i * 3, 0, 0, { v: i }); P('miroir', 8, 3); P('mannequin', 0, 4, 0, { v: 3 }); P('pot_fleurs', 8, 5); }
     else if (kind === 'gare') { P('comptoir', 3, 2); P('casiers', 8, 0); P('banc', 1, 4); P('banc', 6, 4); P('horloge', 0, 0); P('plante', 9, 4); P('lampe', 2, 1); }
     else if (kind === 'hutte') { P('lit', 1, 1); P('table', 4, 3); P('plante', 5, 0); P('coffre_tresor', 1, 4); P('lanterne', 5, 4); }
     else if (kind === 'musee') { P('bureau', 11, 9); museumSlots().forEach(([x, z]) => P('vitrine', x, z)); P('plante', 0, 9); P('plante', 14, 0); }
-    else { P('lit', 1, 1); P('lampe', 2, 1); P('armoire', W - 2, 0); P('tapis', 3, 2); P('table', 5, 3); P('chaise', 6, 3, 3); P('plante', W - 2, H - 2); P('tv', 4, 0); P('etagere', 1, 4); P('coffre', W - 1, 2); P('miroir', 0, 3); }
+    else { P('lit_fleuri', 0, 0); P('commode_fleurie', 2, 0); P('piano_droit', 5, 0); P('canape', 3, 1); P('table_basse', 3, 2); P('fauteuil_nuage', 6, 2); P('bibliotheque', 0, 3); P('tapis', 4, 3); P('lampe_arc', 7, 3); P('miroir', 2, 4); P('coffre', 0, 5); P('meuble_tv', 5, 5); P('plante', 7, 5); }
     const n = G.ROOMNPC[kind] || NPCAT[kind]; if (n) { m.meta.npcs = [{ role: n[0], x: n[1], z: n[2], yaw: 0 }]; G.ents.spawnVillagers(m); }
     G.buildShell(m); m.buildAll(); if (kind === 'musee') G.buildMuseum(m); return m;
   };

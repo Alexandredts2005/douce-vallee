@@ -148,14 +148,14 @@
   G.RECIPES.push({ id: 'perche', need: { bois: 6 } }, { id: 'coffre', need: { bois: 8, fer: 1 } }, { id: 'miroir', need: { bois: 3, fer: 2 } });
   // ---------- personnages fixes ----------
   G.NPCS = {
-    shop: { n: 'Gaston', sp: 'blaireau', col: 0x8b8f99, shirt: 0x4fb35f, apron: 0x2f8a45, pitch: .95 },
-    mairie: { n: 'Marguerite', sp: 'chien', col: 0xf2d39b, shirt: 0x5b8fd6, pitch: 1.3, eyes: 'anime' },
-    musee: { n: 'Professeur Plume', sp: 'hibou', col: 0x9a7552, shirt: 0x6b4a32, pitch: .85 },
-    couture: { n: 'Mme Laine', sp: 'mouton', col: 0xfff2e6, shirt: 0xff8fc0, pitch: 1.2, eyes: 'doux' },
-    gare: { n: 'Pablo', sp: 'singe', col: 0xb07a48, shirt: 0x2f4f9a, pitch: 1.15 },
-    capitaine: { n: 'Capitaine Bigorneau', sp: 'grenouille', col: 0x6fbf5a, shirt: 0xfaf7f0, pitch: .9 },
-    ile: { n: 'Papy Écaille', sp: 'tortue', col: 0xb9c98a, shirt: 0xff9a3c, pitch: .7, eyes: 'doux' },
-    jeux: { n: 'Filou', sp: 'renard', col: 0xf08a3c, shirt: 0xffd23f, pitch: 1.25, eyes: 'anime', mouth: 'chat' }
+    shop: { n: 'Gaston', sp: 'blaireau', col: 0x8b8f99, shirt: 0x4fb35f, apron: 0x2f8a45, neckwear: 0xffd23f, accent: 0xfaf7f0, eyeCol: 0x413c36, eyes: 'doux', pitch: .95 },
+    mairie: { n: 'Marguerite', sp: 'chien', col: 0xf2d39b, shirt: 0x5b8fd6, neckwear: 0xff8fc0, accent: 0xfaf7f0, eyeCol: 0x546d9b, eyes: 'anime', pitch: 1.3 },
+    musee: { n: 'Professeur Plume', sp: 'hibou', col: 0x9a7552, shirt: 0x6b4a32, neckwear: 0xd9b84a, accent: 0xf0e0bd, eyeCol: 0xb98735, eyes: 'doux', pitch: .85 },
+    couture: { n: 'Mme Laine', sp: 'mouton', col: 0xfff2e6, shirt: 0xff8fc0, neckwear: 0x6c8cff, accent: 0xffffff, eyeCol: 0x76546b, eyes: 'doux', pitch: 1.2 },
+    gare: { n: 'Pablo', sp: 'singe', col: 0xb07a48, shirt: 0x2f4f9a, neckwear: 0xe8434a, accent: 0xfaf7f0, eyeCol: 0x332419, eyes: 'rond', pitch: 1.15 },
+    capitaine: { n: 'Capitaine Bigorneau', sp: 'grenouille', col: 0x6fbf5a, shirt: 0xfaf7f0, neckwear: 0xe8434a, accent: 0xffd23f, eyeCol: 0x314b30, eyes: 'brillants', pitch: .9 },
+    ile: { n: 'Papy Écaille', sp: 'tortue', col: 0xb9c98a, shirt: 0xff9a3c, accent: 0xfaf7f0, eyeCol: 0x596c42, eyes: 'doux', pitch: .7 },
+    jeux: { n: 'Filou', sp: 'renard', col: 0xf08a3c, shirt: 0xffd23f, neckwear: 0x5b8fd6, accent: 0xfaf7f0, eyeCol: 0x563a2b, eyes: 'anime', mouth: 'chat', pitch: 1.25 }
   };
   // ---------- acres & structures ----------
   Object.assign(G.ACRES, { gare: { n: 'Gare', col: '#c9846b', ico: '🚉', lvl: 0, struct: 'gare' }, mairie: { n: 'Mairie', col: '#b8c8e8', ico: '🏛️', lvl: 0, struct: 'mairie' }, rue: { n: 'Rue commerçante', col: '#e9b8a0', ico: '🏬', lvl: 0, struct: 'rue' } });
