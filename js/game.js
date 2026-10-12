@@ -41,14 +41,14 @@
     scene.add(seaG);
   }
   // ---------- lampes (pool fixe pour éviter les recompilations) ----------
-  function makeLamps() { for (let i = 0; i < 4; i++) { const l = new THREE.PointLight(0xffc27a, 0, 11, 1.3); scene.add(l); lamps.push(l); } roomLight = new THREE.PointLight(0xffe2b0, 0, 16, 1.2); scene.add(roomLight); }
+  function makeLamps() { for (let i = 0; i < 4; i++) { const l = new THREE.PointLight(0xffc27a, 0, 8, 1.8); scene.add(l); lamps.push(l); } roomLight = new THREE.PointLight(0xffe2b0, 0, 16, 1.2); scene.add(roomLight); }
   function updLamps(dt, n) {
     lampT -= dt; const m = G.map, p = G.player; if (!m || !p) return;
     if (lampT < 0) { lampT = .5; const near = [];
       let lit = 0; for (const o of m.lights) { if (o.off) continue; lit++; const [cx, cz] = m.center(o), d = Math.hypot(cx - p.x, cz - p.z); if (d < 32) near.push([d, o, cx, cz]); }
       near.sort((a, b) => a[0] - b[0]); lamps.forEach((l, i) => { const e = near[i]; l.userData.o = e ? e[1] : null; if (e) l.position.set(e[2], e[1].y + (G.OBJ[e[1].t].h > 1.5 ? 2.3 : .9), e[3]); });
       roomLight.intensity = m.interior ? .08 + Math.min(.3, lit * .1) : 0; }
-    const on = m.interior ? .34 : n; lamps.forEach(l => { const o = l.userData.o; l.intensity = o ? on * (G.OBJ[o.t].fire ? 1.3 + Math.sin(performance.now() / 90 + l.id) * .15 : 1.5) : 0; });
+    const on = m.interior ? .3 : n * .55, act = lamps.filter(l => l.userData.o), k = 1 / Math.sqrt(Math.max(1, act.length)); lamps.forEach(l => { const o = l.userData.o; l.intensity = o ? on * k * (G.OBJ[o.t].fire ? 1.1 + Math.sin(performance.now() / 90 + l.id) * .12 : 1.2) : 0; }); // plusieurs lampes proches ne s'additionnent plus jusqu'à éblouir
   }
   G.lampRefresh = () => { lampT = 0; };
   G.setOutlines = mode => { if (mode === 'tout' && G.settings.quality === 'low') mode = 'perso'; G.M.outline.visible = mode !== 'aucun'; G.M.outlineI.visible = mode === 'tout'; for (const mp of [G.world, G.island, ...Object.values(G.interiors)]) if (mp) mp.objr.setOutlines(mode === 'tout'); };
