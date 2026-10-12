@@ -491,4 +491,30 @@
     if (m && p && cp && !m.interior && m.objr && G.state === 'play') { const ty = p.y + 1; for (let i = 1; i <= 18; i++) { const t = i / 18, x = p.x + (cp.x - p.x) * t, y = ty + (cp.y - ty) * t, z = p.z + (cp.z - p.z) * t, o = m.objAt(Math.floor(x), Math.floor(z)); if (!o || now.has(o)) continue; const d = G.OBJ[o.t]; if (d.h >= 1.6 && !d.walk && o.y + d.h > y - .3) now.add(o); } }
     for (const [o, mm] of hid) if (!now.has(o) || mm !== m) { if (o._anim === Z0) o._anim = null; mm.refresh(o); hid.delete(o); }
     for (const o of now) if (!hid.has(o)) { o._anim = Z0; m.refresh(o); hid.set(o, m); } });
+  // ===================== 8. MUR DE DEVANT (avec sa porte) dans toutes les pièces : visible de l'intérieur, invisible dès que la caméra passe derrière =====================
+  function frontWall(m) {
+    const W = m.W, H = m.H, gare = !!m._gx, ch = m.kind === 'maison' && isCh(m), mai = m.kind === 'mairie' && W >= 20, hW = gare ? WH : mai ? MHT : ch ? 5.6 : 3;
+    const big = hW > 4, xc = Math.floor(W / 2) + .5, dw = gare ? 2.6 : big ? 2.0 : 1.3, dh = gare ? 4.2 : big ? 3.4 : 2.2, x0 = xc - dw / 2, x1 = xc + dw / 2;
+    const g = new THREE.Group(), b = G.mb(470), TR = ch || mai ? GOLD : 0xf3eee4, DOOR = mai ? 0x5a3820 : ch ? 0xf7f2e8 : 0x7a4e2c;
+    const back = m.shell.children.find(c => c.isMesh && c.geometry.type === 'PlaneGeometry' && Math.abs(c.position.z) < .01 && c.position.y > .5);
+    const piece = (w, h, x, y) => { if (w <= .01 || h <= .01) return; if (back) { const geo = new THREE.PlaneGeometry(w, h), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * h / 2); const me = new THREE.Mesh(geo, back.material); me.position.set(x, y, H - .002); me.rotation.y = PI; me.receiveShadow = true; g.add(me); }
+      else { b.P(PT.pierre); b.box(w, h, .5, 0xe9dcc3, x, y, H + .25); b.P(0); } };
+    piece(x0, hW, x0 / 2, hW / 2); piece(W - x1, hW, (x1 + W) / 2, hW / 2); piece(dw, hW - dh, xc, dh + (hW - dh) / 2);
+    // plinthe, corniche, encadrement et porte à deux battants
+    for (const [a, c] of [[0, x0], [x1, W]]) { b.box(c - a, .22, .06, TR, (a + c) / 2, .11, H - .03); b.box(c - a, .14, .08, TR, (a + c) / 2, hW - .07, H - .04); }
+    for (const s of [-1, 1]) b.box(.14, dh + .1, .1, TR, xc + s * (dw / 2 + .07), dh / 2, H - .05); b.box(dw + .42, .16, .12, TR, xc, dh + .08, H - .06);
+    for (const s of [-1, 1]) { const lx = xc + s * dw / 4; b.box(dw / 2 - .04, dh - .04, .06, DOOR, lx, dh / 2, H - .04); for (const yy of [dh * .27, dh * .68]) b.box(dw / 2 - .26, dh * .32, .03, new THREE.Color(DOOR).multiplyScalar(.85), lx, yy, H - .08);
+      b.sph(.05, GOLD, xc + s * .1, dh * .48, H - .1, 1, 1, .6, 0, 8, 6); }
+    if (hW - dh > .7) { const tw = new THREE.Mesh(new THREE.PlaneGeometry(dw * .8, Math.min(.9, hW - dh - .4)), G.M.window); tw.position.set(xc, dh + .25 + Math.min(.9, hW - dh - .4) / 2, H - .06); tw.rotation.y = PI; g.add(tw); }
+    if (gare) { // verrière du pignon côté entrée
+      const tri = []; for (let i = 0; i < 28; i++) { const p0 = i / 28 * PI, p1 = (i + 1) / 28 * PI; tri.push(vx(p0), WH, H, vx(p1), WH, H, vx(p1), vy(p1), H, vx(p0), WH, H, vx(p1), vy(p1), H, vx(p0), vy(p0), H); }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3)); g.add(new THREE.Mesh(geo, glassMat));
+      for (let x = 1.6; x < W; x += 1.6) { const top = vy(Math.acos(G.clamp((x - W / 2) / (W / 2), -1, 1))); b.box(.08, top - WH, .08, IRON, x, (top + WH) / 2, H - .05); } b.tor(2.2, .08, IRON, W / 2, WH + 1.2, H - .05, 0, 0, 0, 0, 24); }
+    g.add(new THREE.Mesh(b.done(), G.MATS)); g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell.add(g); m._fw = g; }
+  const ob5 = G.buildShell; G.buildShell = m => { ob5(m); if (m.interior && m.shell) frontWall(m); };
+  G.on('frame', () => { const m = G.map, p = G.player, c = G.camera; if (!m || !m._fw || !p || !c) return; const cp = c.position;
+    // caméra libre : elle reste dans la pièce (jamais derrière un mur de côté ou du fond)
+    if (G.mouseMode && G.mouseMode() && !(G.firstPerson && G.firstPerson())) { const nx = G.clamp(cp.x, .4, m.W - .4), nz = Math.max(cp.z, .4); if (nx !== cp.x || nz !== cp.z) { cp.x = nx; cp.z = nz; c.lookAt(p.x, p.y + 1, p.z); } }
+    m._fw.visible = cp.z < m.H - .05; });
+
 })();
