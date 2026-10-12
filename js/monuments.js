@@ -392,8 +392,8 @@
       b.box(ww + .3, wh + .2, .06, 0xffffff, ...T(0, wy, .03), 0, ry, 0); for (const sd of [-1, 1]) b.box(.08, wh + .3, .08, GOLD, ...T(sd * (ww / 2 + .15), wy, .06), 0, ry, 0);
       if (arched) { b.geo(new THREE.CylinderGeometry(ww / 2 + .15, ww / 2 + .15, .06, 18, 1, false, -PI / 2, PI), 0xffffff, b.M(...T(0, wy + wh / 2, .03), -PI / 2, ry, 0)); b.tor(ww / 2 + .15, .04, GOLD, ...T(0, wy + wh / 2, .07), 0, ry, 0, 0, 18); }
       else b.box(ww + .5, .22, .1, GOLD, ...T(0, wy + wh / 2 + .2, .06), 0, ry, 0);
-      const gp = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), G.M.window); gp.position.set(...T(0, wy, .065)); gp.rotation.y = ry; g.add(gp);
-      if (arched) { const cg = new THREE.Mesh(new THREE.CircleGeometry(ww / 2, 16, 0, PI), G.M.window); cg.position.set(...T(0, wy + wh / 2, .065)); cg.rotation.y = ry; g.add(cg); }
+      const gp = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), G.M.windowTall); gp.position.set(...T(0, wy, .065)); gp.rotation.y = ry; g.add(gp);
+      if (arched) { const cg = new THREE.Mesh(new THREE.CircleGeometry(ww / 2, 16, 0, PI), G.M.windowSky); cg.position.set(...T(0, wy + wh / 2, .065)); cg.rotation.y = ry; g.add(cg); }
       b.box(.05, wh, .03, 0xf4efe2, ...T(0, wy, .09), 0, ry, 0); for (let k = 1; k < 5; k++) b.box(ww, .04, .03, 0xf4efe2, ...T(0, wy - wh / 2 + k * wh / 5, .09), 0, ry, 0);
       for (const sd of [-1, 1]) { b.box(.42, wh + .4, .05, 0xb8323c, ...T(sd * (ww / 2 + .38), wy + .1, .12), 0, ry, 0); b.box(.46, .12, .07, GOLD, ...T(sd * (ww / 2 + .38), wy + wh / 2 + .3, .13), 0, ry, 0); }
       return { x, z, ry, ww, y0: wy - wh / 2, y1: wy + wh / 2 }; };
@@ -455,7 +455,7 @@
     // hautes fenêtres sur deux niveaux, en plein cintre
     const win = (x, z, ry, wy, wh) => { const T = face(x, 0, z, ry), ww = 1.7;
       b.box(ww + .4, wh + .3, .08, 0xf7f2e8, ...T(0, wy, .04), 0, ry, 0); b.geo(new THREE.CylinderGeometry(ww / 2 + .2, ww / 2 + .2, .08, 20, 1, false, -PI / 2, PI), 0xf7f2e8, b.M(...T(0, wy + wh / 2, .04), -PI / 2, ry, 0)); b.tor(ww / 2 + .2, .06, GOLD, ...T(0, wy + wh / 2, .09), 0, ry, 0, 0, 20);
-      const gp = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), G.M.window); gp.position.set(...T(0, wy, .085)); gp.rotation.y = ry; g.add(gp); const cg = new THREE.Mesh(new THREE.CircleGeometry(ww / 2, 18, 0, PI), G.M.window); cg.position.set(...T(0, wy + wh / 2, .085)); cg.rotation.y = ry; g.add(cg);
+      const gp = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), wy > 8 ? G.M.windowSky : G.M.windowTall); gp.position.set(...T(0, wy, .085)); gp.rotation.y = ry; g.add(gp); const cg = new THREE.Mesh(new THREE.CircleGeometry(ww / 2, 18, 0, PI), G.M.windowSky); cg.position.set(...T(0, wy + wh / 2, .085)); cg.rotation.y = ry; g.add(cg);
       b.box(.06, wh, .04, 0xf7f2e8, ...T(0, wy, .11), 0, ry, 0); for (let k = 1; k < 6; k++) b.box(ww, .05, .04, 0xf7f2e8, ...T(0, wy - wh / 2 + k * wh / 6, .11), 0, ry, 0);
       for (const sd of [-1, 1]) b.box(.18, wh + 1.2, .14, GOLD, ...T(sd * (ww / 2 + .55), wy + .3, .08), 0, ry, 0);
       return { x, z, ry, ww, y0: wy - wh / 2, y1: wy + wh / 2 }; };
@@ -505,7 +505,7 @@
     for (const s of [-1, 1]) b.box(.14, dh + .1, .1, TR, xc + s * (dw / 2 + .07), dh / 2, H - .05); b.box(dw + .42, .16, .12, TR, xc, dh + .08, H - .06);
     for (const s of [-1, 1]) { const lx = xc + s * dw / 4; b.box(dw / 2 - .04, dh - .04, .06, DOOR, lx, dh / 2, H - .04); for (const yy of [dh * .27, dh * .68]) b.box(dw / 2 - .26, dh * .32, .03, new THREE.Color(DOOR).multiplyScalar(.85), lx, yy, H - .08);
       b.sph(.05, GOLD, xc + s * .1, dh * .48, H - .1, 1, 1, .6, 0, 8, 6); }
-    if (hW - dh > .7) { const tw = new THREE.Mesh(new THREE.PlaneGeometry(dw * .8, Math.min(.9, hW - dh - .4)), G.M.window); tw.position.set(xc, dh + .25 + Math.min(.9, hW - dh - .4) / 2, H - .06); tw.rotation.y = PI; g.add(tw); }
+    if (hW - dh > .7) { const tw = new THREE.Mesh(new THREE.PlaneGeometry(dw * .8, Math.min(.9, hW - dh - .4)), G.M.windowSky); tw.position.set(xc, dh + .25 + Math.min(.9, hW - dh - .4) / 2, H - .06); tw.rotation.y = PI; g.add(tw); }
     if (gare) { // verrière du pignon côté entrée
       const tri = []; for (let i = 0; i < 28; i++) { const p0 = i / 28 * PI, p1 = (i + 1) / 28 * PI; tri.push(vx(p0), WH, H, vx(p1), WH, H, vx(p1), vy(p1), H, vx(p0), WH, H, vx(p1), vy(p1), H, vx(p0), vy(p0), H); }
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3)); g.add(new THREE.Mesh(geo, glassMat));
@@ -521,4 +521,80 @@
   O.hotel_ville_g.door = 2.05; if (O.chateau_grand) O.chateau_grand.door = 1.2;
   const ofr = G.act.front; G.act.front = o => { const d = O[o.t]; if (d.door == null) return ofr(o); const m = G.map, p = G.player, [cx, cz] = m.center(o), F = G.FR[o.r || 0], fwd = (p.x - cx) * F[0] + (p.z - cz) * F[1], lat = Math.abs((p.x - cx) * F[1] - (p.z - cz) * F[0]);
     return fwd > d.door - .7 && fwd < d.door + 1.0 && lat < 1.3; };
+  // ===================== 9. INTÉRIEURS DÉTAILLÉS SELON LE LIEU + VUE LOGIQUE PAR LES FENÊTRES =====================
+  // grandes fenêtres : horizon tout en bas, surtout du ciel ; fenêtres hautes ou à l'étage : rien que le ciel
+  const WTC = G.cv(64, 192), wtx = WTC.getContext('2d'), WSC = G.cv(64, 64), wsx = WSC.getContext('2d');
+  G.TEX.windowTall = new THREE.CanvasTexture(WTC); G.TEX.windowSky = new THREE.CanvasTexture(WSC);
+  const winMats = () => { if (G.M && !G.M.windowTall) { G.M.windowTall = G.curveMat(new THREE.MeshBasicMaterial({ map: G.TEX.windowTall })); G.M.windowSky = G.curveMat(new THREE.MeshBasicMaterial({ map: G.TEX.windowSky })); } };
+  const skyDraw = (x, w, hh, top, hor, n, h, hy) => { const g = x.createLinearGradient(0, 0, 0, hy); g.addColorStop(0, '#' + top.getHexString()); g.addColorStop(1, '#' + hor.getHexString()); x.fillStyle = g; x.fillRect(0, 0, w, hh);
+    if (n > .5) { x.fillStyle = '#fff'; for (let i = 0; i < 40; i++) x.fillRect((i * 37) % w, (i * 23) % Math.max(10, hy - 6), 1, 1); x.fillStyle = '#f4f1ff'; x.beginPath(); x.arc(w * .7, 16, 5, 0, TAU); x.fill(); return; }
+    const sx = 8 + G.clamp((h - 6) / 12, 0, 1) * (w - 16); x.fillStyle = '#fff3b0'; x.beginPath(); x.arc(sx, 14 + Math.abs(sx - w / 2) * .3, 5, 0, TAU); x.fill(); x.fillStyle = 'rgba(255,255,255,.88)';
+    for (const [a, c] of [[(h * 3) % 80 - 8, 22], [(h * 3 + 40) % 80 - 8, 38], [(h * 2 + 20) % 80 - 8, 56], [(h * 4 + 10) % 80 - 8, 90]]) { if (c > hy - 10) continue; x.beginPath(); x.ellipse(a, c, 9, 3.5, 0, 0, TAU); x.ellipse(a + 6, c - 2, 6, 3, 0, 0, TAU); x.fill(); } };
+  const odw = G.drawWindowView; G.drawWindowView = (top, hor, n, h) => { odw(top, hor, n, h); winMats(); skyDraw(wsx, 64, 64, top, hor, n, h, 64); G.TEX.windowSky.needsUpdate = true; skyDraw(wtx, 64, 192, top, hor, n, h, 170);
+    const dk = n * .55; wtx.fillStyle = `rgb(${110 - dk * 80},${180 - dk * 120},${95 - dk * 60})`; wtx.beginPath(); wtx.ellipse(18, 196, 30, 24, 0, 0, TAU); wtx.fill(); wtx.beginPath(); wtx.ellipse(54, 198, 26, 22, 0, 0, TAU); wtx.fill();
+    wtx.fillStyle = `rgb(${60 - dk * 40},${120 - dk * 80},${60 - dk * 40})`; for (const tx of [8, 22, 47, 58]) { wtx.beginPath(); wtx.moveTo(tx - 3, 182); wtx.lineTo(tx, 172); wtx.lineTo(tx + 3, 182); wtx.fill(); } G.TEX.windowTall.needsUpdate = true; };
+  // décor propre à chaque lieu
+  const TH = {
+    boutique: { sign: 'BOUTIQUE', bg: '#2f7a4a', fg: '#fff3c8', art: ['🍎', '🧺', '🪴', '🔨'], cur: 0x4fb35f, it: 'epicerie' },
+    cafe: { sign: 'CAFÉ', bg: '#3a2416', fg: '#f3d9a0', art: ['☕', '🥐', '🫖', '🍰'], cur: 0x8a5a34, it: 'cafe', clock: 1 },
+    salon: { sign: 'SALON DE COIFFURE', bg: '#b06ab3', fg: '#ffffff', art: ['💇', '💅', '🎀', '✂️'], cur: 0xff9fc0, it: 'flacons' },
+    chausseur: { sign: 'CHAUSSURES', bg: '#2f6b6b', fg: '#ffffff', art: ['👠', '👟', '🥾', '👞'], cur: 0x2f6b6b, it: 'chaussures' },
+    jardinerie: { sign: 'JARDINERIE', bg: '#2f6b3a', fg: '#f6ffd8', art: ['🌻', '🌷', '🌱', '🐝'], cur: 0x6b8f3a, it: 'pots' },
+    agence: { sign: 'AGENCE NID DOUILLET', bg: '#3d4f7a', fg: '#ffffff', art: ['🏠', '🏡', '🏰', '🔑'], cur: 0x3d4f7a, it: 'classeurs', clock: 1 },
+    club: { sign: 'CLUB', bg: '#1b1030', fg: '#ff6fd8', art: ['🎵', '🎸', '🎤', '🎧'], cur: 0x5b3f8f, it: 'disques', disco: 1 },
+    couturiere: { sign: 'COUTURE', bg: '#e86f9c', fg: '#ffffff', art: ['🧵', '👗', '🎩', '🪡'], cur: 0xe86f9c, it: 'tissus' },
+    musee: { sign: 'MUSÉE', bg: '#5a4632', fg: '#f3e3b0', art: ['🦴', '🦋', '🐟', '🐚'], cur: 0x8a6a46 },
+    galerie: { sign: 'GALERIE', bg: '#1d1d1d', fg: '#e8c25a', art: [], cur: 0xd9b84a },
+    melimelo: { sign: 'MÉLI-MÉLO', bg: '#6b4426', fg: '#ffe9b0', art: ['🧸', '🕰️', '🎲', '📻'], cur: 0xc96f5a, it: 'bibelots' },
+    voyante: { sign: 'VOYANCE', bg: '#2e1a52', fg: '#e8c25a', art: ['🔮', '🌙', '⭐', '🃏'], cur: 0x5b3a8c, it: 'cristaux' },
+    rounard: { sign: 'CHEZ ROUNARD', bg: '#1f4f4a', fg: '#ffb347', art: ['🦊', '🖼️', '🏺', '💎'], cur: 0xe8803a, it: 'bibelots' },
+    hutte: { art: ['🌴', '🐚', '🐠', '🌺'], cur: 0xd8a24a, it: 'coquillages' },
+    habitant: { art: ['🌄', '🐟', '🌸', '🎈'], it: 'livres', home: 1, clock: 1 },
+    maison: { art: ['🌄', '⛵', '🌻'], it: 'livres', home: 1, clock: 1 }, villa: { art: ['🌅', '🏖️', '🌺'], it: 'livres', home: 1, clock: 1 },
+    cabane: { art: ['🦌', '🌲', '🎣'], cur: 0xc0392b, it: 'livres', home: 1 }, tente: { art: ['🏕️'], home: 1 }
+  };
+  function shelfItems(b, T, ry, lx, y, w, kind, r) { const n = Math.max(3, Math.floor(w / .17)), st = (w - .18) / (n - 1), C = a => a[Math.floor(r() * a.length)];
+    for (let k = 0; k < n; k++) { const x = lx - w / 2 + .09 + k * st, P = (yy, zz = .16) => T(x, y + yy, zz);
+      if (kind === 'epicerie') { if (k % 3 === 0) { b.cyl(.05, .05, .14, 8, C([0xffd23f, 0xe8434a, 0x4fb35f]), ...P(.07)); b.cyl(.052, .052, .03, 8, 0xd9b84a, ...P(.155)); } else if (k % 3 === 1) rb(b, .11, .17, .08, .01, C([0xe8a23a, 0x5b8fd6, 0xf3e6c8]), ...P(.085), 0, ry, 0); else b.sph(.07, 0xd8c3a0, ...P(.06), 1, .85, .8, 0, 8, 6); }
+      else if (kind === 'cafe') { if (k % 2) { b.cyl(.04, .034, .08, 10, 0xffffff, ...P(.04)); b.cyl(.06, .06, .01, 10, 0xffffff, ...P(.005)); } else { b.cyl(.05, .05, .16, 10, C([0x6b4426, 0x8a5a34, 0x3a2416]), ...P(.08)); b.cyl(.053, .053, .03, 10, GOLD, ...P(.165)); } }
+      else if (kind === 'flacons') { const c = C([0xff9fc0, 0x9fd8ff, 0xffffff, 0xc7a8ff]); b.cyl(.035, .04, .14, 8, c, ...P(.07)); b.cyl(.015, .02, .05, 6, 0xd9d9d9, ...P(.16)); }
+      else if (kind === 'chaussures') { if (k % 2) continue; const c = C([0xe8434a, 0x2f2f2f, 0x8a5a34, 0xffffff, 0x5b8fd6]); for (const s of [-.035, .035]) { rb(b, .07, .06, .16, .02, c, ...T(x + s, y + .03, .16), 0, ry, 0); b.sph(.035, c, ...T(x + s, y + .05, .23), 1, .7, 1, 0, 6, 4); } }
+      else if (kind === 'pots') { b.cyl(.06, .045, .1, 10, 0xc9714f, ...P(.05)); b.jit(.1); b.blob(.07, 0, C([0x4fa84a, 0x63bf55, 0x3d8f43]), ...P(.15)); b.jit(0); if (k % 2) b.sph(.03, C([0xff6f91, 0xffd23f, 0xffffff]), ...P(.2), 1, 1, 1, 0, 5, 4); }
+      else if (kind === 'classeurs') { rb(b, .045, .26, .2, .008, C([0x3d4f7a, 0xe8434a, 0x4fb35f, 0xffd23f, 0xffffff]), ...P(.13), 0, ry, 0); }
+      else if (kind === 'disques') { b.cyl(.12, .12, .012, 16, 0x151515, ...T(x, y + .12, .14), PI / 2, ry, 0); b.cyl(.04, .04, .014, 10, C([0xe8434a, 0xffd23f, 0x5b8fd6]), ...T(x, y + .12, .14), PI / 2, ry, 0); }
+      else if (kind === 'tissus') { b.cyl(.05, .05, .26, 10, C([0xe86f9c, 0x5b8fd6, 0xffd23f, 0x4fb35f, 0xb583e6, 0xffffff]), ...P(.05), PI / 2, ry + PI / 2, 0); }
+      else if (kind === 'cristaux') { if (k % 2) { b.geo(new THREE.OctahedronGeometry(.05, 0), C([0xb9a8ff, 0x9fd8ff, 0xff9fd8]), b.M(...P(.08), 0, 0, 0, 1, 1.6, 1), 1); } else { b.cyl(.02, .02, .1, 6, 0xfff6e0, ...P(.05)); b.sph(.018, 0xffd27a, ...P(.12), 1, 1.4, 1, 1, 5, 4); } }
+      else if (kind === 'coquillages') { if (k % 2) b.cone(.05, .1, 7, C([0xffe0d0, 0xf3c6a0, 0xffffff]), ...P(.05)); else b.sph(.05, C([0xffb3a0, 0xf3e6c8]), ...P(.035), 1, .6, 1, 0, 8, 5); }
+      else if (kind === 'bibelots') { const t = k % 4; if (t === 0) b.cyl(.04, .06, .16, 10, C([0x2f5fa8, 0xc96f5a, 0x4fb35f]), ...P(.08)); else if (t === 1) { b.box(.1, .12, .06, 0x8a5a34, ...P(.06), 0, ry, 0); b.cyl(.035, .035, .01, 10, 0xfffaf0, ...P(.07, .195), PI / 2, ry, 0); } else if (t === 2) b.sph(.05, C([0xffd23f, 0xe8434a]), ...P(.05), 1, 1, 1, 0, 8, 6); else rb(b, .1, .07, .1, .01, C([0xe8c25a, 0xb583e6]), ...P(.035), 0, ry, 0); }
+      else { const c = C([0xe8434a, 0x5b8fd6, 0x4fb35f, 0xffc23d, 0x8d6fd1, 0xf3ece0]); if (k === n - 1) { b.cyl(.05, .04, .08, 8, 0xc9714f, ...P(.04)); b.blob(.06, 0, 0x4fa84a, ...P(.12)); } else rb(b, .04, .2 + (k % 3) * .03, .16, .006, c, ...P(.1 + (k % 3) * .015), 0, ry, 0); } } }
+  function decor(m) { const K = m.kind, th = TH[K]; if (!th || !m.shell) return; const W = m.W, H = m.H, b = G.mb(480), g = new THREE.Group(), RK = G.ROOMKINDS[K] || {}, trim = RK.trim || 0xd9a066, r = G.rng((G.hashStr ? G.hashStr(m.id) : 7) + 3);
+    const wxs = []; for (let k = 0, nW = Math.max(1, Math.floor(W / 4)); k < nW; k++) wxs.push((k + .5) * W / nW); const sw = H >= 8 ? H * .45 : -9;
+    const FR = [{ p: (lx, y, o) => [lx, y, o], ry: 0, L: W, win: wxs }, { p: (lx, y, o) => [o, y, lx], ry: PI / 2, L: H - .3, win: [sw] }, { p: (lx, y, o) => [W - o, y, lx], ry: -PI / 2, L: H - .3, win: [sw] }];
+    const dark = new THREE.Color(trim).multiplyScalar(.75).getHex();
+    // lambris, cimaise et corniche sur les trois murs
+    for (const f of FR) { const T = f.p; b.box(f.L, .85, .03, dark, ...T(f.L / 2, .43, .015), 0, f.ry, 0); for (let x = .45; x < f.L - .2; x += .9) b.box(.7, .55, .015, trim, ...T(x, .45, .035), 0, f.ry, 0);
+      b.box(f.L, .06, .06, trim, ...T(f.L / 2, .88, .03), 0, f.ry, 0); b.box(f.L, .12, .08, 0xf7f2e8, ...T(f.L / 2, 2.92, .04), 0, f.ry, 0); b.box(f.L, .04, .1, trim, ...T(f.L / 2, 2.84, .05), 0, f.ry, 0); }
+    // rideaux aux fenêtres du fond
+    const cc = th.cur != null ? th.cur : trim; for (const x of wxs) { for (const s of [-1, 1]) { b.box(.3, 1.25, .05, cc, x + s * .6, 1.68, .09); for (let k = 0; k < 3; k++) b.box(.04, 1.2, .07, new THREE.Color(cc).multiplyScalar(.8).getHex(), x + s * .6 - .1 + k * .1, 1.68, .1); } b.box(1.6, .18, .09, cc, x, 2.33, .1); b.cyl(.015, .015, 1.7, 6, GOLD, x, 2.42, .13, 0, 0, PI / 2); }
+    // enseigne du lieu au-dessus du centre du mur du fond
+    if (th.sign) { const w = Math.min(W - 1.5, .9 + th.sign.length * .16); const sg = textPlane(w, .36, 512, Math.round(512 * .36 / w), (c, cw, ch) => { c.fillStyle = th.bg; c.fillRect(0, 0, cw, ch); c.strokeStyle = th.fg; c.lineWidth = 4; c.strokeRect(6, 6, cw - 12, ch - 12); c.fillStyle = th.fg; c.font = 'bold ' + Math.round(ch * .55) + 'px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(th.sign, cw / 2, ch / 2 + 2); });
+      sg.position.set(W / 2, 2.6, .08); g.add(sg); b.box(w + .1, .44, .04, GOLD, W / 2, 2.6, .05); }
+    // le long des murs : étagères garnies, tableaux, appliques, horloge
+    let slot = 0, clk = false;
+    for (const f of FR) { const T = f.p; for (let x = 1.0; x < f.L - .7; x += 1.55) { if (f.win.some(w => Math.abs(w - x) < 1.0)) continue; if (f.ry === 0 && th.sign && Math.abs(x - W / 2) < 1.6) continue;
+      const kind = slot++ % 4;
+      if (kind === 0 && th.it) { b.box(1.1, .05, .32, 0x8a5a34, ...T(x, 2.0, .16), 0, f.ry, 0); for (const s of [-.45, .45]) b.box(.04, .18, .26, 0x6b4426, ...T(x + s, 1.9, .13), 0, f.ry, 0); shelfItems(b, T, f.ry, x, 2.025, 1.0, th.it, r); }
+      else if ((kind === 1 || kind === 3) && th.art.length) { const e = th.art[Math.floor(r() * th.art.length)], w = .62, hh = .76; b.box(w + .12, hh + .12, .04, th.home ? 0x8a5a34 : GOLD, ...T(x, 1.85, .02), 0, f.ry, 0);
+        const ap = textPlane(w, hh, 128, 156, (c, cw, ch) => { c.fillStyle = th.bg || '#f3ecdc'; c.fillRect(0, 0, cw, ch); c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(10, 10, cw - 20, ch - 20); c.font = Math.round(cw * .55) + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e, cw / 2, ch / 2 + 4); });
+        ap.position.set(...T(x, 1.85, .045)); ap.rotation.y = f.ry; g.add(ap); }
+      else if (kind === 2) { if (th.clock && !clk) { clock(b, F(...T(x, 1.95, 0), f.ry), .26, 10, 10, 0x8a5a34); clk = true; } else { b.box(.06, .2, .1, GOLD, ...T(x, 2.0, .05), 0, f.ry, 0); b.cyl(.06, .09, .14, 10, 0xfff1c8, ...T(x, 2.15, .14), 0, 0, 0, 1); b.cyl(.02, .02, .1, 6, GOLD, ...T(x, 2.04, .12)); } } } }
+    // lampes suspendues, boule à facettes au club
+    const nL = W * H > 60 ? 2 : 1; for (let k = 0; k < nL; k++) { const x = W * (k + 1) / (nL + 1), z = H * .42; b.cyl(.01, .01, .55, 4, 0x555555, x, 2.72, z); b.cyl(.05, .22, .18, 14, th.home ? 0xf3e6c8 : trim, x, 2.38, z, 0, 0, 0, 0, true); b.sph(.07, 0xfff1c8, x, 2.3, z, 1, 1, 1, 1, 8, 6); }
+    if (th.disco) { b.cyl(.01, .01, .5, 4, 0x888888, W / 2, 2.75, H * .5); b.ico(.28, 1, 0xdfe6f0, W / 2, 2.35, H * .5); for (let i = 0; i < 24; i++) { const a = i / 24 * TAU, y = 2.35 + Math.sin(i * 1.7) * .2; b.box(.05, .05, .01, [0xff6fd8, 0x6fd8ff, 0xffe36f][i % 3], W / 2 + Math.cos(a) * .27, y, H * .5 + Math.sin(a) * .27, 0, -a, 0, 1); }
+      for (const [x, c] of [[.6, 0xff4fd8], [W - .6, 0x4fd8ff]]) { b.cone(.12, .25, 10, 0x222222, x, 2.6, .5, -.6); b.cone(.1, .02, 10, c, x, 2.5, .62, -.6, 0, 0, 1); } }
+    const me = new THREE.Mesh(b.done(), G.MATS); me.receiveShadow = true; g.add(me); g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell.add(g); }
+  const ob6 = G.buildShell; G.buildShell = m => { winMats(); ob6(m); if (!m.interior || !m.shell) return;
+    if (/_e\d/.test(m.id)) m.shell.traverse(c => { if (c.material === G.M.window) c.material = G.M.windowSky; });
+    if (m._gx || (m.kind === 'maison' && isCh(m)) || (m.kind === 'mairie' && m.W >= 20)) return; decor(m); };
+
 })();
