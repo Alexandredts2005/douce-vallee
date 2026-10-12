@@ -133,6 +133,8 @@
     if (v < 10) [[.05, -.24, .2], [.2, -.3, -.08], [-.16, -.28, -.1], [-.02, -.36, .02]].forEach(q => { b.sph(.15, 0x5e4126, tx + q[0], ty + q[1], q[2], 1, 1.08, 1, 0, 12, 9); b.sph(.03, 0x2e2015, tx + q[0] * 1.6, ty + q[1] - .02, q[2] * 1.6, 1, 1, 1, 0, 6, 4); });
     return b.done(); };
   for (const k in T) both(k, T[k]);
+  // outils partagés (plantes de la gare, etc.)
+  G.TREEKIT = { vnoise, fbm, raw, paint, bark, trunk, limb, foliage, lo };
 
   // ===== feuilles qui tombent =====
   G.leafFall = true;

@@ -218,128 +218,195 @@
     return b.done(); };
   O.gare.h = 9;
 
-  // ===================== 4. LE GRAND HALL DE LA GARE (intérieur 26×20) =====================
-  const IRON = 0x45524f, GW = 26, GH = 20, WH = 9, RISE = 6.2, CZ = 11.2, TX = [4, 13, 22];
+  // ===================== 4. LE GRAND HALL DE LA GARE (intérieur 44×38, façon Gare de Lyon) =====================
+  // quatre voies sous une immense voûte de fer et de verre ; au sud le hall des pas perdus : rosace de marbre, horloge géante,
+  // tableau des départs, mezzanine du restaurant « Le Train Bleu », boutiques, affiches de voyage, lustres et poussière dorée
+  const IRON = 0x3d4744, GW = 44, GH = 38, WH = 13, RISE = 10, CZ = 24, TX = [6, 15, 29, 38];
+  G.GARE = { GW, GH, WH, RISE, CZ, TX };
   G.ROOMKINDS.gare = Object.assign({}, G.ROOMKINDS.gare, { W: GW, H: GH });
-  G.ROOMNPC = G.ROOMNPC || {}; G.ROOMNPC.gare = ['gare', 3, 12.45];
-  G.ROOMFILL = G.ROOMFILL || {};
-  G.ROOMFILL.gare = (m, P) => { m.meta.sunny = 1; m.meta.cam = { pitch: .4, dist: 16.5, ty: 2.4, fx: .6, fz: .7, dz: 1.6 };
-    P('train_quai', 3, 0, 0, { v: 0 }); P('train_quai', 21, 0, 0, { v: 1 }); P('guichet', 1, 13); P('casiers', 6, 13); P('kiosque_journaux', 20, 13); P('stand_fleurs', 23, 16);
-    P('piano', 8, 16); P('horloge', 13, 12); P('chariot_bagages', 10, 12); P('chariot_bagages', 16, 12);
-    for (const [x, z, r] of [[7, 3, 1], [7, 7, 1], [18, 3, 3], [18, 7, 3], [11, 15, 0], [14, 15, 0]]) P('banc', x, z, r);
-    for (const [x, z] of [[9, 1], [9, 5], [9, 9], [17, 1], [17, 5], [17, 9], [6, 18], [20, 18], [0, 12], [25, 12]]) P('lampadaire', x, z);
-    for (const [x, z] of [[18, 16], [20, 16]]) { P('table', x, z); P('chaise', x - 1, z, 1); P('chaise', x, z + 1, 2); }
-    for (const [x, z] of [[0, 19], [25, 19], [12, 18], [15, 18], [5, 15]]) P('plante', x, z); P('pot_fleurs', 11, 17); P('pot_fleurs', 16, 17); };
-  // le décor du hall : quais et voies, murs à arcades, voûte de fer et de verre, tableau des départs, horloge, lumière
   const ob = G.buildShell;
-  G.buildShell = m => { if (m.kind !== 'gare' || m.W < 20) return ob(m); grandShell(m); };
-  let glassMat = null, shaftTex = null;
+  G.buildShell = m => { if (m.kind !== 'gare' || m.W < GW) return ob(m); grandShell(m); };
+  let glassMat = null, shaftTex = null, haloTex = null, platTex = null;
   const gradTex = () => { const c = document.createElement('canvas'); c.width = 32; c.height = 128; const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(.6, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 128);
     const h = x.createLinearGradient(0, 0, 32, 0); h.addColorStop(0, 'rgba(0,0,0,1)'); h.addColorStop(.3, 'rgba(0,0,0,0)'); h.addColorStop(.7, 'rgba(0,0,0,0)'); h.addColorStop(1, 'rgba(0,0,0,1)'); x.globalCompositeOperation = 'destination-out'; x.fillStyle = h; x.fillRect(0, 0, 32, 128); return new THREE.CanvasTexture(c); };
+  const radTex = () => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); };
   const textPlane = (w, h, cw, ch, draw) => { const c = document.createElement('canvas'); c.width = cw; c.height = ch; const ctx = c.getContext('2d'), tex = new THREE.CanvasTexture(c); draw(ctx, cw, ch); tex.anisotropy = 4;
-    const me = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })); me.userData = { ctx, tex, cw, ch }; return me; };
+    const me = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, transparent: true })); me.userData = { ctx, tex, cw, ch }; return me; };
   const vx = p => GW / 2 + GW / 2 * Math.cos(p), vy = (p, s = 0) => WH + (RISE - s) * Math.sin(p);
+  // affiches de voyage (style PLM des années 1930) dessinées à la main
+  const POSTERS = [['CÔTE D\'AZUR', 'mer', '#ff9a52', '#2f7fb8'], ['CHAMONIX', 'montagne', '#9fd0f0', '#ffffff'], ['VENISE', 'lagune', '#ffcf7a', '#c0503c'], ['PROVENCE', 'lavande', '#ffd27a', '#8d6fd1'],
+    ['ORIENT-EXPRESS', 'train', '#1d2f5e', '#e8c25a'], ['NICE', 'palmiers', '#ffb27a', '#2f9a8a'], ['ANNECY', 'lac', '#bfe3f5', '#3f7a58'], ['ISTANBUL', 'minarets', '#f3a25a', '#7a2f5a']];
+  function drawPoster(c, w, h, [title, kind, sky, accent]) {
+    const g = c.createLinearGradient(0, 0, 0, h * .7); g.addColorStop(0, sky); g.addColorStop(1, '#fff1d6'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(255,240,200,.95)'; c.beginPath(); c.arc(w * .7, h * .22, w * .12, 0, TAU); c.fill();
+    if (kind === 'mer' || kind === 'lagune' || kind === 'lac' || kind === 'palmiers') { c.fillStyle = kind === 'lac' ? '#4f8fb8' : '#2f6fa8'; c.fillRect(0, h * .5, w, h * .25); c.fillStyle = 'rgba(255,255,255,.5)'; for (let i = 0; i < 6; i++) c.fillRect(w * (.1 + i * .14), h * (.55 + (i % 3) * .05), w * .08, 2); }
+    if (kind === 'montagne' || kind === 'lac') { c.fillStyle = '#7a8fa8'; c.beginPath(); c.moveTo(0, h * .52); c.lineTo(w * .3, h * .22); c.lineTo(w * .5, h * .4); c.lineTo(w * .72, h * .18); c.lineTo(w, h * .5); c.fill(); c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(w * .25, h * .27); c.lineTo(w * .3, h * .22); c.lineTo(w * .35, h * .27); c.fill(); c.beginPath(); c.moveTo(w * .67, h * .23); c.lineTo(w * .72, h * .18); c.lineTo(w * .77, h * .23); c.fill(); }
+    if (kind === 'lavande') for (let r = 0; r < 7; r++) { c.strokeStyle = r % 2 ? '#8d6fd1' : '#a98fe6'; c.lineWidth = 7; c.beginPath(); c.moveTo(w * .5, h * .45); c.lineTo(w * (-.2 + r * .23), h * .78); c.stroke(); }
+    if (kind === 'palmiers' || kind === 'mer') for (const x of [.18, .82]) { c.strokeStyle = '#5a3a22'; c.lineWidth = 5; c.beginPath(); c.moveTo(w * x, h * .78); c.quadraticCurveTo(w * (x + .05), h * .5, w * x, h * .32); c.stroke(); c.fillStyle = '#2f7a3a'; for (let i = 0; i < 6; i++) { c.beginPath(); c.ellipse(w * x + Math.cos(i) * 12, h * .32 + Math.sin(i) * 5, 16, 5, i, 0, TAU); c.fill(); } }
+    if (kind === 'lagune' || kind === 'minarets') { c.fillStyle = kind === 'lagune' ? '#c97a4a' : '#a8607a'; for (const [x, ww, hh] of [[.1, .12, .2], [.3, .1, .14], [.55, .14, .24], [.78, .1, .17]]) c.fillRect(w * x, h * (.5 - hh), w * ww, h * hh); if (kind === 'minarets') for (const x of [.25, .7]) { c.fillRect(w * x, h * .16, 6, h * .34); c.beginPath(); c.arc(w * x + 3, h * .16, 6, PI, 0); c.fill(); } }
+    if (kind === 'train') { c.fillStyle = '#e8c25a'; c.fillRect(w * .1, h * .5, w * .8, h * .12); c.fillStyle = '#ffe2a0'; for (let i = 0; i < 6; i++) c.fillRect(w * (.14 + i * .12), h * .52, w * .07, h * .05); c.fillStyle = '#111'; c.beginPath(); c.arc(w * .25, h * .64, 9, 0, TAU); c.arc(w * .75, h * .64, 9, 0, TAU); c.fill(); c.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(w * (.12 - i * .03), h * (.44 - i * .06), 10 + i * 4, 0, TAU); c.fill(); } }
+    c.fillStyle = '#f7ecd4'; c.fillRect(0, h * .77, w, h * .23); c.fillStyle = accent; c.font = `bold ${Math.round(w * .11)}px Georgia, serif`; c.textAlign = 'center'; c.fillText(title, w / 2, h * .87);
+    c.fillStyle = '#3a2a1e'; c.font = `${Math.round(w * .055)}px Georgia, serif`; c.fillText('CHEMINS DE FER P.L.M.', w / 2, h * .95); c.strokeStyle = '#3a2a1e'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6); }
+  // horloge (cadran blanc, chiffres d'or) ; T = repère de la face
+  function bigClock(b, x, y, z, ry, r) { const T = face(x, y, z, ry); b.cyl(r + .2, r + .2, .2, 40, 0xd8cbb0, ...T(0, 0, .1), PI / 2, ry, 0); b.cyl(r, r, .06, 40, 0xfffaf0, ...T(0, 0, .22), PI / 2, ry, 0);
+    b.tor(r, .06, GOLD, ...T(0, 0, .25), 0, ry, 0, 0, 40); b.tor(r * .9, .02, 0x222222, ...T(0, 0, .26), 0, ry, 0, 0, 40);
+    for (let k = 0; k < 60; k++) { const a = k / 60 * TAU, big = k % 5 === 0; b.box(big ? .26 * r / 1.6 : .1 * r / 1.6, big ? .07 : .03, .02, big ? GOLD : 0x333333, ...T(Math.cos(a) * r * .82, Math.sin(a) * r * .82, .27), 0, ry, a); }
+    for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; b.sph(.05, GOLD, ...T(Math.cos(a) * r * .66, Math.sin(a) * r * .66, .27), 1, 1, .4, 0, 8, 6); } }
   function grandShell(m) {
     if (m.shell) { m.group.remove(m.shell); m.shell.traverse(c => c.geometry && c.geometry.dispose()); }
-    const g = new THREE.Group(), b = G.mb(400), gx = { hands: [], shafts: [] };
-    const fl = (id, w, h, x, z) => { const t = G.patTex('floor', id), geo = new THREE.PlaneGeometry(w, h), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * h / 2); const me = new THREE.Mesh(geo, G.toon({ map: t }, {})); me.rotation.x = -PI / 2; me.position.set(x, .001, z); me.receiveShadow = true; g.add(me); };
-    fl('marbre', GW, GH - CZ, GW / 2, CZ + (GH - CZ) / 2); fl('pierre', GW, CZ, GW / 2, CZ / 2);
+    const g = new THREE.Group(), b = G.mb(400), gx = { hands: [], shafts: [], halos: [] }, ST = 0xe9dcc3, ST2 = 0xd8c9ac, ST3 = 0xf2e8d4;
+    const fl = (id, w, h, x, z, rep = 2) => { const t = G.patTex('floor', id), geo = new THREE.PlaneGeometry(w, h), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / rep, uv.getY(i) * h / rep); const me = new THREE.Mesh(geo, G.toon({ map: t }, {})); me.rotation.x = -PI / 2; me.position.set(x, .001, z); me.receiveShadow = true; g.add(me); };
+    fl('marbre', GW, GH - CZ, GW / 2, CZ + (GH - CZ) / 2, 2.5);
+    if (!platTex) { const c = G.cv(256, 256), x = c.getContext('2d'), r = G.rng(77); x.fillStyle = '#cbc2b0'; x.fillRect(0, 0, 256, 256); for (let i = 0; i < 2600; i++) { const v = r(); x.fillStyle = v < .5 ? 'rgba(120,110,95,.18)' : 'rgba(255,250,240,.22)'; x.fillRect(r() * 256, r() * 256, 1 + r() * 2, 1 + r() * 2); }
+      for (const [a, b2] of [[0, 0], [128, 0], [0, 128], [128, 128]]) { x.fillStyle = 'rgba(255,255,255,' + (.04 + r() * .06) + ')'; x.fillRect(a + 2, b2 + 2, 124, 124); } x.strokeStyle = 'rgba(80,72,60,.35)'; x.lineWidth = 2; for (const v of [1, 128]) { x.beginPath(); x.moveTo(v, 0); x.lineTo(v, 256); x.moveTo(0, v); x.lineTo(256, v); x.stroke(); }
+      platTex = new THREE.CanvasTexture(c); platTex.wrapS = platTex.wrapT = THREE.RepeatWrapping; platTex.anisotropy = 4; }
+    { const geo = new THREE.PlaneGeometry(GW, CZ), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * GW / 2, uv.getY(i) * CZ / 2); const me = new THREE.Mesh(geo, G.toon({ map: platTex }, {})); me.rotation.x = -PI / 2; me.position.set(GW / 2, .001, CZ / 2); me.receiveShadow = true; g.add(me); }
     b.box(GW + 2, .3, GH + 1, 0x3a2a1e, GW / 2, -.16, GH / 2);
-    // voies : ballast, traverses, rails, bandes de quai, heurtoirs
-    for (const tx of TX) { b.jit(.18); b.box(2.2, .05, CZ - .2, 0x6a655e, tx, .026, (CZ - .2) / 2); b.jit(0); for (let z = .3; z < CZ - .4; z += .55) b.box(1.9, .05, .2, 0x5b3f2b, tx, .065, z);
+    // ----- la rosace de marbre du hall des pas perdus -----
+    const RX = GW / 2 + .5, RZ = CZ + 7.5;
+    [[4.2, 0x2f4a3e], [3.95, 0xefe6d4], [3.7, 0x8a2a24], [3.5, 0xefe6d4], [2.2, 0x2f4a3e], [2.0, 0xe9dcc3]].forEach(([r, c], k) => b.cyl(r, r, .01, 64, c, RX, .004 + k * .002, RZ));
+    for (let k = 0; k < 16; k++) { const a = k / 16 * TAU, s = new THREE.Shape(), L = k % 2 ? 2.6 : 3.45, W = k % 2 ? .28 : .42; s.moveTo(0, -W); s.lineTo(L, 0); s.lineTo(0, W); s.lineTo(-.2, 0); s.lineTo(0, -W);
+      b.geo(new THREE.ShapeGeometry(s), k % 2 ? 0xc9a24a : 0x8a2a24, b.M(RX, .018 + (k % 2) * .001, RZ, -PI / 2, 0, a)); }
+    b.cyl(.9, .9, .012, 32, 0x2f4a3e, RX, .02, RZ); b.cyl(.75, .75, .014, 32, GOLD, RX, .021, RZ); b.cyl(.6, .6, .016, 32, 0xefe6d4, RX, .022, RZ);
+    // bordure de marbre vert entre les quais et le hall, et dalles de quai
+    b.box(GW, .012, .5, 0x2f4a3e, GW / 2, .006, CZ); for (let x = 0; x < GW; x += 2) b.box(.02, .013, .5, GOLD, x, .007, CZ);
+    // ----- voies : ballast, traverses, rails, bordures de quai, heurtoirs ornés -----
+    for (const tx of TX) { b.jit(.2); b.box(2.3, .05, CZ - .2, 0x6a655e, tx, .026, (CZ - .2) / 2); b.jit(0); for (let z = .3; z < CZ - .4; z += .55) b.box(1.9, .05, .2, 0x5b3f2b, tx, .065, z);
       for (const s of [-.72, .72]) { b.box(.09, .1, CZ - .3, 0x8d9298, tx + s, .12, (CZ - .3) / 2); b.box(.06, .02, CZ - .3, 0xd8dde2, tx + s, .18, (CZ - .3) / 2); }
-      for (const s of [-1, 1]) { b.box(.1, .012, CZ - .2, 0xffffff, tx + s * 1.18, .008, (CZ - .2) / 2); b.box(.28, .014, CZ - .2, 0xf2c94c, tx + s * 1.45, .008, (CZ - .2) / 2); }
-      for (const s of [-.62, .62]) { b.box(.16, .9, .16, 0xc8342c, tx + s, .45, CZ - .1); b.cyl(.13, .13, .16, 12, 0x2a2a2a, tx + s, .72, CZ - .26, PI / 2, 0, 0); }
-      b.box(1.55, .3, .22, 0xc8342c, tx, .74, CZ - .1); for (let k = 0; k < 4; k++) b.box(.16, .3, .23, 0xffffff, tx - .55 + k * .36, .74, CZ - .1); }
-    // murs latéraux : arcades à pilastres, hautes fenêtres, corniches
-    b.P(PT.pierre); b.box(.6, WH, GH + .6, 0xe9dcc3, -.3, WH / 2, GH / 2); b.box(.6, WH, GH + .6, 0xe9dcc3, GW + .3, WH / 2, GH / 2); b.P(0);
-    for (const [x, s] of [[0, 1], [GW, -1]]) { b.P(PT.pierre); b.box(.5, .4, GH, 0xd8c9ac, x + s * .1, WH - .1, GH / 2); b.box(.4, .25, GH, 0xd8c9ac, x + s * .08, 4.4, GH / 2); b.box(.35, .5, GH, 0xcdbd9e, x + s * .1, .25, GH / 2); b.P(0);
-      for (let z = 0; z <= GH; z += 2) b.box(.36, WH - .6, .42, 0xf2e8d4, x + s * .14, (WH - .6) / 2, z);
-      for (let z = 1; z < GH; z += 2) { const shop = s < 0 && z > CZ && z < GH - 1, rest = s > 0 && z > CZ && z < GH - 1;
-        if (!rest) { b.box(.06, 3.2, 1.25, 0xf7f2e6, x + s * .05, 6.4, z); b.geo(new THREE.CylinderGeometry(.62, .62, .06, 16, 1, false, -PI / 2, PI), 0xf7f2e6, b.M(x + s * .05, 8.0, z, -PI / 2, s * PI / 2, 0)); b.box(.04, 3.1, 1.1, 0xcfe8f8, x + s * .09, 6.4, z, 0, 0, 0, 1); b.box(.03, .04, 1.1, IRON, x + s * .12, 6.4, z); b.box(.03, 3.1, .04, IRON, x + s * .12, 6.4, z); }
-        if (!shop && !rest && z < CZ) { b.box(.05, 2.6, 1.3, 0x8e6b4a, x + s * .03, 1.6, z); b.geo(new THREE.CylinderGeometry(.65, .65, .05, 16, 1, false, -PI / 2, PI), 0x8e6b4a, b.M(x + s * .03, 2.9, z, -PI / 2, s * PI / 2, 0)); } } }
-    // le restaurant « Le Train Bleu » en mezzanine (mur de gauche) : balcon doré, grandes baies chaudes
-    b.P(PT.pierre); b.box(1.2, .25, GH - CZ - 1.4, 0xe2d4b8, .6, 4.0, (CZ + GH - 1.4) / 2 + .3); b.P(0);
-    for (let z = CZ + .9; z < GH - 1; z += .22) b.cyl(.03, .04, .5, 6, GOLD, 1.18, 4.38, z); b.box(.08, .07, GH - CZ - 1.6, GOLD, 1.18, 4.65, (CZ + GH - 1.4) / 2 + .3);
-    for (let z = CZ + 1.6; z < GH - 1; z += 2) { b.box(.06, 2.4, 1.5, GOLD, .05, 5.6, z); b.box(.04, 2.2, 1.3, 0xffd9a0, .09, 5.6, z, 0, 0, 0, 1); b.geo(new THREE.CylinderGeometry(.75, .75, .06, 16, 1, false, -PI / 2, PI), GOLD, b.M(.05, 6.8, z, -PI / 2, PI / 2, 0)); b.geo(new THREE.CylinderGeometry(.65, .65, .05, 16, 1, false, -PI / 2, PI), 0xffe2b0, b.M(.09, 6.8, z, -PI / 2, PI / 2, 0), 1);
-      b.sph(.2, 0xfff1c8, .7, 6.3, z, 1, 1, 1, 1, 10, 8); for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; b.sph(.06, 0xfff1c8, .7 + Math.cos(a) * .28, 6.15, z + Math.sin(a) * .28, 1, 1, 1, 1, 6, 4); } }
-    // boutiques au rez-de-chaussée (mur de droite) : vitrines chaudes, auvents rayés
-    [[CZ + 1.8, 0xc8342c], [CZ + 4.2, 0x2f5fa8], [CZ + 6.4, 0x2f7a4a]].forEach(([z, c]) => { const x = GW; b.box(.1, 2.3, 2.0, 0x2f4a3e, x - .05, 1.15, z); b.box(.05, 1.6, 1.7, 0xfff0c8, x - .1, 1.1, z, 0, 0, 0, 1); b.box(.06, .3, 1.9, 0x1d2a24, x - .12, 2.15, z);
-      for (let k = 0; k < 6; k++) b.box(.6, .05, .32, k % 2 ? 0xffffff : c, x - .45, 2.45 - .0, z - .8 + k * .32, 0, 0, -.35); });
-    // mur du fond : trois arches sombres où les voies s'enfoncent, et la grande verrière du pignon
-    b.P(PT.pierre); b.box(GW + 1.2, WH, .6, 0xe9dcc3, GW / 2, WH / 2, -.3); b.P(0);
-    for (const tx of TX) { b.box(2.6, 3.0, .06, 0x15120f, tx, 1.5, .02); b.geo(new THREE.CylinderGeometry(1.3, 1.3, .06, 18, 1, false, -PI / 2, PI), 0x15120f, b.M(tx, 3.0, .02, -PI / 2, 0, 0));
-      for (let k = 0; k <= 10; k++) { const a = k / 10 * PI; b.P(PT.pierre); b.box(.3, .2, .12, k === 5 ? 0xf3ead6 : 0xd8c9ac, tx + Math.cos(a) * 1.45, 3.0 + Math.sin(a) * 1.45, .06, 0, 0, a - PI / 2); b.P(0); } }
-    for (let x = 1.5; x < GW; x += 2) b.box(.12, 1.4, .1, 0xd8c9ac, x, WH - 1.6, .05);
-    const gp = []; for (let i = 0; i <= 28; i++) { const p = i / 28 * PI; gp.push([vx(p), vy(p)]); }
-    const gl = []; for (let i = 0; i < 28; i++) { const [x0, y0] = gp[i], [x1, y1] = gp[i + 1]; gl.push(x0, WH, .05, x1, WH, .05, x1, y1, .05, x0, WH, .05, x1, y1, .05, x0, y0, .05); }
-    for (let x = 1.6; x < GW; x += 1.6) { const p = Math.acos(G.clamp((x - GW / 2) / (GW / 2), -1, 1)), top = vy(p); b.box(.08, top - WH, .08, IRON, x, (top + WH) / 2, .1); }
-    for (const y of [WH + 2, WH + 4]) { const half = GW / 2 * Math.sqrt(Math.max(0, 1 - ((y - WH) / RISE) ** 2)); b.box(half * 2, .08, .08, IRON, GW / 2, y, .1); }
-    b.tor(2.2, .08, IRON, GW / 2, WH + 1.2, .12, 0, 0, 0, 0, 24); b.tor(1.1, .05, IRON, GW / 2, WH + 1.2, .12, 0, 0, 0, 0, 18);
-    // la voûte : fermes en fer à treillis, pannes, couverture (verre au centre)
-    const NS = 24, glass = [];
+      for (const s of [-1, 1]) { b.P(PT.pierre); b.box(.32, .08, CZ - .2, 0xf3ecdc, tx + s * 1.32, .04, (CZ - .2) / 2); b.P(0); b.box(.16, .012, CZ - .2, 0xf2c94c, tx + s * 1.6, .008, (CZ - .2) / 2); }
+      for (const s of [-.62, .62]) { b.box(.18, 1.0, .2, 0x2a2f2e, tx + s, .5, CZ - .15); b.cyl(.14, .14, .18, 14, 0x2a2a2a, tx + s, .78, CZ - .32, PI / 2, 0, 0); b.cyl(.18, .18, .04, 14, 0x777777, tx + s, .78, CZ - .42, PI / 2, 0, 0); }
+      b.box(1.6, .32, .24, 0xc8342c, tx, .78, CZ - .15); for (let k = 0; k < 4; k++) b.box(.16, .32, .25, 0xffffff, tx - .55 + k * .36, .78, CZ - .15); b.cyl(.09, .07, .1, 10, 0x2a2a2a, tx, 1.05, CZ - .15); b.sph(.08, 0xff4a3a, tx, 1.14, CZ - .15, 1, 1, 1, 1, 10, 8); }
+    // ----- murs latéraux : arcades du rez-de-chaussée, hautes baies cintrées à l'étage, corniches, frise -----
+    b.P(PT.pierre); b.box(.8, WH, GH + .8, ST, -.4, WH / 2, GH / 2); b.box(.8, WH, GH + .8, ST, GW + .4, WH / 2, GH / 2); b.P(0);
+    for (const [x, s] of [[0, 1], [GW, -1]]) { b.P(PT.pierre); for (const [y, hh, d] of [[WH - .15, .5, .6], [WH - .7, .18, .4], [6.1, .35, .5], [.3, .6, .45]]) b.box(d, hh, GH, ST2, x + s * d / 3, y, GH / 2); b.P(0);
+      for (let z = 0; z <= GH; z += 4) { b.P(PT.pierre); b.box(.5, WH - .9, .7, ST3, x + s * .2, (WH - .9) / 2, z); b.P(0); b.box(.6, .3, .8, ST2, x + s * .24, 5.85, z); b.box(.6, .3, .8, ST2, x + s * .24, WH - 1.15, z); }
+      for (let z = 2; z < GH; z += 4) { const conc = z > CZ, tb = s > 0 && conc;
+        // arcade basse : arc en plein cintre
+        b.geo(new THREE.TorusGeometry(1.55, .14, 6, 20, PI), ST2, b.M(x + s * .06, 4.05, z, 0, s * PI / 2, 0), 0, true);
+        // étage : haute baie vitrée (sauf derrière le Train Bleu), meneaux de fer
+        if (!tb) { b.box(.06, 4.6, 2.6, 0xf7f2e6, x + s * .05, 9.0, z); b.geo(new THREE.CylinderGeometry(1.3, 1.3, .06, 20, 1, false, -PI / 2, PI), 0xf7f2e6, b.M(x + s * .05, 11.3, z, -PI / 2, s * PI / 2, 0));
+          b.box(.04, 4.4, 2.3, 0xcfe8f8, x + s * .09, 9.0, z, 0, 0, 0, 1); b.geo(new THREE.CylinderGeometry(1.15, 1.15, .04, 20, 1, false, -PI / 2, PI), 0xcfe8f8, b.M(x + s * .09, 11.2, z, -PI / 2, s * PI / 2, 0), 1);
+          for (const dz of [-.58, 0, .58]) b.box(.03, 5.3, .05, IRON, x + s * .12, 9.4, z + dz); for (const y of [7.6, 9.0, 10.4]) b.box(.03, .05, 2.3, IRON, x + s * .12, y, z); }
+        // rez-de-chaussée côté quais : affiches de voyage et appliques
+        if (!conc) { b.box(.05, 2.9, 2.7, 0xcdbd9e, x + s * .04, 1.75, z); b.box(.06, 1.65, 1.15, 0x3a2a1e, x + s * .07, 2.35, z);
+          for (const dz of [-1.8, 1.8]) { b.box(.12, .16, .12, GOLD, x + s * .12, 3.2, z + dz); b.cyl(.03, .03, .3, 6, GOLD, x + s * .22, 3.3, z + dz, 0, 0, s * .9); b.sph(.14, 0xfff1c8, x + s * .36, 3.45, z + dz, 1, 1.1, 1, 1, 12, 10); gx.halos.push([x + s * .36, 3.45, z + dz, 1.4]); } } } }
+    // ----- le restaurant « Le Train Bleu » en mezzanine (mur de gauche, au-dessus du hall) -----
+    const MY = 5.2, MZ0 = CZ + .6, MZ1 = GH - .6;
+    b.P(PT.pierre); b.box(3.4, .4, MZ1 - MZ0, 0xe2d4b8, 1.7, MY - .2, (MZ0 + MZ1) / 2); b.P(0); b.box(3.4, .02, MZ1 - MZ0, 0x8a1f2c, 1.7, MY + .01, (MZ0 + MZ1) / 2);
+    for (let z = MZ0 + 1.5; z < MZ1; z += 3) b.geo(new THREE.CylinderGeometry(.12, .2, .5, 10), GOLD, b.M(3.2, MY - .6, z));
+    for (let z = MZ0 + .1; z < MZ1; z += .22) { if (z > 29.8 && z < 33.2) continue; b.cyl(.03, .045, .7, 6, GOLD, 3.32, MY + .35, z); } b.box(.12, .08, MZ1 - MZ0, GOLD, 3.32, MY + .74, (MZ0 + MZ1) / 2);
+    for (let z = MZ0 + 2; z < MZ1 - 1; z += 4) { b.box(.1, 5.2, 3.0, GOLD, .06, MY + 2.9, z); b.box(.06, 4.9, 2.6, 0xffd9a0, .12, MY + 2.8, z, 0, 0, 0, 1);
+      b.geo(new THREE.CylinderGeometry(1.5, 1.5, .1, 24, 1, false, -PI / 2, PI), GOLD, b.M(.06, MY + 5.5, z, -PI / 2, PI / 2, 0)); b.geo(new THREE.CylinderGeometry(1.3, 1.3, .06, 24, 1, false, -PI / 2, PI), 0xffe6b8, b.M(.12, MY + 5.35, z, -PI / 2, PI / 2, 0), 1);
+      for (const dz of [-.65, 0, .65]) b.box(.03, 4.9, .05, GOLD, .16, MY + 2.8, z + dz); for (const y of [MY + 1.6, MY + 3.4]) b.box(.03, .05, 2.6, GOLD, .16, y, z);
+      // lustre de cristal devant chaque baie, tables nappées et lampes roses
+      const cx = 1.6; b.cyl(.012, .012, 2.0, 4, 0x555555, cx, MY + 4.6, z); b.cyl(.08, .14, .15, 10, GOLD, cx, MY + 3.6, z); b.sph(.22, 0xfff1c8, cx, MY + 3.35, z, 1, 1, 1, 1, 12, 10);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; b.sph(.07, 0xfff1c8, cx + Math.cos(a) * .4, MY + 3.2, z + Math.sin(a) * .4, 1, 1.2, 1, 1, 8, 6); seg2(b, [cx, MY + 3.4, z], [cx + Math.cos(a) * .4, MY + 3.22, z + Math.sin(a) * .4], .012, GOLD); }
+      gx.halos.push([cx, MY + 3.3, z, 2.2]);
+      for (const dz of [-1, 1]) { const tz = z + dz; b.cyl(.38, .38, .04, 18, 0xfaf6ee, 1.5, MY + .75, tz); b.cyl(.39, .36, .3, 18, 0xfaf6ee, 1.5, MY + .6, tz, 0, 0, 0, 0, true); b.cyl(.04, .05, .45, 6, IRON, 1.5, MY + .22, tz);
+        b.cyl(.02, .02, .18, 6, GOLD, 1.5, MY + .85, tz); b.cyl(.05, .09, .1, 10, 0xffb6a0, 1.5, MY + .98, tz, 0, 0, 0, 1); gx.halos.push([1.5, MY + .98, tz, .7]);
+        for (const sx of [-1, 1]) { b.box(.36, .06, .36, 0x8a1f2c, 1.5 + sx * .55, MY + .45, tz); b.box(.06, .5, .36, 0x8a1f2c, 1.5 + sx * .73, MY + .7, tz); } } }
+    b.box(.2, .9, MZ1 - MZ0, 0xe2d4b8, .15, MY + 5.9, (MZ0 + MZ1) / 2); for (let z = MZ0; z < MZ1; z += .6) b.box(.12, .12, .12, GOLD, .28, MY + 6.4, z);
+    // ----- boutiques au rez-de-chaussée (mur de droite) : devantures vertes, vitrines chaudes, stores rayés -----
+    [[CZ + 2, 0xc8342c, 'Boulangerie'], [CZ + 6, 0x2f5fa8, 'Presse'], [CZ + 10, 0x2f7a4a, 'Café de la Gare']].forEach(([z, c]) => { const x = GW;
+      b.box(.14, 3.4, 3.0, 0x1f3a2c, x - .07, 1.7, z); b.box(.06, 2.1, 1.25, 0xffe6b8, x - .15, 1.35, z - .65, 0, 0, 0, 1); b.box(.06, 2.6, .9, 0x5a3820, x - .15, 1.3, z + .8); b.sph(.04, GOLD, x - .2, 1.3, z + .5);
+      for (const dz of [-1.32, .02, 1.32]) b.box(.08, 3.3, .1, GOLD, x - .16, 1.7, z + dz); b.box(.1, .5, 3.0, 0x14261e, x - .18, 3.15, z);
+      for (let k = 0; k < 8; k++) b.box(.75, .05, .375, k % 2 ? 0xffffff : c, x - .55, 3.42, z - 1.31 + k * .375, 0, 0, -.38); for (let k = 0; k < 8; k++) b.cone(.19, .14, 3, k % 2 ? 0xffffff : c, x - .9, 3.2, z - 1.31 + k * .375, PI, 0, 0);
+      for (let k = 0; k < 6; k++) b.sph(.07, [0xd9953a, 0xc96f3a, 0xf3d9a0][k % 3], x - .25, .85 + (k % 2) * .25, z - 1.05 + Math.floor(k / 2) * .25, 1.3, .8, 1, 0, 8, 6); });
+    // ----- mur du fond : arches des voies, grand pignon vitré en éventail, horloge monumentale -----
+    b.P(PT.pierre); b.box(GW + 1.6, WH, .8, ST, GW / 2, WH / 2, -.4); b.P(0);
+    for (const tx of TX) { b.box(3.2, 4.0, .06, 0x15120f, tx, 2.0, .02); b.geo(new THREE.CylinderGeometry(1.6, 1.6, .06, 20, 1, false, -PI / 2, PI), 0x15120f, b.M(tx, 4.0, .02, -PI / 2, 0, 0));
+      for (let k = 0; k <= 12; k++) { const a = k / 12 * PI; b.P(PT.pierre); b.box(.4, .26, .16, k === 6 ? 0xf3ead6 : ST2, tx + Math.cos(a) * 1.8, 4.0 + Math.sin(a) * 1.8, .08, 0, 0, a - PI / 2); b.P(0); } }
+    b.P(PT.pierre); b.box(GW, .5, .5, ST2, GW / 2, 6.6, .25); b.box(GW, .6, .6, ST2, GW / 2, WH - .3, .3); b.P(0);
+    for (let x = 2; x < GW; x += 4) { b.box(.4, WH - 7.2, .2, ST3, x, 6.9 + (WH - 7.2) / 2, .1); } for (let x = 4; x < GW; x += 4) if (!TX.some(t => Math.abs(t - x) < 1)) { b.box(2.4, 4.0, .05, 0xf7f2e6, x, 9.4, .04); b.box(2.2, 3.8, .05, 0xcfe8f8, x, 9.4, .07, 0, 0, 0, 1); for (const dx of [-.55, 0, .55]) b.box(.05, 3.8, .04, IRON, x + dx, 9.4, .11); for (const y of [8.4, 10.4]) b.box(2.2, .05, .04, IRON, x, y, .11); }
+    const gp = []; for (let i = 0; i <= 36; i++) { const p = i / 36 * PI; gp.push([vx(p), vy(p)]); }
+    const gl = []; for (let i = 0; i < 36; i++) { const [x0, y0] = gp[i], [x1, y1] = gp[i + 1]; gl.push(x0, WH, .05, x1, WH, .05, x1, y1, .05, x0, WH, .05, x1, y1, .05, x0, y0, .05); }
+    for (let k = 1; k < 18; k++) { const p = k / 18 * PI; b.box(.1, Math.hypot(vx(p) - GW / 2, vy(p) - WH) - 2.6, .1, IRON, (GW / 2 + vx(p)) / 2 + Math.cos(p) * 1.3, (WH + vy(p)) / 2 + Math.sin(p) * 1.3, .12, 0, 0, p - PI / 2); }
+    for (const rr of [4.5, 7.5]) b.geo(new THREE.TorusGeometry(rr, .08, 6, 40, PI), IRON, b.M(GW / 2, WH, .12), 0, true);
+    bigClock(b, GW / 2, WH + 2.6, .1, 0, 2.2); b.P(PT.pierre); b.box(5.6, .4, .4, ST2, GW / 2, WH + .1, .2); b.P(0);
+    // ----- la voûte : fermes de fer à treillis, pannes, verrière centrale, lanterneau au faîte -----
+    const NS = 32, glass = [];
     for (let z = 0; z <= GH; z += 2) { for (let i = 0; i < NS; i++) { const p0 = i / NS * PI, p1 = (i + 1) / NS * PI;
-        const seg = (x0, y0, x1, y1, t) => { const L = Math.hypot(x1 - x0, y1 - y0); b.box(L + .04, t, .18, IRON, (x0 + x1) / 2, (y0 + y1) / 2, z, 0, 0, Math.atan2(y1 - y0, x1 - x0)); };
-        seg(vx(p0), vy(p0), vx(p1), vy(p1), .16); const ix0 = GW / 2 + (GW / 2 - .8) * Math.cos(p0), ix1 = GW / 2 + (GW / 2 - .8) * Math.cos(p1);
-        seg(ix0, vy(p0, .8), ix1, vy(p1, .8), .1); seg(vx(p0), vy(p0), ix1, vy(p1, .8), .06); }
-      for (const s of [0, PI]) { b.box(.5, .6, .5, IRON, vx(s) + (s ? .25 : -.25), WH - .2, z); } }
-    for (let i = 1; i < NS; i++) { const p = i / NS * PI; b.box(.1, .1, GH, IRON, vx(p), vy(p) - .05, GH / 2); }
+        const sg = (x0, y0, x1, y1, t) => { const L = Math.hypot(x1 - x0, y1 - y0); b.box(L + .04, t, .2, IRON, (x0 + x1) / 2, (y0 + y1) / 2, z, 0, 0, Math.atan2(y1 - y0, x1 - x0)); };
+        sg(vx(p0), vy(p0), vx(p1), vy(p1), .2); const ix0 = GW / 2 + (GW / 2 - 1.1) * Math.cos(p0), ix1 = GW / 2 + (GW / 2 - 1.1) * Math.cos(p1);
+        sg(ix0, vy(p0, 1.1), ix1, vy(p1, 1.1), .12); sg(vx(p0), vy(p0), ix1, vy(p1, 1.1), .06); sg(ix0, vy(p0, 1.1), vx(p1), vy(p1), .05); }
+      for (const s of [0, PI]) { b.box(.7, .8, .7, IRON, vx(s) + (s ? .35 : -.35), WH - .3, z); b.geo(new THREE.TorusGeometry(.6, .06, 6, 12, PI / 2), IRON, b.M(vx(s) + (s ? .4 : -.4), WH - .9, z, 0, 0, s ? PI / 2 : 0), 0, true); } }
+    for (let i = 1; i < NS; i++) { const p = i / NS * PI; b.box(.12, .12, GH, IRON, vx(p), vy(p) - .06, GH / 2); }
     for (let i = 0; i < NS; i++) { const p0 = i / NS * PI, p1 = (i + 1) / NS * PI, x0 = vx(p0), y0 = vy(p0), x1 = vx(p1), y1 = vy(p1), mid = (p0 + p1) / 2;
-      if (mid > .27 * PI && mid < .73 * PI) { glass.push(x0, y0, 0, x1, y1, 0, x1, y1, GH, x0, y0, 0, x1, y1, GH, x0, y0, GH); for (let z = 1; z < GH; z += 1) b.box(Math.hypot(x1 - x0, y1 - y0), .04, .04, IRON, (x0 + x1) / 2, (y0 + y1) / 2 - .02, z, 0, 0, Math.atan2(y1 - y0, x1 - x0)); }
-      else b.box(Math.hypot(x1 - x0, y1 - y0) + .02, .08, GH, 0xe6ddd0, (x0 + x1) / 2, (y0 + y1) / 2 + .05, GH / 2, 0, 0, Math.atan2(y1 - y0, x1 - x0)); }
-    // drapeaux tricolores et lustres-globes suspendus
-    for (const [x, z] of [[8.5, CZ + .6], [17.5, CZ + .6]]) { b.cyl(.015, .015, 5.0, 4, 0x777777, x, WH + 1.5, z); [0x1f3f9a, 0xffffff, 0xe1262f].forEach((c, k) => b.box(.5, 2.4, .02, c, x - .5 + k * .5, 8.0, z)); }
-    for (const z of [CZ + 2.5, CZ + 5.5, 2, 6]) for (const x of [8.5, 13, 17.5]) { if (z < CZ && x === 13) continue; const top = WH + RISE * .95; b.cyl(.012, .012, top - 6.3, 4, 0x555555, x, (top + 6.3) / 2, z); b.cyl(.08, .14, .12, 8, GOLD, x, 6.35, z); b.sph(.3, 0xfff1c8, x, 6.0, z, 1, 1, 1, 1, 12, 10); }
+      if (mid > .25 * PI && mid < .75 * PI) { glass.push(x0, y0, 0, x1, y1, 0, x1, y1, GH, x0, y0, 0, x1, y1, GH, x0, y0, GH); for (let z = 1; z < GH; z += 1) b.box(Math.hypot(x1 - x0, y1 - y0), .04, .04, IRON, (x0 + x1) / 2, (y0 + y1) / 2 - .02, z, 0, 0, Math.atan2(y1 - y0, x1 - x0)); }
+      else b.box(Math.hypot(x1 - x0, y1 - y0) + .02, .1, GH, 0xe6ddd0, (x0 + x1) / 2, (y0 + y1) / 2 + .06, GH / 2, 0, 0, Math.atan2(y1 - y0, x1 - x0)); }
+    const YT = WH + RISE; b.box(3.6, .14, GH, 0x4a5454, GW / 2, YT + 1.1, GH / 2); for (let z = 0; z <= GH; z += 2) for (const s of [-1, 1]) b.box(.1, 1.1, .1, IRON, GW / 2 + s * 1.7, YT + .55, z);
+    // ----- suspendus : horloge à double face, tableau des départs, drapeaux, lustres à globes -----
+    for (const [x, z] of [[11, CZ + 1], [33, CZ + 1]]) { b.cyl(.015, .015, 7.0, 4, 0x777777, x, WH + 2.0, z); [0x1f3f9a, 0xffffff, 0xe1262f].forEach((c, k) => b.box(.7, 3.4, .02, c, x - .7 + k * .7, 10.1, z)); }
+    for (const [x, z] of [[8, CZ + 4], [8, CZ + 10], [36, CZ + 4], [36, CZ + 10], [15, CZ + 9], [29, CZ + 9]]) { const top = vy(Math.acos(G.clamp((x - GW / 2) / (GW / 2), -1, 1))) - .3, y = 8.2;
+      b.cyl(.015, .015, top - y - .4, 4, 0x555555, x, (top + y + .4) / 2, z); b.cyl(.1, .18, .2, 10, GOLD, x, y + .35, z); b.tor(.6, .04, GOLD, x, y, z, PI / 2, 0, 0, 0, 20); b.sph(.3, 0xfff1c8, x, y - .1, z, 1, 1, 1, 1, 14, 12);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; b.cyl(.03, .05, .12, 8, GOLD, x + Math.cos(a) * .6, y + .06, z + Math.sin(a) * .6); b.sph(.13, 0xfff1c8, x + Math.cos(a) * .6, y + .2, z + Math.sin(a) * .6, 1, 1.1, 1, 1, 10, 8); } gx.halos.push([x, y, z, 3.4]); }
+    for (const tx of TX) for (let z = 4; z < CZ - 2; z += 6) for (const s of [-1, 1]) { const x = tx + s * 3.5; if (x < 2 || x > GW - 2) continue; const top = vy(Math.acos(G.clamp((x - GW / 2) / (GW / 2), -1, 1))) - .3;
+      b.cyl(.012, .012, top - 7.2, 4, 0x555555, x, (top + 7.2) / 2, z); b.cyl(.1, .16, .16, 10, IRON, x, 7.15, z); b.sph(.28, 0xfff1c8, x, 6.85, z, 1, 1.05, 1, 1, 14, 12); gx.halos.push([x, 6.85, z, 2.2]); }
     const shell = new THREE.Mesh(b.done(), G.MATS); shell.castShadow = true; shell.receiveShadow = true; g.add(shell);
     // verre (laisse passer le soleil : ne fait pas d'ombre)
-    if (!glassMat) glassMat = new THREE.MeshBasicMaterial({ color: 0xe4f4ff, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false });
+    if (!glassMat) glassMat = new THREE.MeshBasicMaterial({ color: 0xe4f4ff, transparent: true, opacity: .2, side: THREE.DoubleSide, depthWrite: false });
     for (const arr of [glass, gl]) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); const me = new THREE.Mesh(geo, glassMat); me.renderOrder = 3; g.add(me); }
-    // horloge suspendue (deux faces, aiguilles animées)
-    const hc = new THREE.Group(); hc.position.set(GW / 2, 8.4, CZ + .2); g.add(hc); const ck = G.mb(401);
-    ck.cyl(1.05, 1.05, .3, 32, GOLD, 0, 0, 0, PI / 2, 0, 0); for (const s of [1, -1]) { ck.cyl(.92, .92, .04, 32, 0xfffaf0, 0, 0, s * .16, PI / 2, 0, 0); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; ck.box(k % 3 ? .08 : .16, .035, .02, 0x222222, Math.cos(a) * .76, Math.sin(a) * .76, s * .18, 0, 0, a); } }
-    ck.cyl(.02, .02, 1.6, 4, 0x555555, 0, 1.85, 0); ck.sph(.12, GOLD, 0, 1.08, 0); hc.add(new THREE.Mesh(ck.done(), G.MATS));
-    const handMat = new THREE.MeshBasicMaterial({ color: 0x1e1e1e });
-    for (const s of [1, -1]) { const piv = new THREE.Group(); piv.position.z = s * .2; if (s < 0) piv.rotation.y = PI; hc.add(piv); const mk = (L, w) => { const p = new THREE.Group(), me = new THREE.Mesh(new THREE.BoxGeometry(L, w, .02), handMat); me.position.x = L / 2; p.add(me); piv.add(p); return p; }; gx.hands.push([mk(.45, .07), mk(.72, .045)]); }
+    // horloge suspendue au-dessus de l'entrée des quais (deux faces, aiguilles animées) + aiguilles de la grande horloge du pignon
+    const hc = new THREE.Group(); hc.position.set(GW / 2, 9.2, CZ + .4); g.add(hc); const ck = G.mb(401), R = 1.45;
+    ck.cyl(R + .15, R + .15, .4, 40, GOLD, 0, 0, 0, PI / 2, 0, 0); for (const s of [1, -1]) { ck.cyl(R, R, .04, 40, 0xfffaf0, 0, 0, s * .21, PI / 2, 0, 0); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; ck.box(k % 3 ? .12 : .24, .05, .02, 0x222222, Math.cos(a) * R * .82, Math.sin(a) * R * .82, s * .23, 0, 0, a); } }
+    ck.cyl(.025, .025, 3.4, 4, 0x555555, 0, R + 1.8, 0); ck.sph(.18, GOLD, 0, R + .15, 0); ck.box(.8, .14, .44, GOLD, 0, R + .2, 0); ck.sph(.14, GOLD, 0, R + .4, 0, 1, 1, 1, 0, 12, 8); ck.cone(.07, .3, 8, GOLD, 0, R + .66, 0); for (const s of [-1, 1]) ck.sph(.08, GOLD, s * .42, R + .3, 0, 1, 1, 1, 0, 10, 8);
+    hc.add(new THREE.Mesh(ck.done(), G.MATS));
+    const handMat = new THREE.MeshBasicMaterial({ color: 0x1e1e1e }), mkHands = (par, z, s, L1, L2, w1, w2) => { const piv = new THREE.Group(); piv.position.z = z; if (s < 0) piv.rotation.y = PI; par.add(piv); const mk = (L, w) => { const p = new THREE.Group(), me = new THREE.Mesh(new THREE.BoxGeometry(L, w, .03), handMat); me.position.x = L / 2; p.add(me); piv.add(p); return p; }; gx.hands.push([mk(L1, w1), mk(L2, w2)]); };
+    for (const s of [1, -1]) mkHands(hc, s * .25, s, R * .5, R * .78, .1, .065);
+    const pc = new THREE.Group(); pc.position.set(GW / 2, WH + 2.6, .1); g.add(pc); mkHands(pc, .32, 1, 1.1, 1.75, .14, .09);
     // tableau des départs (texte qui suit l'heure du jeu)
-    const board = textPlane(7, 1.9, 1024, 278, () => {}); board.position.set(GW / 2, 5.6, CZ + .3); g.add(board); gx.board = board; gx.boardKey = -1;
-    const fr = G.mb(402); fr.box(7.3, 2.15, .25, 0x1b1f24, 0, 0, -.14); fr.box(7.4, .1, .3, GOLD, 0, 1.1, -.14); for (const s of [-1, 1]) fr.cyl(.015, .015, 2.6, 4, 0x555555, s * 3, 2.4, -.14); const frm = new THREE.Mesh(fr.done(), G.MATS); frm.position.copy(board.position); g.add(frm);
-    // enseignes
-    const sgn = (txt, w, h, x, y, z, ry, bg, fg, font) => { const me = textPlane(w, h, 512, Math.round(512 * h / w), (c, cw, ch) => { c.fillStyle = bg; c.fillRect(0, 0, cw, ch); c.fillStyle = fg; c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, cw / 2, ch / 2 + 2); }); me.position.set(x, y, z); me.rotation.y = ry; g.add(me); };
-    sgn('Le Train Bleu', 4.2, .6, .12, 7.55, CZ + 4.6, PI / 2, '#1d2f5e', '#e8c25a', 'italic bold 64px Georgia, serif');
-    [['Boulangerie', CZ + 1.8], ['Presse', CZ + 4.2], ['Café', CZ + 6.4]].forEach(([t, z]) => sgn(t, 1.8, .28, GW - .16, 2.15, z, -PI / 2, '#1d2a24', '#f3e3b0', 'bold 60px Georgia, serif'));
-    TX.forEach((tx, k) => sgn('Voie ' + 'ABC'[k], 1.2, .45, tx, 4.0, CZ - .05, 0, '#1d3f8a', '#ffffff', 'bold 120px Arial'));
+    const board = textPlane(10, 2.6, 1024, 266, () => {}); board.material.transparent = false; board.position.set(GW / 2, 6.2, CZ + .45); g.add(board); gx.board = board; gx.boardKey = -1;
+    const fr = G.mb(402); fr.box(10.4, 2.95, .3, 0x1b1f24, 0, 0, -.17); fr.box(10.5, .12, .36, GOLD, 0, 1.48, -.17); fr.box(10.5, .12, .36, GOLD, 0, -1.48, -.17); for (const s of [-1, 1]) fr.cyl(.02, .02, 4, 4, 0x555555, s * 4.6, 3.4, -.17); const frm = new THREE.Mesh(fr.done(), G.MATS); frm.position.copy(board.position); g.add(frm);
+    // enseignes, plaques des voies, lettrage des voitures, affiches
+    const sgn = (txt, w, h, x, y, z, ry, bg, fg, font) => { const me = textPlane(w, h, 512, Math.max(16, Math.round(512 * h / w)), (c, cw, ch) => { if (bg) { c.fillStyle = bg; c.fillRect(0, 0, cw, ch); } c.fillStyle = fg; c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, cw / 2, ch / 2 + 2); }); me.position.set(x, y, z); me.rotation.y = ry; g.add(me); return me; };
+    sgn('Le Train Bleu', 6, .9, .23, MY + 6.05, (MZ0 + MZ1) / 2, PI / 2, '#1d2f5e', '#e8c25a', 'italic bold 64px Georgia, serif');
+    [['Boulangerie', CZ + 2], ['Presse', CZ + 6], ['Café de la Gare', CZ + 10]].forEach(([t, z]) => sgn(t, 2.8, .42, GW - .24, 3.15, z, -PI / 2, '#14261e', '#f3e3b0', 'bold 62px Georgia, serif'));
+    TX.forEach((tx, k) => { const c = textPlane(1.4, .7, 256, 128, (x, w, h) => { x.fillStyle = '#1d3f8a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#ffffff'; x.lineWidth = 6; x.strokeRect(6, 6, w - 12, h - 12); x.fillStyle = '#fff'; x.font = 'bold 84px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('ABCD'[k], w / 2, h / 2 + 4); });
+      c.position.set(tx, 4.8, CZ - .1); g.add(c); b.cyl(.01, .01, 1, 4, 0x555555, tx, 5.6, CZ - .1);
+      const v = k % 2, line = v ? 'PULLMAN' : 'COMPAGNIE INTERNATIONALE DES WAGONS-LITS', col = v ? '#6a4a1a' : '#e8c25a', font = v ? 'bold 80px Georgia, serif' : 'bold 46px Georgia, serif';
+      for (const cz of [12 - 2.2, 12 - 8.05]) for (const s of [-1, 1]) sgn(line, 4.4, .2, tx + s * .845, 2.38, cz, s * PI / 2, null, col, font); });
+    POSTERS.forEach((p, k) => { const s = k % 2 ? -1 : 1, x = s > 0 ? .12 : GW - .12, z = 2 + Math.floor(k / 2) * 4 + (k % 2 ? 4 : 0); if (z > CZ - 1) return;
+      const me = textPlane(1.05, 1.5, 256, 366, (c, w, h) => drawPoster(c, w, h, p)); me.material.transparent = false; me.position.set(x, 2.35, z); me.rotation.y = s * PI / 2; g.add(me); });
+    // halos chauds autour des lampes (plus forts la nuit) : l'ambiance douillette
+    if (!haloTex) haloTex = radTex(); const hm = new THREE.SpriteMaterial({ map: haloTex, color: 0xffc77a, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const [x, y, z, s] of gx.halos) { const sp = new THREE.Sprite(hm); sp.position.set(x, y, z); sp.scale.setScalar(s * 1.5); sp.renderOrder = 5; g.add(sp); } gx.haloMat = hm;
+    // flaques de lumière chaude au sol sous les candélabres et les lustres
+    const pm = new THREE.MeshBasicMaterial({ map: haloTex, color: 0xffb862, transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), pg = new THREE.PlaneGeometry(1, 1); pg.rotateX(-PI / 2);
+    const pools = []; for (const o of m.list) if (o.t === 'candelabre') pools.push([o.x + .5, o.z + .5, 5.5]); for (const h of gx.halos) if (h[3] >= 3) pools.push([h[0], h[2], 8]);
+    for (const [x, z, s] of pools) { const me = new THREE.Mesh(pg, pm); me.position.set(x, .03, z); me.scale.set(s, 1, s); me.renderOrder = 2; g.add(me); } gx.poolMat = pm;
     // rayons de soleil (additifs) et poussière dorée
     if (!shaftTex) shaftTex = gradTex();
     const shaftMat = new THREE.MeshBasicMaterial({ map: shaftTex, color: 0xffe3a8, transparent: true, opacity: .14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
     const pl = new THREE.PlaneGeometry(1, 1); pl.translate(0, .5, 0);
-    for (let k = 0; k < 9; k++) { const s = new THREE.Group(); for (const r of [0, PI / 2]) { const me = new THREE.Mesh(pl, shaftMat); me.rotation.y = r; s.add(me); } s.userData.top = [7 + (k % 3) * 6 + Math.random() * 1.5, 0, 2 + Math.floor(k / 3) * 6.5 + Math.random() * 2]; s.renderOrder = 4; g.add(s); gx.shafts.push(s); }
+    for (let k = 0; k < 16; k++) { const s = new THREE.Group(); for (const r of [0, PI / 2]) { const me = new THREE.Mesh(pl, shaftMat); me.rotation.y = r; s.add(me); } s.userData.top = [14 + (k % 4) * 5.3 + Math.random() * 1.5, 0, 3 + Math.floor(k / 4) * 8.5 + Math.random() * 3]; s.renderOrder = 4; g.add(s); gx.shafts.push(s); }
     gx.shaftMat = shaftMat;
-    const N = 320, dp = new Float32Array(N * 3), seed = []; for (let i = 0; i < N; i++) { dp[i * 3] = 2 + Math.random() * (GW - 4); dp[i * 3 + 1] = .5 + Math.random() * 8.5; dp[i * 3 + 2] = 1 + Math.random() * (GH - 2); seed.push(Math.random() * TAU); }
-    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3)); const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffe9b0, size: .06, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const N = 900, dp = new Float32Array(N * 3), seed = []; for (let i = 0; i < N; i++) { dp[i * 3] = 2 + Math.random() * (GW - 4); dp[i * 3 + 1] = .5 + Math.random() * (WH - 1); dp[i * 3 + 2] = 1 + Math.random() * (GH - 2); seed.push(Math.random() * TAU); }
+    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3)); const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffe9b0, size: .07, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }));
     dust.frustumCulled = false; dust.userData.seed = seed; g.add(dust); gx.dust = dust; gx.sdT = 0;
     g.traverse(c => { if (c.isMesh) c.frustumCulled = false; });
     const cast = new THREE.Mesh(new THREE.BoxGeometry(GW + 2, WH + RISE + 1, .4), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })); cast.position.set(GW / 2, (WH + RISE + 1) / 2, GH + .4); cast.castShadow = true; cast.frustumCulled = false; g.add(cast);
     m.shell = g; m.group.add(g); m._gx = gx;
   }
-  // mise à jour du hall : heure, tableau, rayons de soleil, poussière
-  const DEST = ['Paris Gare de Lyon', 'Lyon Part-Dieu', 'Marseille St-Charles', 'Nice Ville', 'Bordeaux St-Jean', 'Genève Cornavin', 'Montpellier', 'Annecy', 'Chamonix', 'Strasbourg'];
+  const seg2 = (b, a, c, r, col) => { const d = new THREE.Vector3(c[0] - a[0], c[1] - a[1], c[2] - a[2]), L = d.length(); b.geo(new THREE.CylinderGeometry(r, r, L, 5, 1, true), col, new THREE.Matrix4().compose(new THREE.Vector3((a[0] + c[0]) / 2, (a[1] + c[1]) / 2, (a[2] + c[2]) / 2), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()), new THREE.Vector3(1, 1, 1)), 0, true); };
+  // mise à jour du hall : heure, tableau, rayons de soleil, poussière, halos
+  const DEST = ['Paris Gare de Lyon', 'Lyon Perrache', 'Marseille St-Charles', 'Nice Ville', 'Venise Santa Lucia', 'Genève Cornavin', 'Istanbul Sirkeci', 'Vienne Westbahnhof', 'Chamonix', 'Simplon-Orient-Express'];
   const SD = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
-  function drawBoard(me, min) { const { ctx: c, tex, cw, ch } = me.userData; c.fillStyle = '#101317'; c.fillRect(0, 0, cw, ch); c.font = 'bold 34px monospace'; c.textBaseline = 'top';
-    c.fillStyle = '#ffd23f'; c.fillText('DÉPARTS', 20, 12); const hh = Math.floor(min / 60) % 24, mm = Math.floor(min % 60); c.textAlign = 'right'; c.fillText(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'), cw - 20, 12); c.textAlign = 'left';
-    c.fillStyle = '#2a3038'; c.fillRect(0, 58, cw, 2); c.font = 'bold 30px monospace';
-    for (let k = 0; k < 5; k++) { const t = (Math.floor(min / 20) + 1 + k) * 20, d = DEST[(Math.floor(min / 20) + k) % DEST.length], y = 70 + k * 41;
-      c.fillStyle = k % 2 ? '#14181d' : '#101317'; c.fillRect(0, y - 4, cw, 41); c.fillStyle = '#ffd23f'; c.fillText(String(Math.floor(t / 60) % 24).padStart(2, '0') + 'h' + String(t % 60).padStart(2, '0'), 20, y);
-      c.fillStyle = '#ffffff'; c.fillText(d, 150, y); c.fillStyle = '#7fd0ff'; c.fillText(k === 0 ? "À l'heure" : k === 2 ? 'Retard 5 min' : '', 640, y); c.fillStyle = '#ffd23f'; c.textAlign = 'right'; c.fillText('ABC'[k % 3], cw - 30, y); c.textAlign = 'left'; }
+  function drawBoard(me, min) { const { ctx: c, tex, cw, ch } = me.userData; c.fillStyle = '#101317'; c.fillRect(0, 0, cw, ch); c.font = 'bold 32px monospace'; c.textBaseline = 'top';
+    c.fillStyle = '#ffd23f'; c.fillText('GRANDES LIGNES — DÉPARTS', 20, 10); const hh = Math.floor(min / 60) % 24, mm = Math.floor(min % 60); c.textAlign = 'right'; c.fillText(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'), cw - 20, 10); c.textAlign = 'left';
+    c.fillStyle = '#2a3038'; c.fillRect(0, 52, cw, 2); c.font = 'bold 28px monospace';
+    for (let k = 0; k < 5; k++) { const t = (Math.floor(min / 20) + 1 + k) * 20, d = DEST[(Math.floor(min / 20) + k) % DEST.length], y = 62 + k * 40;
+      c.fillStyle = k % 2 ? '#14181d' : '#101317'; c.fillRect(0, y - 4, cw, 40); c.fillStyle = '#ffd23f'; c.fillText(String(Math.floor(t / 60) % 24).padStart(2, '0') + 'h' + String(t % 60).padStart(2, '0'), 20, y);
+      c.fillStyle = '#ffffff'; c.fillText(d, 150, y); c.fillStyle = '#7fd0ff'; c.fillText(k === 0 ? "À l'heure" : k === 2 ? 'Retard 5 min' : '', 660, y); c.fillStyle = '#ffd23f'; c.textAlign = 'right'; c.fillText('Voie ' + 'ABCD'[(Math.floor(min / 20) + k) % 4], cw - 24, y); c.textAlign = 'left'; }
     tex.needsUpdate = true; }
   G.on('update', dt => { const m = G.map, gx = m && m._gx; if (!gx || !m.group.visible) return; const min = G.clock.min;
     for (const [h, mn] of gx.hands) { h.rotation.z = PI / 2 - (min / 60 % 12) / 12 * TAU; mn.rotation.z = PI / 2 - (min % 60) / 60 * TAU; }
     const key = Math.floor(min); if (key !== gx.boardKey) { gx.boardKey = key; drawBoard(gx.board, min); }
-    const h = min / 60, day = h >= 5.2 && h < 19.6, a = (h - 5.2) / 14.4 * PI; SD.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize(); const dayK = 1 - G.night(), sunK = day ? Math.min(1, Math.sin(a) * 2.2) : 0;
+    const h = min / 60, day = h >= 5.2 && h < 19.6, a = (h - 5.2) / 14.4 * PI; SD.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize(); const nt = G.night(), dayK = 1 - nt, sunK = day ? Math.min(1, Math.sin(a) * 2.2) : 0;
     if ((gx.sdT -= dt) < 0) { gx.sdT = 1; const q = new THREE.Quaternion().setFromUnitVectors(UP, SD);
-      for (const s of gx.shafts) { const [x, , z] = s.userData.top, top = vy(Math.acos(G.clamp((x - GW / 2) / (GW / 2), -1, 1))) - .2, L = top / SD.y; s.position.set(x - SD.x * L, 0, z - SD.z * L); s.quaternion.copy(q); s.scale.set(1.4, L, 1.4); } }
-    gx.shaftMat.opacity = .16 * sunK * dayK; for (const s of gx.shafts) s.visible = sunK > .02;
+      for (const s of gx.shafts) { const [x, , z] = s.userData.top, top = vy(Math.acos(G.clamp((x - GW / 2) / (GW / 2), -1, 1))) - .2, L = top / SD.y; s.position.set(x - SD.x * L, 0, z - SD.z * L); s.quaternion.copy(q); s.scale.set(1.8, L, 1.8); } }
+    gx.shaftMat.opacity = .15 * sunK * dayK; for (const s of gx.shafts) s.visible = sunK > .02; if (gx.haloMat) { gx.haloMat.opacity = .22 + .6 * nt; gx.poolMat.opacity = .06 + .42 * nt; }
     const p = gx.dust.geometry.attributes.position, sd = gx.dust.userData.seed, t = performance.now() / 1000;
-    for (let i = 0; i < sd.length; i++) { let y = p.getY(i) + dt * (.04 + .03 * Math.sin(t * .5 + sd[i])); if (y > 9) y = .4; p.setXYZ(i, p.getX(i) + Math.sin(t * .3 + sd[i]) * dt * .08, y, p.getZ(i) + Math.cos(t * .27 + sd[i] * 2) * dt * .08); }
+    for (let i = 0; i < sd.length; i++) { let y = p.getY(i) + dt * (.04 + .03 * Math.sin(t * .5 + sd[i])); if (y > WH) y = .4; p.setXYZ(i, p.getX(i) + Math.sin(t * .3 + sd[i]) * dt * .08, y, p.getZ(i) + Math.cos(t * .27 + sd[i] * 2) * dt * .08); }
     p.needsUpdate = true; gx.dust.material.opacity = .25 + .45 * dayK; });
 
   // ===================== 5. LE MOBILIER DE LA GARE =====================
@@ -380,7 +447,7 @@
 
   // ---------- mises à niveau des villages existants ----------
   G.on('load', () => { if (G.world) upMairie(G.world);
-    for (const id in G.interiors) { const im = G.interiors[id]; if (im.kind === 'gare' && im.W < 20 && G.map !== im) { G.scene.remove(im.group); delete G.interiors[id]; } } });
+    for (const id in G.interiors) { const im = G.interiors[id]; if (im.kind === 'gare' && im.W < GW && G.map !== im) { G.scene.remove(im.group); delete G.interiors[id]; } } });
   // ===================== 6. INTÉRIEUR DES CHÂTEAUX : immense salon, parquet en chevron, murs blancs à fleurs de lys dorées, lustres, soleil par les fenêtres =====================
   const isCh = m => { if (!m || !m.interior || !G.world) return null; for (const q of G.world.list) if (q.iid === m.id && /^chateau/.test(q.t)) return q; return null; };
   let parq = null, lys = null;
