@@ -4,7 +4,7 @@
 // Sur ton PC :  node serve.js [dossier] [port]   puis ouvrir http://localhost:5180 (ou http://IP-du-PC:5180 pour les amis)
 // Sur Render :  « node serve.js » — Render fournit le port (PORT). Les villages sont gardés en mémoire (ou dans /data si un disque est monté).
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os');
-const VER = '8.1';
+const VER = '8.2';
 const root = path.resolve(process.argv[2] || __dirname), PORT = +(process.env.PORT || process.argv[3] || 5180), ON_RENDER = !!process.env.RENDER;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const DATA = path.join(fs.existsSync('/data') ? '/data' : root, 'douce-vallee-serveur.json');
@@ -53,7 +53,10 @@ function readFrame(c) {
 function onMessage(c, txt) {
   let m; try { m = JSON.parse(txt); } catch (e) { return; } if (!m || typeof m !== 'object') return;
   if (m.t === 'join') { const r = okRoom(m.room) ? m.room : null; if (r === c.room) return; leave(c); c.room = r; if (r) for (const o of clients.values()) if (o !== c && o.room === r && o.pres) send(c, { t: 'pres', id: o.id, d: o.pres }); }
-  else if (m.t === 'pres') { if (!c.room || JSON.stringify(m.d || null).length > 8000) return; c.pres = m.d; inRoom(c.room, { t: 'pres', id: c.id, d: m.d }, c); }
+  else if (m.t === 'pres') { if (!c.room || JSON.stringify(m.d || null).length > 8000) return; c.pres = m.d;
+    // même page reconnectée : l'ancienne connexion (fantôme) est fermée, pour ne pas voir le joueur en double
+    const pid = m.d && m.d.pid; if (pid) for (const o of clients.values()) if (o !== c && o.pres && o.pres.pid === pid) { leave(o); try { o.sock.destroy(); } catch (e) { } clients.delete(o.id); }
+    inRoom(c.room, { t: 'pres', id: c.id, d: m.d }, c); }
   // publier : seul le premier qui a publié ce village (son « propriétaire ») peut le remplacer ou le retirer
   else if (m.t === 'pub') { const t = towns[m.h], ok = okH(m.h) && okH(m.ow) && m.rec && typeof m.rec.d === 'string' && typeof m.rec.n === 'string' && m.rec.d.length < 3e6 && (t ? t.ow === m.ow : Object.keys(towns).length < 5000);
     if (ok) { towns[m.h] = { ow: m.ow, rec: { v: 2, z: m.rec.z ? 1 : 0, n: m.rec.n, d: m.rec.d }, at: Date.now() }; persist(); } send(c, { t: 'res', rid: m.rid, data: !!ok }); }
@@ -64,14 +67,16 @@ server.on('upgrade', (req, sock) => {
   if (req.url.split('?')[0] !== '/ws') return sock.destroy(); const key = req.headers['sec-websocket-key']; if (!key) return sock.destroy();
   const acc = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
   sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + acc + '\r\n\r\n'); sock.setNoDelay(true);
-  const c = { id: ++N, sock, buf: Buffer.alloc(0), parts: [], pres: null, room: null }; clients.set(c.id, c);
-  sock.on('data', d => { c.buf = Buffer.concat([c.buf, d]); let f;
+  const c = { id: ++N, sock, buf: Buffer.alloc(0), parts: [], pres: null, room: null, last: Date.now() }; clients.set(c.id, c);
+  sock.on('data', d => { c.last = Date.now(); c.buf = Buffer.concat([c.buf, d]); let f;
     while ((f = readFrame(c))) { if (f.op === 8) { try { sock.end(Buffer.from([0x88, 0])); } catch (e) { } return; }
       if (f.op === 9) { try { sock.write(Buffer.concat([Buffer.from([0x8a, f.data.length]), f.data])); } catch (e) { } continue; }
       if (f.op === 1 || f.op === 0) { c.parts.push(f.data); if (f.fin) { const txt = Buffer.concat(c.parts).toString(); c.parts = []; onMessage(c, txt); } } } });
   const bye = () => { if (!clients.has(c.id)) return; leave(c); clients.delete(c.id); };
   sock.on('close', bye); sock.on('end', bye); sock.on('error', bye);
 });
+// connexions muettes depuis 90 s (onglet fermé brutalement, réseau coupé) : on les ferme, et le joueur disparaît chez les autres
+setInterval(() => { const lim = Date.now() - 90000; for (const c of [...clients.values()]) if (c.last < lim) { leave(c); try { c.sock.destroy(); } catch (e) { } clients.delete(c.id); } }, 10000);
 // les villages qui ne sont plus publiés depuis 7 jours sont oubliés (leurs propriétaires les republient en jouant)
 setInterval(() => { const lim = Date.now() - 7 * 24 * 3600 * 1000; let n = 0; for (const h in towns) if (towns[h].at < lim) { delete towns[h]; n++; } if (n) persist(); }, 3600 * 1000);
 server.listen(PORT, '0.0.0.0', () => {

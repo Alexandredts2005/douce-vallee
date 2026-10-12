@@ -1,4 +1,4 @@
-﻿DOUCE VALLÉE — mode d'emploi (version 8.1)
+﻿DOUCE VALLÉE — mode d'emploi (version 8.2)
 ========================================
 
 JOUER SEUL
@@ -16,8 +16,12 @@ VILLAGES PRIVÉS : ON N'ENTRE QU'AVEC LE CODE AMI
     de l'ouvrir, ou même de voir qui s'y promène.
   - Le code n'est jamais envoyé sur Internet : le jeu n'envoie que des empreintes du code,
     et ton village est chiffré avec lui.
-  - À la gare, Pablo peut aussi FERMER ton village : plus personne ne peut venir, même avec
-    le code. Reparle-lui pour rouvrir.
+  - LE PORTILLON : à la gare, Pablo peut fermer ton portillon (plus personne ne vient, même avec
+    le code) ou le rouvrir.
+  - TES AMIS PEUVENT MODIFIER TON VILLAGE : chez Pablo, « ⭐ Mes amis peuvent modifier ».
+    Ils plantent, posent, retirent et modèlent le terrain comme chez eux, sauf les maisons.
+    Tu peux aussi donner ce droit à un seul ami : clique sur le badge « En ligne », puis « Donner admin ».
+  - Les visiteurs peuvent aussi aller dans la rue commerçante de ton village.
 
 JOUER EN LIGNE AVEC DES AMIS — 3 façons
 
@@ -50,6 +54,14 @@ FLUIDITÉ SUR PC
     mets « Hautes performances », puis relance le navigateur. C'est souvent LA solution
     quand ça rame.
   - Branche le chargeur : sur batterie, Windows ralentit la carte graphique.
+
+MAISONS ET CHÂTEAUX
+  - 10 styles de maisons : cottage, maison à clins, mas provençal, chaumière, normande, chalet,
+    plage, maison de ville, scandinave, japonaise. Chez Léon (agence) : « Repeindre la façade ».
+  - Dernier agrandissement : un GRAND CHÂTEAU à la française au choix (classique, Loire, Louis XIII).
+    Il faut un terrain plat de 9 × 7 cases autour de ta maison.
+  - On se cogne à la vraie forme des objets : on passe sous les arbres, autour de la fontaine ronde,
+    sous les avant-toits, et on monte sur les marches et les porches.
 
 EN JEU
   Entrée : discuter (en ligne)        G : émotes        K : encyclopédie

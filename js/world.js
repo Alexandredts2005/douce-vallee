@@ -114,7 +114,7 @@
     topAt(x, z) {
       const tx = Math.floor(x), tz = Math.floor(z); if (!this.inb(tx, tz)) return 50;
       let h = this.terrainH(x, z); const o = this.objAt(tx, tz);
-      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) h = Math.max(h, o.y + (d.hAt ? d.hAt(o, x, z, this) : d.h)); }
+      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (d.walk || !G.shapeTop) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) h = Math.max(h, o.y + t); } } } // forme réelle de l'objet (shape.js)
       return h;
     }
     isWaterAt(x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!this.isWaterT(tx, tz)) return false; const o = this.objAt(tx, tz); return !(o && G.OBJ[o.t].walk); }

@@ -83,8 +83,8 @@ vec3 dvPat(vec3 c) {
   const P = (...a) => G.prism(...a), lum = c => { const C = new THREE.Color(c); return .3 * C.r + .59 * C.g + .11 * C.b; };
   const ROT = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
   // position sur un mur : face 0 avant (+z), 1 arrière, 2 droite (+x), 3 gauche (−x) ; a = abscisse vue de dehors, out = distance devant le mur
-  function onW(H, f, a, y, out) { const hw = H.w / 2, hd = H.d / 2;
-    return f === 0 ? [a, y, H.zc + hd + out] : f === 1 ? [-a, y, H.zc - hd - out] : f === 2 ? [hw + out, y, H.zc - a] : [-hw - out, y, H.zc + a]; }
+  function onW(H, f, a, y, out) { const hw = H.w / 2, hd = H.d / 2, xc = H.xc || 0;
+    return f === 0 ? [xc + a, y, H.zc + hd + out] : f === 1 ? [xc - a, y, H.zc - hd - out] : f === 2 ? [xc + hw + out, y, H.zc - a] : [xc - hw - out, y, H.zc + a]; }
   function wb(b, H, f, a, y, out, w, h, t, col, mat = 0) { const p = onW(H, f, a, y, out + t / 2); if (f < 2) b.box(w, h, t, col, p[0], p[1], p[2], 0, 0, 0, mat); else b.box(t, h, w, col, p[0], p[1], p[2], 0, 0, 0, mat); }
   function ws(b, H, f, a, y, out, r, col, mat = 0) { const p = onW(H, f, a, y, out); b.sph(r, col, p[0], p[1], p[2], 1, 1, 1, mat, 8, 6); }
   function half(b, H, f, a, y, out, r, t, col, mat = 0) { const p = onW(H, f, a, y, out + t / 2); b.add(new THREE.CylinderGeometry(r, r, t, 14, 1, false, -Math.PI / 2, Math.PI), col, b.M(p[0], p[1], p[2], -Math.PI / 2, ROT[f], 0), mat); }
@@ -95,9 +95,9 @@ vec3 dvPat(vec3 c) {
   // ---------- fenêtre détaillée ----------
   function fenetre(b, H, f, a, y, o = {}) {
     const w = o.w || .5, h = o.h || .6, F = o.frame || 0xf7f5ee;
-    if (o.arch) { half(b, H, f, a, y + h / 2, 0, w / 2 + .07, .04, F); half(b, H, f, a, y + h / 2, .02, w / 2, .03, GLASS, 1); }
+    if (o.arch) { half(b, H, f, a, y + h / 2, 0, w / 2 + .07, .04, F); half(b, H, f, a, y + h / 2, .02, w / 2, .03, o.glass || GLASS, 1); }
     wb(b, H, f, a, y, 0, w + .14, h + .14, .04, F);
-    wb(b, H, f, a, y, .02, w, h, .03, GLASS, 1);
+    wb(b, H, f, a, y, .02, w, h, .03, o.glass || GLASS, 1);
     if (o.curt != null) { for (const s of [-1, 1]) wb(b, H, f, a + s * w * .37, y - h * .04, .05, w * .22, h * .9, .012, o.curt); wb(b, H, f, a, y + h * .42, .052, w + .02, h * .14, .014, o.curt); }
     wb(b, H, f, a, y, .055, .032, h, .022, F);
     if (o.pane === 'petits') { for (const k of [-1, 0, 1]) wb(b, H, f, a, y + k * h / 3.2, .055, w, .026, .022, F); } else if (o.pane !== 'grand') wb(b, H, f, a, y + h * .12, .055, w, .032, .022, F);
@@ -180,7 +180,9 @@ vec3 dvPat(vec3 c) {
     { n: 'Maison normande', wall: 0xfaf1dc, wp: PT.crepi, base: 0xa9a29a, roof: 0xc0503c, rp: PT.tuiles, pitch: 1.15, trim: 0x5a3a24, frame: 0xffffff, door: 0x5a3a24, ds: 'panneaux', curt: 0xffffff, colombage: 0x5a3a24, fleurs: [0xe8434a, 0xff6f91, 0xffffff], dormer: 1, lamp: 1 },
     { n: 'Chalet de montagne', wall: 0xa86f42, wp: PT.rondins, base: 0x8f8b82, roof: 0x5a3f2c, rp: PT.bardeaux, Z: 1, pitch: .7, trim: 0x6b4426, frame: 0xf3e6c8, door: 0x6b4426, ds: 'planches', shut: 0xd9443a, heart: 1, curt: 0xffe6e6, fleurs: [0xe8434a, 0xffffff], balcon: 1, lamp: 1, fh: .34 },
     { n: 'Maison de plage', wall: 0xfdfcf7, wp: PT.bardage, base: 0xd8d0bf, roof: 0x3fa3a8, rp: PT.ardoise, Z: 1, pitch: .8, trim: 0x3fb3b0, frame: 0xffffff, door: 0x2f7fb8, ds: 'vitre', shut: 0x3fb3b0, curt: 0xdff6ff, corners: 1, porch: 2, oeil: 1, lamp: 1 },
-    { n: 'Maison de ville', wall: 0xf3d58a, wp: PT.crepi, base: 0xb9b3a6, roof: 0x4a4f5c, rp: PT.ardoise, pitch: 1.1, trim: 0xf7f5ee, door: 0x2f4f7a, ds: 'panneaux', shut: 0x2f6b45, curt: 0xfff8e8, lintel: 0xece4d4, quoin: 0xece4d4, dormer: 2, imposte: 1, fronton: 0xece4d4, lamp: 2 }
+    { n: 'Maison de ville', wall: 0xf3d58a, wp: PT.crepi, base: 0xb9b3a6, roof: 0x4a4f5c, rp: PT.ardoise, pitch: 1.1, trim: 0xf7f5ee, door: 0x2f4f7a, ds: 'panneaux', shut: 0x2f6b45, curt: 0xfff8e8, lintel: 0xece4d4, quoin: 0xece4d4, dormer: 2, imposte: 1, fronton: 0xece4d4, lamp: 2 },
+    { n: 'Maison scandinave', wall: 0xb5332e, wp: PT.planches, base: 0x8f8b82, roof: 0x34383f, rp: PT.ardoise, pitch: 1.15, trim: 0xffffff, frame: 0xffffff, door: 0x2f4f7a, ds: 'vitre', curt: 0xffffff, pane: 'petits', corners: 1, fleurs: [0xffffff, 0xffd23f, 0x5b8fd6], lamp: 1, auvent: 0x34383f },
+    { n: 'Maison japonaise', wall: 0xf4efe4, wp: PT.crepi, base: 0x6f6a63, roof: 0x4a4f58, rp: PT.tuiles, pitch: .75, trim: 0x3a2a1e, frame: 0x3a2a1e, door: 0xb08a5a, ds: 'planches', curt: 0xfffaf0, pane: 'petits', colombage: 0x3a2a1e, japon: 1, lamp: 1 }
   ];
   function maison(b, s, o = {}) {
     const fl = o.floors || 1, H = { w: o.w || 2.8, d: o.d || 2.2, zc: o.zc != null ? o.zc : (s.porch ? -.2 : -.08), fh: s.fh || .2, wh: (o.fh1 || 1.85) + (fl - 1) * 1.55 };
@@ -196,8 +198,8 @@ vec3 dvPat(vec3 c) {
     if (s.colombage != null) { const c = s.colombage, y0 = H.fh, y1 = H.fh + H.wh, ym = H.fh + .6, lo = ym - y0, up = y1 - ym;
       for (const f of [0, 2, 3]) { const fw = f < 2 ? H.w : H.d; for (const y of [y0 + .04, ym, y1 - .04]) wb(b, H, f, 0, y, .015, fw + .02, .07, .04, c);
         for (const a of [-fw / 2 + .04, fw / 2 - .04].concat(f === 0 ? [-.45, .45] : [])) wb(b, H, f, a, (y0 + y1) / 2, .015, .07, H.wh, .04, c);
-        for (const [a, sg] of f === 0 ? [[-.84, 1], [.84, -1]] : [[-.55, 1], [.55, -1]]) beam(b, H, f, a, (y0 + ym) / 2, Math.hypot(lo, .5), sg * Math.atan2(.5, lo), c);
-        if (f > 0) for (const [a, sg] of [[-.75, -1], [.75, 1]]) beam(b, H, f, a, (ym + y1) / 2, Math.hypot(up, .36), sg * Math.atan2(.36, up), c); } }
+        if (!s.japon) for (const [a, sg] of f === 0 ? [[-.84, 1], [.84, -1]] : [[-.55, 1], [.55, -1]]) beam(b, H, f, a, (y0 + ym) / 2, Math.hypot(lo, .5), sg * Math.atan2(.5, lo), c);
+        if (f > 0 && !s.japon) for (const [a, sg] of [[-.75, -1], [.75, 1]]) beam(b, H, f, a, (ym + y1) / 2, Math.hypot(up, .36), sg * Math.atan2(.36, up), c); } }
     // toit
     const R = s.Z ? toitZ(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, over: .12 }) : toitX(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, genoise: s.genoise, og: .1 });
     // porche à colonnes (avant de la porte, pour que le toit du porche passe au-dessus)
@@ -222,14 +224,20 @@ vec3 dvPat(vec3 c) {
     if (s.dormer && !s.Z) { const xs = s.dormer === 2 ? [-.7, .7] : [0]; for (const x of xs) lucarne(b, H, R, x, { w: .66, col: s.roof, pat: s.rp, wall: s.colombage != null ? s.wall : s.trim, wallPat: s.colombage != null ? PT.crepi : 0, frame: FR }); }
     // cheminée
     if (s.bigChim) { b.P(PT.moellons); b.box(.5, R.top - H.fh + .45, .5, s.base, H.w / 2 - .15, (R.top + H.fh + .45) / 2 - .02, H.zc - .35); b.P(0); b.P(PT.pierre); b.box(.58, .08, .58, STONEC, H.w / 2 - .15, R.top + .47, H.zc - .35); b.P(0); }
+    else if (s.japon) { } // pas de cheminée sur la maison japonaise
     else if (s.Z) cheminee(b, -H.w / 2 + .45, H.zc - .5, R.yT, R.top + .35);
     else cheminee(b, H.w / 2 - .45, H.zc - .45, R.yT + .2, R.top + .38);
     // lierre, massifs, petits détails
     if (s.ivy) { b.jit(.1); for (let i = 0; i < 11; i++) { const yy = H.fh + .15 + (i % 6) * .3, zz = H.zc + H.d / 2 - .15 - (i % 4) * .22 - (i > 5 ? .3 : 0); b.blob(.14, 1, i % 2 ? 0x3f8f45 : 0x4fa847, -H.w / 2 - .03, yy, zz, .45, 1, 1.3); } b.jit(0); }
-    const zb = H.zc + H.d / 2 + .32; if (!s.porch) { bush(b, -1.32, zb - .05, .9, 0x4fa847, s.fleurs ? (Array.isArray(s.fleurs) ? s.fleurs[0] : 0xff8fc0) : null); bush(b, 1.32, zb - .05, .85, 0x58b54a, 0xffd23f); }
+    if (s.japon) { const zf = H.zc + H.d / 2; b.jit(.06); for (const sx of [-1, 1]) { b.blob(.2, 1, 0x3f7a45, sx * 1.25, .35, zf + .45, 1.3, .55, 1); b.blob(.15, 1, 0x4a8a4f, sx * 1.25, .62, zf + .45, 1.2, .5, 1); } b.jit(0);
+      b.P(PT.pierre); b.cyl(.09, .12, .5, 6, 0xa9a297, -1.35, .25, zf + 1.05); b.box(.3, .2, .3, 0xb9b3a6, -1.35, .6, zf + 1.05); b.cone(.26, .18, 4, 0x8f8b82, -1.35, .79, zf + 1.05, 0, Math.PI / 4); b.P(0); b.box(.16, .1, .16, 0xffe2a0, -1.35, .6, zf + 1.05, 0, 0, 0, 1); }
+    const zb = H.zc + H.d / 2 + .32; if (!s.porch && !s.japon) { bush(b, -1.32, zb - .05, .9, 0x4fa847, s.fleurs ? (Array.isArray(s.fleurs) ? s.fleurs[0] : 0xff8fc0) : null); bush(b, 1.32, zb - .05, .85, 0x58b54a, 0xffd23f); }
   }
+  G.ARCH = { PT, onW, wb, ws, half, disc, ring, beam, fenetre, porte, toitX, toitZ, cheminee, lucarne, quoins, corners, bush, dark, light, GLASS, GOLD, IRONC, STONEC, ZINC, P };
   // ---------- modèles ----------
   MD.house = v => { const b = G.mb(90 + v); maison(b, STY[v % STY.length]); return b.done(); };
+  [['maison', 0], ['maison_bleue', 1], ['maison_rose', 2], ['maison_verte', 3]].forEach(([id, k]) => { if (G.OBJ[id]) G.OBJ[id].n = STY[k].n; if (G.ITEMS[id]) G.ITEMS[id].n = STY[k].n; });
+  for (let k = 4; k < STY.length; k++) { const id = 'maison_s' + k; G.OBJ[id] = { id, n: STY[k].n, model: 'house', v: k, h: 3.4, fp: [3, 3], enter: 'maison', take: 1, cat: 'construction' }; G.ITEMS[id] = { id, n: STY[k].n, stack: 1, sell: 150, kind: 'place', obj: id, cat: 'construction', thumb: 'obj:' + id }; }
   const ROOFS6 = [0xc0503c, 0x3f5f9a, 0xe0789f, 0x4f8a4a, 0xe08a3a, 0x7a5fb8];
   const ETAGE = [
     { wall: 0xf6ead2, wp: PT.crepi, base: 0xa9a29a, rp: PT.tuiles, trim: 0xf7f5ee, door: 0x2f6b45, ds: 'vitre', shut: 0x2f6b45, curt: 0xfff1d6, lintel: 0xd9d2c2, quoin: 0xd9d2c2, fleurs: 1, lamp: 2, auvent: 1, imposte: 1 },
