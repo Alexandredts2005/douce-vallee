@@ -40,7 +40,11 @@
     makeSet(k, cap) {
       const i = k.lastIndexOf(':'), geo = G.getGeo(k.slice(0, i), +k.slice(i + 1));
       const mesh = new THREE.InstancedMesh(geo, G.MATS, cap); mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = geo.boundingSphere.radius > .45; mesh.receiveShadow = true; mesh.visible = false;
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(mesh); const s = { k, mesh, cap, n: 0, vis: 0, items: [], dirty: true }; this.outline(s); return s;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(mesh); const s = { k, mesh, cap, n: 0, vis: 0, lvis: 0, items: [], dirty: true }; this.outline(s);
+      if (G.MODELS[k.slice(0, i) + '_lod']) { s.lg = G.getGeo(k.slice(0, i) + '_lod', +k.slice(i + 1)); this.lowMesh(s); } return s; // version simplifiée pour les objets lointains
+    }
+    lowMesh(s) { if (s.low) { this.group.remove(s.low); s.low.dispose(); } const m = new THREE.InstancedMesh(s.lg, G.MATS, s.cap); m.count = 0; m.frustumCulled = false; m.castShadow = s.mesh.castShadow; m.receiveShadow = true; m.visible = false;
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(m); s.low = m; s.lvis = 0;
     }
     outline(s) {
       if (s.om) { this.group.remove(s.om); s.om = null; } const geo = s.mesh.geometry; if (geo.boundingSphere.radius < .36) return;
@@ -50,7 +54,7 @@
     setOutlines(on) { this.olOn = on; for (const k in this.sets) { const s = this.sets[k]; if (s.om) s.om.visible = on && s.vis > 0; } }
     grow(s) {
       const cap = s.cap * 2, m = new THREE.InstancedMesh(s.mesh.geometry, G.MATS, cap); m.frustumCulled = false; m.castShadow = s.mesh.castShadow; m.receiveShadow = true; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      m.count = 0; m.visible = false; this.group.remove(s.mesh); s.mesh.dispose(); this.group.add(m); s.mesh = m; s.cap = cap; s.vis = 0; this.outline(s); this.mark(s);
+      m.count = 0; m.visible = false; this.group.remove(s.mesh); s.mesh.dispose(); this.group.add(m); s.mesh = m; s.cap = cap; s.vis = 0; this.outline(s); if (s.lg) this.lowMesh(s); this.mark(s);
     }
     mark(s) { s.dirty = true; this.dirty = true; }
     cellOf(o) { const d = G.OBJ[o.t], [w, dd] = G.fpDims(d, o.r); if (w > 6 || dd > 6) return -1; return Math.floor((o.z + dd / 2) / CELL) * this.cw + Math.floor((o.x + w / 2) / CELL); }
@@ -77,10 +81,13 @@
     refresh(o) { const k = G.objKey(o); if (k !== o._k) { this.remove(o); this.add(o); } else this.write(o, o._anim || null); }
     // recopie les objets visibles en tête du tampon (V : visibilité des cases, ou null = tout)
     cull(V, ver) {
-      const all = ver !== this.ver || V !== this.V; if (!all && !this.dirty) return; this.ver = ver; this.V = V; this.dirty = false;
+      const pl = G.player, px = pl ? pl.x : 0, pz = pl ? pl.z : 0, pk = Math.floor(px / CELL) * 4096 + Math.floor(pz / CELL), LR = (G.LOD_DIST || 30) ** 2, cw = this.cw;
+      const far = c => { const dx = (c % cw) * CELL + CELL / 2 - px, dz = Math.floor(c / cw) * CELL + CELL / 2 - pz; return dx * dx + dz * dz > LR; };
+      const all = ver !== this.ver || V !== this.V || pk !== this.pk; if (!all && !this.dirty) return; this.ver = ver; this.V = V; this.pk = pk; this.dirty = false;
       for (const k in this.sets) { const s = this.sets[k]; if (!all && !s.dirty) continue; s.dirty = false;
-        const im = s.mesh.instanceMatrix, arr = im.array; let n = 0;
-        for (let i = 0; i < s.n; i++) { const o = s.items[i]; if (!V || o._c < 0 || V[o._c]) { arr.set(o._m, n * 16); o._vi = n++; } else o._vi = -1; }
+        const im = s.mesh.instanceMatrix, arr = im.array, low = s.low, la = low && low.instanceMatrix.array; let n = 0, nl = 0;
+        for (let i = 0; i < s.n; i++) { const o = s.items[i]; if (!V || o._c < 0 || V[o._c]) { if (low && o._c >= 0 && far(o._c)) { la.set(o._m, nl++ * 16); o._vi = -2; } else { arr.set(o._m, n * 16); o._vi = n++; } } else o._vi = -1; }
+        if (low && (nl || s.lvis)) { s.lvis = nl; low.count = nl; low.visible = nl > 0; low.instanceMatrix.updateRange.offset = 0; low.instanceMatrix.updateRange.count = nl * 16; low.instanceMatrix.needsUpdate = true; }
         if (!n && !s.vis) continue; s.vis = n; s.mesh.count = n; s.mesh.visible = n > 0; if (s.om) { s.om.count = n; s.om.visible = this.olOn && n > 0; }
         im.updateRange.offset = 0; im.updateRange.count = n * 16; im.needsUpdate = true; }
     }

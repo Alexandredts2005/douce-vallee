@@ -56,7 +56,7 @@
     const m = G.map, p = G.player; if (!m || !p) return; A.t += dt; const out = !m.interior, sky = G.skyInfo || { n: 0, h: 12 }, n = sky.n || 0;
     // feuilles et pétales
     if (out && (treeT -= dt) < 0) { treeT = 2; trees = []; for (const o of m.list) { const d = G.OBJ[o.t]; if (d.chop >= 3 && leafCol[d.model] && Math.abs(o.x - p.x) < 22 && Math.abs(o.z - p.z) < 22) trees.push(o); } }
-    if (out && trees.length && Math.random() < dt * (3 + trees.length * .08)) { const o = trees[Math.floor(Math.random() * trees.length)], d = G.OBJ[o.t], cols = leafCol[d.model], [cx, cz] = m.center(o), a = Math.random() * TAU, r = Math.random() * .9;
+    if (!G.leafFall && out && trees.length && Math.random() < dt * (3 + trees.length * .08)) { const o = trees[Math.floor(Math.random() * trees.length)], d = G.OBJ[o.t], cols = leafCol[d.model], [cx, cz] = m.center(o), a = Math.random() * TAU, r = Math.random() * .9;
       G.fx.one(cx + Math.cos(a) * r, o.y + 2.0 + Math.random() * .9, cz + Math.sin(a) * r, .25 + Math.random() * .3, -.15, (Math.random() - .5) * .4, 3.5 + Math.random() * 2, .22, cols[Math.floor(Math.random() * cols.length)], .11, 0); }
     // étoile filante
     const night = out && (sky.h >= 20.5 || sky.h < 4.5); A.starT -= dt;
