@@ -235,6 +235,7 @@
     if (o.t === 'maison_hab' || o.t === 'boutique' || o.t === 'paillasson') { G.ui.toast('Ça ne se déplace pas !'); G.sfx('error'); return; }
     if (o.falling) return;
     if (!surv()) { m.removeObj(o); G.fx.puff(cx, o.y + .3, cz, 10, 0xffffff, .7); G.sfx('pop'); return; }
+    if (!d.take && m.interior && !m.isVisit && !d.portal) { if (G.ITEMS[o.t]) G.inv.add(o.t, 1); m.removeObj(o); G.sfx('pickup'); G.fx.puff(cx, o.y + .3, cz, 10, 0xffffff, .7); return; }
     if (d.take) { if (G.inv.add(o.t, 1) > 0) { G.ui.toast('Inventaire plein !'); return; } m.removeObj(o); G.sfx('pickup'); G.popup('+1 ' + d.n, cx, o.y + 1.2, cz, 'green'); return; }
     if (d.pick) return A.pickUp(o);
     G.ui.toast(d.chop ? 'Il faut une hache pour ça.' : d.mine ? 'Il faut une pioche pour ça.' : d.dig ? 'Il faut une pelle pour ça.' : 'Impossible de ranger ça.'); G.sfx('error');

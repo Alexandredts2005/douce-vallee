@@ -120,7 +120,7 @@
     C.cx += (tx - C.cx) * k; C.cy += (ty - C.cy) * (k === 1 ? 1 : Math.min(1, 5 * dt)); C.cz += (tz - C.cz) * k;
     const hd = Math.cos(pitch) * dist; camera.position.set(C.cx + Math.sin(C.yaw) * hd, C.cy + Math.sin(pitch) * dist, C.cz + Math.cos(C.yaw) * hd);
     if (mouse) { // la caméra se rapproche quand un bâtiment ou une falaise la cache
-      const cp = camera.position, occ = (x, z) => { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return 50; let h = m.terrainH(x, z); const o = m.objAt(tx, tz); if (o) { const d = G.OBJ[o.t]; if (d.enter || d.shop || (d.h >= 2 && d.fp[0] * d.fp[1] >= 4 && !d.chop)) h = Math.max(h, o.y + d.h); } return h; };
+      const cp = camera.position, occ = (x, z) => { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return 50; let h = m.terrainH(x, z);  return h; };
       let k = 1; for (let i = 1; i <= 12; i++) { const t = i / 12, x = C.cx + (cp.x - C.cx) * t, y = C.cy + (cp.y - C.cy) * t, z = C.cz + (cp.z - C.cz) * t, h = occ(x, z); if (h < 40 && h > y - .2) { k = Math.max(.12, (i - 1) / 12 - .03); break; } }
       C.occK = k < (C.occK || 1) ? k : Math.min(k, (C.occK || 1) + dt * 1.5); if (C.occK < 1) cp.set(C.cx + (cp.x - C.cx) * C.occK, C.cy + (cp.y - C.cy) * C.occK, C.cz + (cp.z - C.cz) * C.occK);
       const ch = m.topAt(cp.x, cp.z); if (ch < 40 && cp.y < ch + .35) cp.y = ch + .35; }
@@ -145,7 +145,7 @@
   function updSky() {
     const h = G.clock.min / 60, [li, hi] = skyAt(h), n = G.night(), m = G.map, inside = m && m.interior;
     skyMat.uniforms.top.value.copy(cTop); skyMat.uniforms.hor.value.copy(cHor); scene.fog.color.copy(cHor);
-    const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); const sunny = inside && m.meta.sunny; hemi.intensity = inside ? (sunny ? .3 + .3 * dayK : .14 + .2 * dayK) : hi; amb.intensity = inside ? (sunny ? .08 + .05 * dayK : .05 + .05 * dayK) : .1 + n * .08;
+    const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); const sunny = inside && m.meta.sunny, brt = inside && (m.meta.sunny || m.meta.bright); hemi.intensity = inside ? (brt ? .3 + .3 * dayK : .14 + .2 * dayK) : hi; amb.intensity = inside ? (brt ? .08 + .05 * dayK : .05 + .05 * dayK) : .1 + n * .08;
     G.skyInfo = { h, n, inside, top: cTop, hor: cHor, light: cLight, day: h >= 5.2 && h < 19.6 };
     const day = h >= 5.2 && h < 19.6, a = day ? (h - 5.2) / 14.4 * Math.PI : ((h >= 19.6 ? h - 19.6 : h + 4.4) / 9.6) * Math.PI;
     SD.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize();

@@ -131,7 +131,7 @@
   G.ITEMS.avion = { id: 'avion', n: 'Petit avion', stack: 1, sell: 2500, kind: 'place', obj: 'avion', cat: 'construction', thumb: 'obj:avion' };
   if (G.SHOPLIST) G.SHOPLIST.push('avion');
 
-  const F = G.feat, ob = F.board, ou = F.updVehicle;
+  const F = G.feat, ob = F.board, ou = F.updVehicle, SEAT = new THREE.Vector3();
   F.board = o => { if (!G.OBJ[o.t].plane) return ob(o);
     const p = G.player, m = G.map; if (m.interior) return; const [cx, cz] = m.center(o);
     const mesh = new THREE.Mesh(G.getGeo('avion', 1), G.MATS); mesh.castShadow = true; mesh.frustumCulled = false; mesh.rotation.order = 'YXZ'; G.scene.add(mesh);
@@ -151,19 +151,23 @@
     const air = v.alt > .6, tsp = v.landing ? (air ? 4 : 0) : brake ? 0 : (mag > .15 ? 10 : 6.5);
     v.spd += (tsp - v.spd) * Math.min(1, (v.landing && !air ? 1.6 : .7) * dt);
     v.x = G.clamp(v.x + Math.sin(v.h) * v.spd * dt, 4, m.W - 4); v.z = G.clamp(v.z + Math.cos(v.h) * v.spd * dt, 4, m.H - 4);
-    if (free && !v.landing) { if (I.down('Space')) v.talt = Math.min(26, v.talt + dt * 5); if (I.down('ShiftLeft', 'ShiftRight')) v.talt = Math.max(4, v.talt - dt * 5); }
-    if (free && I.hit('KeyE') && !v.landing) { v.landing = true; G.ui.toast('Atterrissage…'); }
+    if (free && !v.landing) { if (I.down('Space')) v.talt = Math.min(26, v.talt + dt * 5); if (I.down('ShiftLeft', 'ShiftRight', 'KeyC', 'ControlLeft')) v.talt = Math.max(1.5, v.talt - dt * 6); }
+    // E : l'avion descend en spirale et se pose là où on a appuyé (ou sur le terrain libre le plus proche)
+    if (free && I.hit('KeyE') && !v.landing) { const sx = Math.floor(v.x - 1.5), sz = Math.floor(v.z - 1.5); let L = null;
+      for (let r = 0; r < 40 && !L; r++) for (let dz = -r; dz <= r && !L; dz++) for (let dx = -r; dx <= r && !L; dx++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const x = sx + dx, z = sz + dz; if (m.canPlace(v.o.t, x, z, v.o.r) && !m.isWaterAt(x + 1.5, z + 1.5)) L = { tx: x, tz: z, x: x + 1.5, z: z + 1.5 }; }
+      if (!L) { G.sfx('error'); G.ui.toast('Aucun terrain libre de 3×3 par ici.'); } else { L.r = Math.max(3, Math.hypot(v.x - L.x, v.z - L.z)); L.a = Math.atan2(v.z - L.z, v.x - L.x); v.landing = L; G.ui.toast('Atterrissage en spirale…'); } }
+    if (v.landing) { const L = v.landing; L.a += dt * 2.2; L.r = Math.max(0, L.r - dt * Math.max(1, L.r * .35)); const nx = L.x + Math.cos(L.a) * L.r, nz = L.z + Math.sin(L.a) * L.r;
+      if (Math.hypot(nx - v.x, nz - v.z) > .001) v.h = Math.atan2(nx - v.x, nz - v.z); v.x = nx; v.z = nz; v.alt = Math.max(0, v.alt - dt * Math.max(1.2, v.alt * .7)); const gr = m.topAt(v.x, v.z); v.y = gr + v.alt; v.spd = 4; v.bank += ((L.r > .3 ? -.3 : 0) - v.bank) * Math.min(1, 3 * dt);
+      if (L.r <= .02 && v.alt <= .02) { G.scene.remove(v.mesh); G.scene.remove(v.sh); m.addObj(v.o.t, L.tx, L.tz, v.o.r); p.vehicle = null; p.teleport(L.x, L.z + 2.4, 0); if (p.blocked(p.x, p.z, p.y, true)) p.unstick(true); G.sfx('land'); G.fx.puff(L.x, gr + .1, L.z, 14, 0xf3ead2, 1); return; }
+      v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.set(0, v.h, v.bank); v.prop.rotation.z += dt * 20; v.sh.position.set(v.x, gr + .04, v.z);
+      v.mesh.updateMatrixWorld(); const st = v.mesh.localToWorld(SEAT.set(0, .5, .25)); p.x = st.x; p.z = st.z; p.y = st.y; p.yaw = v.h; p.onGround = true; p.swim = false; p.animate(dt, 0); p.place(); p.blob.visible = false; return; }
     const ground = Math.max(m.topAt(v.x, v.z), m.isWaterAt(v.x, v.z) ? m.waterSurf(Math.floor(v.x), Math.floor(v.z)) : -9);
     if (v.landing) v.talt = 0; const climb = (v.talt - v.alt) * Math.min(1, (v.spd > 3 || v.landing || v.alt > .6 ? .7 : .05) * dt); v.alt += climb;
     v.y += (ground + v.alt - v.y) * Math.min(1, 3 * dt);
-    if (v.landing && v.y - ground < .1 && v.spd < .4) { const tx = Math.floor(v.x - 1.5), tz = Math.floor(v.z - 1.5);
-      if (m.canPlace(v.o.t, tx, tz, v.o.r) && !m.isWaterAt(v.x, v.z)) { G.scene.remove(v.mesh); G.scene.remove(v.sh); m.addObj(v.o.t, tx, tz, v.o.r); p.vehicle = null; p.teleport(tx + 1.5, tz + 3.4, 0); G.sfx('land'); G.fx.puff(tx + 1.5, ground + .1, tz + 1.5, 14, 0xf3ead2, 1); return; }
-      for (let r = 1; r < 40; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const x = tx + dx, z = tz + dz; if (m.canPlace(v.o.t, x, z, v.o.r) && !m.isWaterAt(x + 1.5, z + 1.5)) { v.x = x + 1.5; v.z = z + 1.5; v.y = m.topAt(v.x, v.z) + .05; G.ui.toast('Pas de place ici : l’avion se pose un peu plus loin.'); return; } }
-      v.landing = false; v.talt = 6; G.sfx('error'); G.ui.toast('Aucun terrain libre de 3×3 à proximité.'); }
-    v.bank += (-turn * .45 - v.bank) * Math.min(1, 3 * dt);
+    v.bank += (-turn * .3 - v.bank) * Math.min(1, 3 * dt);
     v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.set(G.clamp(-climb / Math.max(dt, .001) * .05, -.35, .35), v.h, air ? v.bank : 0); v.prop.rotation.z += dt * (8 + v.spd * 3);
     v.sh.position.set(v.x, ground + .04, v.z); const s = G.clamp(3.2 - v.alt * .07, 1.2, 3.2); v.sh.scale.set(s, 1, s); v.sh.visible = !m.isWaterAt(v.x, v.z);
-    p.x = v.x + Math.sin(v.h) * .2; p.z = v.z + Math.cos(v.h) * .2; p.y = v.y + .62; p.yaw = v.h; p.onGround = true; p.swim = false;
+    v.mesh.updateMatrixWorld(); const st = v.mesh.localToWorld(SEAT.set(0, .5, .25)); p.x = st.x; p.z = st.z; p.y = st.y; p.yaw = v.h; p.onGround = true; p.swim = false;
     if (air && Math.random() < dt * 6) G.fx.one(v.x - Math.sin(v.h) * 1.6, v.y + .9, v.z - Math.cos(v.h) * 1.6, 0, .2, 0, .7, 0, 0xffffff, .25, 1);
     p.animate(dt, 0); p.C.armL.rotation.x = p.C.armR.rotation.x = -.9; p.place(); p.blob.visible = false;
   };

@@ -307,6 +307,7 @@
     const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3)); const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffe9b0, size: .06, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }));
     dust.frustumCulled = false; dust.userData.seed = seed; g.add(dust); gx.dust = dust; gx.sdT = 0;
     g.traverse(c => { if (c.isMesh) c.frustumCulled = false; });
+    const cast = new THREE.Mesh(new THREE.BoxGeometry(GW + 2, WH + RISE + 1, .4), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })); cast.position.set(GW / 2, (WH + RISE + 1) / 2, GH + .4); cast.castShadow = true; cast.frustumCulled = false; g.add(cast);
     m.shell = g; m.group.add(g); m._gx = gx;
   }
   // mise à jour du hall : heure, tableau, rayons de soleil, poussière
@@ -403,9 +404,9 @@
       for (const [r, yy, n] of [[.75, y - .55, 12], [.48, y - .2, 8], [.25, y + .1, 6]]) { b.tor(r, .035, GOLD, x, yy, z, PI / 2, 0, 0, 0, 24); for (let i = 0; i < n; i++) { const a = i / n * TAU, cx = x + Math.cos(a) * r, cz = z + Math.sin(a) * r; b.cyl(.025, .025, .14, 6, 0xfffaf0, cx, yy + .1, cz); b.sph(.03, 0xffd27a, cx, yy + .2, cz, 1, 1.5, 1, 1, 6, 4); b.sph(.035, 0xeaf6ff, cx, yy - .12, cz, 1, 1.6, 1, 1, 6, 4); } }
       b.sph(.16, 0xeaf6ff, x, y - .85, z, 1, 1.6, 1, 1, 10, 8); b.cyl(.05, .12, .5, 10, GOLD, x, y - .4, z); }
     const sm = new THREE.Mesh(b.done(), G.MATS); sm.castShadow = true; sm.receiveShadow = true; g.add(sm);
-    const pm = new THREE.MeshBasicMaterial({ color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-    for (const w of wins) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; g.add(me); gx.patches.push([me, w]); }
-    gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.sunny = 1; }
+    const pm = new THREE.MeshBasicMaterial({ map: paneTex(), color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const w of wins) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; g.add(me); gx.patches.push([me, w]); }
+    gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.bright = 1; delete m.meta.sunny; }
   const ob2 = G.buildShell; G.buildShell = m => { const o = m.kind === 'maison' && isCh(m); if (!o) return ob2(m); castleShell(m, o); };
   // un château a toujours un immense salon (les meubles sont gardés)
   G.on('enterMap', m => { if (!isCh(m) || m.W >= 22) return; setTimeout(() => { if (G.map !== m) return; const nm = G.makeInterior('maison', m.id, { W: 22, H: 16, empty: true }); nm.meta.stage = G.HOME_STAGES.length;
@@ -414,7 +415,7 @@
   // taches de soleil sur le parquet, selon l'heure
   const SD2 = new THREE.Vector3();
   G.on('update', dt => { const m = G.map, gx = m && m._cx; if (!gx || (gx.t -= dt) > 0) return; gx.t = .5; const h = G.clock.min / 60, day = h >= 5.2 && h < 19.6, a = (h - 5.2) / 14.4 * PI; SD2.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize();
-    gx.pm.opacity = day ? .32 * Math.min(1, Math.sin(a) * 2.5) : 0;
+    gx.pm.opacity = day ? .5 * Math.min(1, Math.sin(a) * 2.5) : 0;
     for (const [me, w] of gx.patches) { const p = me.geometry.attributes.position, c = Math.cos(w.ry), sn = Math.sin(w.ry), d = SD2.clone(); if (w.ry === 0) d.z = -Math.abs(d.z);
       const inward = w.ry === 0 ? -d.z : w.ry > 0 ? -d.x : d.x; me.visible = day && inward > .05; if (!me.visible) continue; const pts = [];
       for (const [lx, y] of [[-w.ww / 2, w.y0], [w.ww / 2, w.y0], [w.ww / 2, w.y1], [-w.ww / 2, w.y1]]) { const X = w.x + lx * c, Z = w.z - lx * sn, k = y / d.y; pts.push([G.clamp(X - d.x * k, 0, m.W), .012, G.clamp(Z - d.z * k, 0, m.H)]); }
@@ -435,7 +436,7 @@
     for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; b.geo(new THREE.SphereGeometry(.13, 8, 6), GOLD, b.M(Math.cos(a) * .5, y + .55, Math.sin(a) * .5, 0, -a, 0, .5, 1.3, .9), 0, true); b.sph(.08, GOLD, Math.cos(a) * .62, y + .72, Math.sin(a) * .62); }
     b.P(PT.pierre); b.box(1.4, .5, 1.4, MV, 0, MHT - .65, 0); b.P(0); b.box(1.5, .1, 1.5, GOLD, 0, MHT - .35, 0); return b.done(); };
   O.pilier = { id: 'pilier', n: 'Pilier', model: 'pilier', v: 0, fp: [1, 1], h: MHT, fixed: 1 };
-  G.ROOMFILL.mairie = (m, P) => { m.meta.sunny = 1; m.meta.cam = { pitch: .42, dist: 20, ty: 3.2, fx: .6, fz: .7, dz: 1.8 };
+  G.ROOMFILL.mairie = (m, P) => { m.meta.bright = 1; m.meta.cam = { pitch: .42, dist: 20, ty: 3.2, fx: .6, fz: .7, dz: 1.8 };
     for (const x of [5, 18]) for (const z of [3, 7, 11, 15]) P('pilier', x, z);
     P('bureau', 11, 8); P('tapis', 11, 10); P('tapis', 11, 12);
     for (const [x, z] of [[8, 13], [14, 13], [8, 15], [14, 15]]) P('banc_parc', x, z); for (const [x, z] of [[1, 1], [22, 1], [1, 16], [22, 16], [9, 8], [14, 8]]) P('plante', x, z);
@@ -469,10 +470,25 @@
       for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; b.cyl(.008, .008, 1.2, 3, 0xeaf6ff, x + Math.cos(a) * 1.3, y - .6, z + Math.sin(a) * 1.3, 0, 0, 0, 1); }
       b.sph(.3, 0xeaf6ff, x, y - 1.9, z, 1, 1.6, 1, 1, 12, 10); b.cyl(.1, .25, .9, 12, GOLD, x, y - 1.2, z); }
     const sm = new THREE.Mesh(b.done(), G.MATS); sm.castShadow = true; sm.receiveShadow = true; g.add(sm);
-    const pm = new THREE.MeshBasicMaterial({ color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-    for (const w of wins) { if (w.y0 > 8) continue; const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; g.add(me); gx.patches.push([me, w]); }
-    gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.sunny = 1; }
+    const pm = new THREE.MeshBasicMaterial({ map: paneTex(), color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const w of wins) { if (w.y0 > 8) continue; const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; g.add(me); gx.patches.push([me, w]); }
+    gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.bright = 1; delete m.meta.sunny; }
   const ob3 = G.buildShell; G.buildShell = m => { if (m.kind !== 'mairie' || m.W < 20) return ob3(m); mairieShell(m); };
   G.on('load', () => { for (const id in G.interiors) { const im = G.interiors[id]; if (im.kind === 'mairie' && im.W < 20 && G.map !== im) { G.scene.remove(im.group); delete G.interiors[id]; } } });
 
+  // ombre des carreaux dans les taches de soleil
+  let paneT = null; function paneTex() { return paneT || (paneT = cnv(128, (x, n) => { x.fillStyle = '#fff'; x.fillRect(0, 0, n, n); x.fillStyle = '#000'; x.fillRect(n / 2 - 4, 0, 8, n); for (let k = 1; k < 5; k++) x.fillRect(0, k * n / 5 - 3, n, 6); x.fillRect(0, 0, n, 6); x.fillRect(0, n - 6, n, 6); x.fillRect(0, 0, 6, n); x.fillRect(n - 6, 0, 6, n); })); }
+  // toutes les autres pièces : le soleil entre par leurs fenêtres
+  const ob4 = G.buildShell; G.buildShell = m => { ob4(m); if (!m.interior || !m.shell || m._gx || (m.kind === 'maison' && isCh(m)) || (m.kind === 'mairie' && m.W >= 20)) return;
+    const W = m.W, H = m.H, wins = [], nW = Math.max(1, Math.floor(W / 4)), w0 = { ww: .86, y0: 1.38, y1: 2.12 }; for (let k = 0; k < nW; k++) wins.push(Object.assign({ x: (k + .5) * W / nW, z: 0, ry: 0 }, w0));
+    if (H >= 8) { wins.push(Object.assign({ x: 0, z: H * .45, ry: PI / 2 }, w0)); wins.push(Object.assign({ x: W, z: H * .45, ry: -PI / 2 }, w0)); }
+    const gx = { patches: [], t: 0 }, pm = new THREE.MeshBasicMaterial({ map: paneTex(), color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const w of wins) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; me.frustumCulled = false; m.shell.add(me); gx.patches.push([me, w]); }
+    gx.pm = pm; m._cx = gx; };
+  // la caméra n'est jamais bloquée : ce qui se trouve entre elle et le joueur disparaît
+  const Z0 = new THREE.Matrix4().makeScale(0, 0, 0), hid = new Map();
+  G.on('frame', () => { const m = G.map, p = G.player, cp = G.camera && G.camera.position, now = new Set();
+    if (m && p && cp && !m.interior && m.objr && G.state === 'play') { const ty = p.y + 1; for (let i = 1; i <= 18; i++) { const t = i / 18, x = p.x + (cp.x - p.x) * t, y = ty + (cp.y - ty) * t, z = p.z + (cp.z - p.z) * t, o = m.objAt(Math.floor(x), Math.floor(z)); if (!o || now.has(o)) continue; const d = G.OBJ[o.t]; if (d.h >= 1.6 && !d.walk && o.y + d.h > y - .3) now.add(o); } }
+    for (const [o, mm] of hid) if (!now.has(o) || mm !== m) { if (o._anim === Z0) o._anim = null; mm.refresh(o); hid.delete(o); }
+    for (const o of now) if (!hid.has(o)) { o._anim = Z0; m.refresh(o); hid.set(o, m); } });
 })();
