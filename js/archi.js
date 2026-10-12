@@ -233,7 +233,7 @@ vec3 dvPat(vec3 c) {
       b.P(PT.pierre); b.cyl(.09, .12, .5, 6, 0xa9a297, -1.35, .25, zf + 1.05); b.box(.3, .2, .3, 0xb9b3a6, -1.35, .6, zf + 1.05); b.cone(.26, .18, 4, 0x8f8b82, -1.35, .79, zf + 1.05, 0, Math.PI / 4); b.P(0); b.box(.16, .1, .16, 0xffe2a0, -1.35, .6, zf + 1.05, 0, 0, 0, 1); }
     const zb = H.zc + H.d / 2 + .32; if (!s.porch && !s.japon) { bush(b, -1.32, zb - .05, .9, 0x4fa847, s.fleurs ? (Array.isArray(s.fleurs) ? s.fleurs[0] : 0xff8fc0) : null); bush(b, 1.32, zb - .05, .85, 0x58b54a, 0xffd23f); }
   }
-  G.ARCH = { PT, onW, wb, ws, half, disc, ring, beam, fenetre, porte, toitX, toitZ, cheminee, lucarne, quoins, corners, bush, dark, light, GLASS, GOLD, IRONC, STONEC, ZINC, P };
+  G.ARCH = { maison, PT, onW, wb, ws, half, disc, ring, beam, fenetre, porte, toitX, toitZ, cheminee, lucarne, quoins, corners, bush, dark, light, GLASS, GOLD, IRONC, STONEC, ZINC, P };
   // ---------- modèles ----------
   MD.house = v => { const b = G.mb(90 + v); maison(b, STY[v % STY.length]); return b.done(); };
   [['maison', 0], ['maison_bleue', 1], ['maison_rose', 2], ['maison_verte', 3]].forEach(([id, k]) => { if (G.OBJ[id]) G.OBJ[id].n = STY[k].n; if (G.ITEMS[id]) G.ITEMS[id].n = STY[k].n; });
