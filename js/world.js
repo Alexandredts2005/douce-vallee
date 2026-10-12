@@ -81,7 +81,7 @@
     refresh(o) { const k = G.objKey(o); if (k !== o._k) { this.remove(o); this.add(o); } else this.write(o, o._anim || null); }
     // recopie les objets visibles en tête du tampon (V : visibilité des cases, ou null = tout)
     cull(V, ver) {
-      const pl = G.player, px = pl ? pl.x : 0, pz = pl ? pl.z : 0, pk = Math.floor(px / CELL) * 4096 + Math.floor(pz / CELL), LR = (G.LOD_DIST || 30) ** 2, cw = this.cw;
+      const pl = G.player, px = pl ? pl.x : 0, pz = pl ? pl.z : 0, pk = Math.floor(px / CELL) * 4096 + Math.floor(pz / CELL), LR = (G.LOD_DIST || 75) ** 2, cw = this.cw;
       const far = c => { const dx = (c % cw) * CELL + CELL / 2 - px, dz = Math.floor(c / cw) * CELL + CELL / 2 - pz; return dx * dx + dz * dz > LR; };
       const all = ver !== this.ver || V !== this.V || pk !== this.pk; if (!all && !this.dirty) return; this.ver = ver; this.V = V; this.pk = pk; this.dirty = false;
       for (const k in this.sets) { const s = this.sets[k]; if (!all && !s.dirty) continue; s.dirty = false;

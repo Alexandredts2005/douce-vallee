@@ -4,24 +4,25 @@
   const TAU = Math.PI * 2, A = G.amb2 = { t: 0 };
   const CURVE = 'vec2 cd = wp.xz - uCC.xz; float ca = dot(cd, uCF); float cl = cd.x * uCF.y - cd.y * uCF.x; wp.y -= uCurve * (ca * ca + .3 * cl * cl);';
   // ---------- herbe ----------
-  function grassGeo() { const pos = [], col = [], base = new THREE.Color(0x3d8a35), tip = new THREE.Color(0x9adf6e), tip2 = new THREE.Color(0xc4ec8a);
-    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI + .3, c = Math.cos(a), s = Math.sin(a), w = .055 + (k % 2) * .015, h = .32 + (k % 3) * .09, lx = Math.sin(a * 3) * .08, lz = Math.cos(a * 2) * .08, ox = Math.cos(k * 2.1) * .12, oz = Math.sin(k * 2.1) * .12;
-      pos.push(ox - c * w, 0, oz - s * w, ox + c * w, 0, oz + s * w, ox + lx, h, oz + lz); const t = k === 2 ? tip2 : tip; col.push(base.r, base.g, base.b, base.r, base.g, base.b, t.r, t.g, t.b); }
+  function grassGeo() { const pos = [], col = [], base = new THREE.Color(0x2c6a28), mid = new THREE.Color(0x5aa844), tips = [0x9fdc72, 0xb8e884, 0x86cc5e].map(c => new THREE.Color(c));
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + k * .7, c = Math.cos(a), s = Math.sin(a), w = .03 + (k % 3) * .008, h = .28 + ((k * 7) % 5) * .05, r = .04 + (k % 3) * .05, ox = Math.cos(a) * r, oz = Math.sin(a) * r, lx = Math.cos(a) * h * .45, lz = Math.sin(a) * h * .45, t = tips[k % 3];
+      const B1 = [ox - s * w, 0, oz + c * w], B2 = [ox + s * w, 0, oz - c * w], M1 = [ox + lx * .35 - s * w * .7, h * .55, oz + lz * .35 + c * w * .7], M2 = [ox + lx * .35 + s * w * .7, h * .55, oz + lz * .35 - c * w * .7], T = [ox + lx, h, oz + lz];
+      for (const [p, q] of [[[B1, B2, M2], [base, base, mid]], [[B1, M2, M1], [base, mid, mid]], [[M1, M2, T], [mid, mid, t]]]) { p.forEach(v => pos.push(...v)); q.forEach(v => col.push(v.r, v.g, v.b)); } }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('gc', new THREE.Float32BufferAttribute(col, 3)); return g; }
-  const GR = { N: 6000, cx: 1e9, cz: 1e9, map: null, t: 0 };
+  const GR = { N: 9000, cx: 1e9, cz: 1e9, map: null, t: 0 };
   G.on('init', scene => {
     const U = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 }, uTint: { value: new THREE.Color(1, 1, 1) } }]); U.uCurve = G.U.curve; U.uCC = G.U.cc; U.uCF = G.U.cf; GR.U = U;
     const mat = new THREE.ShaderMaterial({ uniforms: U, fog: true, side: THREE.DoubleSide,
-      vertexShader: 'attribute vec3 gc; uniform float uT, uCurve; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; float sw = sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; ' + CURVE + ' vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc;\n#include <fog_vertex>\n}',
+      vertexShader: 'attribute vec3 gc; uniform float uT, uCurve; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; float sw = sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; ' + CURVE + ' vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc * (.82 + .3 * fract(sin(dot(floor(wp.xz * .7), vec2(12.9898, 78.233))) * 43758.5453)) * (.9 + .15 * sin(wp.x * .21 + wp.z * .17));\n#include <fog_vertex>\n}',
       fragmentShader: 'uniform vec3 uTint; varying vec3 vC;\n#include <fog_pars_fragment>\nvoid main(){ gl_FragColor = vec4(vC * uTint, 1.0);\n#include <fog_fragment>\n}' });
     const m = new THREE.InstancedMesh(grassGeo(), mat, GR.N); m.count = 0; m.frustumCulled = false; m.renderOrder = 0; scene.add(m); GR.mesh = m;
   });
   const SC = new THREE.Color(), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
   function buildGrass(m, px, pz) {
-    const R = 17, x0 = Math.max(0, Math.floor(px) - R), x1 = Math.min(m.W - 1, Math.floor(px) + R), z0 = Math.max(0, Math.floor(pz) - R), z1 = Math.min(m.H - 1, Math.floor(pz) + R); let n = 0;
+    const R = 21, x0 = Math.max(0, Math.floor(px) - R), x1 = Math.min(m.W - 1, Math.floor(px) + R), z0 = Math.max(0, Math.floor(pz) - R), z1 = Math.min(m.H - 1, Math.floor(pz) + R); let n = 0;
     for (let z = z0; z <= z1 && n < GR.N; z++) for (let x = x0; x <= x1 && n < GR.N; x++) {
       const i = m.idx(x, z), s = m.surf[i]; if (m.water[i] || m.ramp[i] || !(s === 0 || s === 1 || s === 14)) continue; const o = m.objAt(x, z); if (o && (G.OBJ[o.t].h > .3 || G.OBJ[o.t].enter)) continue;
-      if ((x - px) * (x - px) + (z - pz) * (z - pz) > R * R) continue; const k = 3 + (G.hash2(x, z, 11) < .4 ? 1 : 0);
+      if ((x - px) * (x - px) + (z - pz) * (z - pz) > R * R) continue; const k = 3 + (G.hash2(x, z, 11) < .5 ? 1 : 0);
       for (let j = 0; j < k && n < GR.N; j++) { const rx = x + G.hash2(x, z, 20 + j), rz = z + G.hash2(z, x, 40 + j), sc = .7 + G.hash2(x + j, z, 60) * .7;
         V.set(rx, m.terrainH(rx, rz) - .02, rz); Q.setFromAxisAngle(Y, G.hash2(x, z + j, 80) * TAU); S.set(sc, sc * (s === 1 ? 1.25 : 1), sc); M4.compose(V, Q, S); GR.mesh.setMatrixAt(n++, M4); } }
     GR.mesh.count = n; GR.mesh.instanceMatrix.needsUpdate = true; GR.cx = px; GR.cz = pz; GR.map = m; GR.rev = m.rev;

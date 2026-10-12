@@ -67,7 +67,7 @@
     camera = G.camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, .1, 900);
     G.makeTextures(); G.makeMaterials();
     hemi = new THREE.HemisphereLight(0xd8ecff, 0x8f9a6a, .65); scene.add(hemi); amb = new THREE.AmbientLight(0xffffff, .12); scene.add(amb);
-    sun = new THREE.DirectionalLight(0xffffff, .9); sun.castShadow = true; const sc = sun.shadow.camera; sc.left = -26; sc.right = 26; sc.top = 26; sc.bottom = -26; sc.near = 1; sc.far = 140; sun.shadow.bias = -.0006; sun.shadow.normalBias = .03; sun.shadow.mapSize.set(1024, 1024); scene.add(sun); scene.add(sun.target);
+    sun = new THREE.DirectionalLight(0xffffff, .9); sun.castShadow = true; const sc = sun.shadow.camera; sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 140; sun.shadow.bias = -.0006; sun.shadow.normalBias = .03; sun.shadow.mapSize.set(1024, 1024); scene.add(sun); scene.add(sun.target);
     makeSky(); makeClouds(); makeLamps(); G.fx.init(scene); G.ents.init(scene);
     G.player = new G.Player({}); G.player.attach(scene); G.ui.buildHotbar();
     addEventListener('resize', resize); G.ui.applySettings(); resize();

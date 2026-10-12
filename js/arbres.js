@@ -53,23 +53,23 @@
   }
   const OAKP = [0x2f6b2c, 0x4a8f3a, 0x5aa244, 0x6db452, 0x83c25c, 0x9cc85a];
   const oak = (v, lod) => { const b = begin(11, lod);
-    broadleaf(b, { th: 1.75, tr: .21, bark: 0x6e4b31, nb: 5, blen: 1.05, belev: .7, cr: .6, pal: OAKP, leaves: 42, ls: .24 }); return b.done(); };
+    broadleaf(b, { th: 1.75, tr: .21, bark: 0x6e4b31, nb: 5, blen: 1.05, belev: .7, cr: .6, pal: OAKP, leaves: 60, ls: .21 }); return b.done(); };
   MD.tree_oak = v => oak(v, low()); MD.tree_oak_lod = v => oak(v, true);
   const FRUITC = [0xd8282e, 0xff8a14, 0xffa07a];
   const fruit = (v, lod) => { const b = begin(13 + v % 10, lod);
-    const cl = broadleaf(b, { th: 1.45, tr: .18, bark: 0x7a5236, nb: 5, blen: .95, belev: .62, cr: .56, pal: [0x2f6e2c, 0x4e9a3c, 0x60ad46, 0x78bf55, 0x90cc60], leaves: 36, ls: .23 });
+    const cl = broadleaf(b, { th: 1.45, tr: .18, bark: 0x7a5236, nb: 5, blen: .95, belev: .62, cr: .56, pal: [0x2f6e2c, 0x4e9a3c, 0x60ad46, 0x78bf55, 0x90cc60], leaves: 50, ls: .2 });
     if (v < 10) { const c = FRUITC[v % 3]; for (let i = 0; i < 11; i++) { const [C, R] = cl[i % cl.length], th = rnd() * TAU, y = -.55 + rnd() * .9, rr = Math.sqrt(1 - y * y), k = R + .06, x = C[0] + rr * Math.cos(th) * k, yy = C[1] + .12 + y * k, z = C[2] + rr * Math.sin(th) * k;
       b.sph(.12, c, x, yy, z, 1, .95, 1, 0, lod ? 5 : 7, lod ? 4 : 5); if (!lod) b.cyl(.012, .012, .1, 4, 0x5a3b22, x, yy + .14, z); } }
     return b.done(); };
   MD.tree_fruit = v => fruit(v, low()); MD.tree_fruit_lod = v => fruit(v, true);
   const cherry = (v, lod) => { const b = begin(14, lod);
-    const cl = broadleaf(b, { th: 1.45, tr: .19, bark: 0x4e342a, bark2: 0x5a3c2e, nb: 6, blen: 1.25, belev: .45, bend: .3, cr: .58, sy: .82, pal: [0xd77a9a, 0xffb3cc, 0xffc6d8, 0xffd9e6, 0xfff0f4, 0xff9fbf], leaves: 36, ls: .21, droop: .15, dark: 1 });
+    const cl = broadleaf(b, { th: 1.45, tr: .19, bark: 0x4e342a, bark2: 0x5a3c2e, nb: 6, blen: 1.25, belev: .45, bend: .3, cr: .58, sy: .82, pal: [0xd77a9a, 0xffb3cc, 0xffc6d8, 0xffd9e6, 0xfff0f4, 0xff9fbf], leaves: 48, ls: .19, droop: .15, dark: 1 });
     if (v < 10 && !lod) for (let i = 0; i < 5; i++) { const [C, R] = cl[i * 2 % cl.length], x = C[0] + (rnd() - .5) * R, z = C[2] + (rnd() - .5) * R, y = C[1] - R * .75;
       b.cyl(.01, .01, .22, 4, 0x4f7a2a, x, y - .02, z, 0, 0, .25); b.cyl(.01, .01, .22, 4, 0x4f7a2a, x + .05, y - .02, z, 0, 0, -.25); b.sph(.07, 0xc8102e, x - .03, y - .14, z, 1, 1, 1, 0, 6, 4); b.sph(.07, 0xc8102e, x + .09, y - .15, z, 1, 1, 1, 0, 6, 4); }
     return b.done(); };
   MD.tree_cherry = v => cherry(v, low()); MD.tree_cherry_lod = v => cherry(v, true);
   const birch = (v, lod) => { const b = begin(12, lod);
-    const cl = broadleaf(b, { th: 2.5, tr: .14, bark: 0xeeeae0, bark2: 0x8a8076, nb: 6, blen: .85, belev: 1.0, bend: .2, cr: .46, sy: 1.15, pal: [0x4f7a2e, 0x7fae45, 0x93c052, 0xa9d064, 0xc4dc78], leaves: 32, ls: .2 });
+    const cl = broadleaf(b, { th: 2.5, tr: .14, bark: 0xeeeae0, bark2: 0x8a8076, nb: 6, blen: .85, belev: 1.0, bend: .2, cr: .46, sy: 1.15, pal: [0x4f7a2e, 0x7fae45, 0x93c052, 0xa9d064, 0xc4dc78], leaves: 44, ls: .18 });
     if (!lod) for (let i = 0; i < 16; i++) { const a = rnd() * TAU, y = .25 + rnd() * 2.1, rr = .14 - y * .025; b.box(.05 + rnd() * .05, .022, .02, 0x2e2a26, Math.cos(a) * rr, y, Math.sin(a) * rr, 0, -a + Math.PI / 2, 0); }
     return b.done(); };
   MD.tree_birch = v => birch(v, low()); MD.tree_birch_lod = v => birch(v, true);

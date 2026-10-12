@@ -155,19 +155,21 @@
     b.P(PT.pierre); for (let k = 0; k < 5; k++) b.box(3.6 - k * .1, .1, .32, 0xe9e1cf, 0, .05 + k * .1, 2.85 - k * .26); b.P(0);
     for (const s of [-1, 1]) { b.P(PT.pierre); b.box(.32, .55, 1.4, MST2, s * 1.95, .28, 2.3); b.P(0); lampadaire3(b, s * 1.95, 2.85, 1.6); b.jit(.08); b.blob(.32, 1, 0x4a8a4f, s * 3.3, .3, 2.2, 3.2, .7, 1.1); b.jit(0); for (let k = 0; k < 9; k++) b.sph(.07, [0xffffff, 0xe8434a, 0xffd23f, 0xb583e6][k % 4], s * (2.35 + k * .24), .58, 2.2 + (k % 2) * .25, 1, 1, 1, 0, 6, 4); }
     return b.done(); };
+  MD.hotel_ville_g = v => { const g = MD.hotel_ville(v); g.scale(1.4, 1.4, 1.4); g.translate(0, 0, -.2); g.computeBoundingSphere(); g.computeBoundingBox(); return g; };
+  O.hotel_ville_g = { id: 'hotel_ville_g', n: 'Mairie', model: 'hotel_ville_g', v: 0, h: 11, fp: [14, 8], enter: 'mairie', fixed: 1 };
   O.hotel_ville = { id: 'hotel_ville', n: 'Mairie', model: 'hotel_ville', v: 0, h: 8, fp: [10, 6], enter: 'mairie', fixed: 1 };
   // nouveaux villages : la mairie prend toute la parcelle
-  G.STRUCT.mairie = c => { const { ox, oz, put, flat, targets, meta, surf, I: ix } = c; flat(ox + 1, oz + 1, 14, 12);
-    put('hotel_ville', ox + 3, oz + 2); for (let z = oz + 8; z < oz + 12; z++) for (let x = ox + 4; x < ox + 12; x++) surf[ix(x, z)] = 11;
-    put('lampadaire', ox + 3, oz + 9); put('lampadaire', ox + 12, oz + 9); ['tulipe_rouge', 'tulipe_jaune', 'tulipe_blanche', 'fleur_rose'].forEach((t, k) => { put(t, ox + 2, oz + 3 + k); put(t, ox + 13, oz + 3 + k); });
+  G.STRUCT.mairie = c => { const { ox, oz, put, flat, targets, meta, surf, I: ix } = c; flat(ox, oz, 16, 13);
+    put('hotel_ville_g', ox + 1, oz); for (let z = oz + 8; z < oz + 12; z++) for (let x = ox + 4; x < ox + 12; x++) surf[ix(x, z)] = 11;
+    put('lampadaire', ox + 3, oz + 9); put('lampadaire', ox + 12, oz + 9); ['tulipe_rouge', 'tulipe_jaune', 'tulipe_blanche', 'fleur_rose'].forEach((t, k) => { put(t, ox + 1 + k, oz + 10); put(t, ox + 11 + k, oz + 10); });
     meta.mairie = { x: ox + 8, z: oz + 8.6 }; targets.push([ox + 8, oz + 9, 4]); };
   // villages existants : la petite mairie est remplacée par l'Hôtel de Ville (même porte, même intérieur)
-  function upMairie(m) { const o = [...m.list].find(q => q.t === 'mairie'); if (!o) return; const x0 = o.x - 3, z0 = o.z - 3, L = m.lvl[(o.z + 2) * m.W + o.x + 2];
-    for (let z = z0; z < z0 + 6; z++) for (let x = x0; x < x0 + 10; x++) { if (!m.inb(x, z)) return; const q = m.objAt(x, z); if (q && q !== o && (O[q.t].enter || O[q.t].shop)) return; }
+  function upMairie(m) { const o = [...m.list].find(q => q.t === 'mairie' || q.t === 'hotel_ville'); if (!o) return; const sm = o.t === 'mairie', x0 = o.x - (sm ? 5 : 2), z0 = o.z - (sm ? 5 : 2), L = m.lvl[(o.z + 2) * m.W + o.x + 2];
+    for (let z = z0; z < z0 + 8; z++) for (let x = x0; x < x0 + 14; x++) { if (!m.inb(x, z)) return; const q = m.objAt(x, z); if (q && q !== o && (O[q.t].enter || O[q.t].shop)) return; }
     const iid = o.iid; m.removeObj(o);
-    for (let z = z0; z < z0 + 6; z++) for (let x = x0; x < x0 + 10; x++) { const q = m.objAt(x, z); if (q) { if (O[q.t].take && G.ITEMS[q.t] && G.storage) { const s = G.storage.findIndex(e => !e); if (s >= 0) G.storage[s] = { id: q.t, n: 1 }; } m.removeObj(q); }
+    for (let z = z0; z < z0 + 8; z++) for (let x = x0; x < x0 + 14; x++) { const q = m.objAt(x, z); if (q) { if (O[q.t].take && G.ITEMS[q.t] && G.storage) { const s = G.storage.findIndex(e => !e); if (s >= 0) G.storage[s] = { id: q.t, n: 1 }; } m.removeObj(q); }
       const i = z * m.W + x; m.lvl[i] = L; m.water[i] = 0; m.ramp[i] = 0; m.markDirty(x, z); }
-    m.addObj('hotel_ville', x0, z0, 0, iid ? { iid } : {}); }
+    m.addObj('hotel_ville_g', x0, z0, 0, iid ? { iid } : {}); }
 
   // ===================== 3. LA GARE MONUMENTALE (extérieur 6×3) =====================
   MD.gare = v => { const b = G.mb(190), GS = 0xeadfc8, GS2 = 0xd8cbb0, IR = 0x3c4a48, W = A.fenetre, D = A.porte, wb = A.wb;
@@ -367,4 +369,55 @@
   // ---------- mises à niveau des villages existants ----------
   G.on('load', () => { if (G.world) upMairie(G.world);
     for (const id in G.interiors) { const im = G.interiors[id]; if (im.kind === 'gare' && im.W < 20 && G.map !== im) { G.scene.remove(im.group); delete G.interiors[id]; } } });
+  // ===================== 6. INTÉRIEUR DES CHÂTEAUX : immense salon, parquet en chevron, murs blancs à fleurs de lys dorées, lustres, soleil par les fenêtres =====================
+  const isCh = m => { if (!m || !m.interior || !G.world) return null; for (const q of G.world.list) if (q.iid === m.id && /^chateau/.test(q.t)) return q; return null; };
+  let parq = null, lys = null;
+  const cnv = (n, draw) => { const c = document.createElement('canvas'); c.width = c.height = n; draw(c.getContext('2d'), n); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; };
+  function texs() { if (parq) return;
+    parq = cnv(256, (x, n) => { x.fillStyle = '#5e3a1e'; x.fillRect(0, 0, n, n); const r = G.rng(3);
+      for (let j = -2; j < 10; j++) for (let i = -2; i < 10; i++) for (const d of [0, 1]) { x.save(); x.translate(i * 32 + d * 16, j * 32 + d * 16); x.rotate(d ? -PI / 4 : PI / 4);
+        const l = 150 + r() * 40 | 0; x.fillStyle = 'rgb(' + l + ',' + (l * .66 | 0) + ',' + (l * .38 | 0) + ')'; x.fillRect(0, 0, 44, 11); x.strokeStyle = 'rgba(60,35,15,.6)'; x.lineWidth = 1.2; x.strokeRect(0, 0, 44, 11);
+        x.strokeStyle = 'rgba(90,55,25,.25)'; for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(2, 2 + k * 3 + r() * 2); x.lineTo(42, 2 + k * 3 + r() * 2); x.stroke(); } x.restore(); } });
+    lys = cnv(256, (x, n) => { x.fillStyle = '#f7f3ea'; x.fillRect(0, 0, n, n); x.strokeStyle = '#d4af37'; x.lineWidth = 3; x.strokeRect(14, 14, n - 28, n - 28); x.lineWidth = 1; x.strokeRect(22, 22, n - 44, n - 44);
+      x.fillStyle = '#c99a2e'; x.font = '74px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('⚜', n / 2, n / 2 + 4); x.font = '30px serif'; for (const [a, c] of [[34, 34], [n - 34, 34], [34, n - 34], [n - 34, n - 34]]) x.fillText('⚜', a, c); }); }
+  function castleShell(m, o) {
+    if (m.shell) { m.group.remove(m.shell); m.shell.traverse(c => c.geometry && c.geometry.dispose()); } texs();
+    const W = m.W, H = m.H, h = 5.6, arched = o.t === 'chateau_grand' && !(o.v > 0), g = new THREE.Group(), b = G.mb(450), gx = { patches: [] };
+    const pl = (w, hh, tex, ru, rv, x, y, z, rx, ry) => { const geo = new THREE.PlaneGeometry(w, hh), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * ru, uv.getY(i) * rv); const me = new THREE.Mesh(geo, G.toon({ map: tex }, {})); me.position.set(x, y, z); me.rotation.set(rx, ry, 0); me.receiveShadow = true; g.add(me); };
+    pl(W, H, parq, W / 2.2, H / 2.2, W / 2, .002, H / 2, -PI / 2, 0); pl(W, h, lys, W / 2, h / 2, W / 2, h / 2, .002, 0, 0); pl(H, h, lys, H / 2, h / 2, .002, h / 2, H / 2, 0, PI / 2); pl(H, h, lys, H / 2, h / 2, W - .002, h / 2, H / 2, 0, -PI / 2);
+    b.box(W + .4, h, .2, 0xece4d4, W / 2, h / 2, -.1); b.box(.2, h, H + .2, 0xece4d4, -.1, h / 2, H / 2); b.box(.2, h, H + .2, 0xece4d4, W + .1, h / 2, H / 2); b.box(W + .6, .3, H + .6, 0x3a2a1e, W / 2, -.16, H / 2);
+    for (const [x, z, w, d] of [[W / 2, .04, W, .08], [.04, H / 2, .08, H], [W - .04, H / 2, .08, H]]) { b.box(w, .28, d, 0xf3eee4, x, .14, z); b.box(w + .02, .05, d + .02, GOLD, x, .3, z); b.box(w, .3, d + .04, 0xf7f2e8, x, h - .15, z); b.box(w + .02, .06, d + .06, GOLD, x, h - .32, z); b.box(w + .02, .05, d + .02, GOLD, x, 1.0, z); }
+    const win = (x, z, ry) => { const T = face(x, 0, z, ry), wy = 2.35, ww = 1.25, wh = 3.4;
+      b.box(ww + .3, wh + .2, .06, 0xffffff, ...T(0, wy, .03), 0, ry, 0); for (const sd of [-1, 1]) b.box(.08, wh + .3, .08, GOLD, ...T(sd * (ww / 2 + .15), wy, .06), 0, ry, 0);
+      if (arched) { b.geo(new THREE.CylinderGeometry(ww / 2 + .15, ww / 2 + .15, .06, 18, 1, false, -PI / 2, PI), 0xffffff, b.M(...T(0, wy + wh / 2, .03), -PI / 2, ry, 0)); b.tor(ww / 2 + .15, .04, GOLD, ...T(0, wy + wh / 2, .07), 0, ry, 0, 0, 18); }
+      else b.box(ww + .5, .22, .1, GOLD, ...T(0, wy + wh / 2 + .2, .06), 0, ry, 0);
+      const gp = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), G.M.window); gp.position.set(...T(0, wy, .065)); gp.rotation.y = ry; g.add(gp);
+      if (arched) { const cg = new THREE.Mesh(new THREE.CircleGeometry(ww / 2, 16, 0, PI), G.M.window); cg.position.set(...T(0, wy + wh / 2, .065)); cg.rotation.y = ry; g.add(cg); }
+      b.box(.05, wh, .03, 0xf4efe2, ...T(0, wy, .09), 0, ry, 0); for (let k = 1; k < 5; k++) b.box(ww, .04, .03, 0xf4efe2, ...T(0, wy - wh / 2 + k * wh / 5, .09), 0, ry, 0);
+      for (const sd of [-1, 1]) { b.box(.42, wh + .4, .05, 0xb8323c, ...T(sd * (ww / 2 + .38), wy + .1, .12), 0, ry, 0); b.box(.46, .12, .07, GOLD, ...T(sd * (ww / 2 + .38), wy + wh / 2 + .3, .13), 0, ry, 0); }
+      return { x, z, ry, ww, y0: wy - wh / 2, y1: wy + wh / 2 }; };
+    const wins = []; for (let k = 0, n = Math.max(2, Math.floor(W / 3.6)); k < n; k++) wins.push(win((k + .5) * W / n, 0, 0));
+    for (let k = 0, n = Math.max(2, Math.floor((H - 2) / 3.6)); k < n; k++) { const z = 1 + (k + .5) * (H - 2) / n; wins.push(win(0, z, PI / 2)); wins.push(win(W, z, -PI / 2)); }
+    const nC = W * H >= 300 ? 3 : W * H >= 140 ? 2 : 1;
+    for (let k = 0; k < nC; k++) { const x = W * (k + 1) / (nC + 1), z = H * .45, y = h - .9; b.cyl(.015, .015, 2, 4, GOLD, x, y + 1, z);
+      for (const [r, yy, n] of [[.75, y - .55, 12], [.48, y - .2, 8], [.25, y + .1, 6]]) { b.tor(r, .035, GOLD, x, yy, z, PI / 2, 0, 0, 0, 24); for (let i = 0; i < n; i++) { const a = i / n * TAU, cx = x + Math.cos(a) * r, cz = z + Math.sin(a) * r; b.cyl(.025, .025, .14, 6, 0xfffaf0, cx, yy + .1, cz); b.sph(.03, 0xffd27a, cx, yy + .2, cz, 1, 1.5, 1, 1, 6, 4); b.sph(.035, 0xeaf6ff, cx, yy - .12, cz, 1, 1.6, 1, 1, 6, 4); } }
+      b.sph(.16, 0xeaf6ff, x, y - .85, z, 1, 1.6, 1, 1, 10, 8); b.cyl(.05, .12, .5, 10, GOLD, x, y - .4, z); }
+    const sm = new THREE.Mesh(b.done(), G.MATS); sm.castShadow = true; sm.receiveShadow = true; g.add(sm);
+    const pm = new THREE.MeshBasicMaterial({ color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const w of wins) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; g.add(me); gx.patches.push([me, w]); }
+    gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.sunny = 1; }
+  const ob2 = G.buildShell; G.buildShell = m => { const o = m.kind === 'maison' && isCh(m); if (!o) return ob2(m); castleShell(m, o); };
+  // un château a toujours un immense salon (les meubles sont gardés)
+  G.on('enterMap', m => { if (!isCh(m) || m.W >= 22) return; setTimeout(() => { if (G.map !== m) return; const nm = G.makeInterior('maison', m.id, { W: 22, H: 16, empty: true }); nm.meta.stage = G.HOME_STAGES.length;
+    for (const q of m.list) { if (q.t === 'paillasson') continue; const ex = {}; for (const k of ['v', 'f', 'g', 'iid', 'off', 'txt']) if (q[k] != null) ex[k] = q[k]; if (nm.canPlace(q.t, q.x, q.z, q.r)) nm.addObj(q.t, q.x, q.z, q.r, ex); }
+    for (const k of ['door', 'title', 'fromId']) nm.meta[k] = m.meta[k]; G.scene.remove(m.group); G.interiors[m.id] = nm; G.scene.add(nm.group); nm.group.visible = false; G.enterMap(nm, 11.5, 14.6, PI); }, 0); });
+  // taches de soleil sur le parquet, selon l'heure
+  const SD2 = new THREE.Vector3();
+  G.on('update', dt => { const m = G.map, gx = m && m._cx; if (!gx || (gx.t -= dt) > 0) return; gx.t = .5; const h = G.clock.min / 60, day = h >= 5.2 && h < 19.6, a = (h - 5.2) / 14.4 * PI; SD2.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize();
+    gx.pm.opacity = day ? .32 * Math.min(1, Math.sin(a) * 2.5) : 0;
+    for (const [me, w] of gx.patches) { const p = me.geometry.attributes.position, c = Math.cos(w.ry), sn = Math.sin(w.ry), d = SD2.clone(); if (w.ry === 0) d.z = -Math.abs(d.z);
+      const inward = w.ry === 0 ? -d.z : w.ry > 0 ? -d.x : d.x; me.visible = day && inward > .05; if (!me.visible) continue; const pts = [];
+      for (const [lx, y] of [[-w.ww / 2, w.y0], [w.ww / 2, w.y0], [w.ww / 2, w.y1], [-w.ww / 2, w.y1]]) { const X = w.x + lx * c, Z = w.z - lx * sn, k = y / d.y; pts.push([G.clamp(X - d.x * k, 0, m.W), .012, G.clamp(Z - d.z * k, 0, m.H)]); }
+      [0, 1, 2, 0, 2, 3].forEach((i, j) => p.setXYZ(j, ...pts[i])); p.needsUpdate = true; } });
+
 })();

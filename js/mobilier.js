@@ -155,7 +155,8 @@
     v.y += (ground + v.alt - v.y) * Math.min(1, 3 * dt);
     if (v.landing && v.y - ground < .1 && v.spd < .4) { const tx = Math.floor(v.x - 1.5), tz = Math.floor(v.z - 1.5);
       if (m.canPlace(v.o.t, tx, tz, v.o.r) && !m.isWaterAt(v.x, v.z)) { G.scene.remove(v.mesh); G.scene.remove(v.sh); m.addObj(v.o.t, tx, tz, v.o.r); p.vehicle = null; p.teleport(tx + 1.5, tz + 3.4, 0); G.sfx('land'); G.fx.puff(tx + 1.5, ground + .1, tz + 1.5, 14, 0xf3ead2, 1); return; }
-      v.landing = false; v.talt = 6; G.sfx('error'); G.ui.toast('Il faut un terrain plat et libre de 3×3 pour atterrir.'); }
+      for (let r = 1; r < 40; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const x = tx + dx, z = tz + dz; if (m.canPlace(v.o.t, x, z, v.o.r) && !m.isWaterAt(x + 1.5, z + 1.5)) { v.x = x + 1.5; v.z = z + 1.5; v.y = m.topAt(v.x, v.z) + .05; G.ui.toast('Pas de place ici : l’avion se pose un peu plus loin.'); return; } }
+      v.landing = false; v.talt = 6; G.sfx('error'); G.ui.toast('Aucun terrain libre de 3×3 à proximité.'); }
     v.bank += (-turn * .45 - v.bank) * Math.min(1, 3 * dt);
     v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.set(G.clamp(-climb / Math.max(dt, .001) * .05, -.35, .35), v.h, air ? v.bank : 0); v.prop.rotation.z += dt * (8 + v.spd * 3);
     v.sh.position.set(v.x, ground + .04, v.z); const s = G.clamp(3.2 - v.alt * .07, 1.2, 3.2); v.sh.scale.set(s, 1, s); v.sh.visible = !m.isWaterAt(v.x, v.z);
