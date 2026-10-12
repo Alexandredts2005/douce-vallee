@@ -21,6 +21,12 @@
   // côtés : [dx,dz, coinA, coinB, coinVoisinA, coinVoisinB]
   const SIDES = [[0, -1, 1, 0, 2, 3], [0, 1, 3, 2, 0, 1], [1, 0, 2, 1, 3, 0], [-1, 0, 0, 3, 1, 2]];
   const CX = [0, 1, 1, 0], CZ = [0, 0, 1, 1];
+  // coins arrondis façon ACNL : côtés et diagonale de chaque coin, sens des arcs (dans l'ordre de tour 0→3→2→1)
+  const CS = [[0, 3], [0, 2], [2, 1], [1, 3]], DG = [[-1, -1], [1, -1], [1, 1], [-1, 1]], AD = [[[0, -1], [-1, 0]], [[1, 0], [0, -1]], [[0, 1], [1, 0]], [[-1, 0], [0, 1]]], RR = .45, NA = 5, RING = [0, 3, 2, 1];
+  const arcPts = k => { const cx = CX[k] ? 1 - RR : RR, cz = CZ[k] ? 1 - RR : RR, [d1, d2] = AD[k], out = []; for (let i = 0; i <= NA; i++) { const t = i / NA, x = d1[0] * (1 - t) + d2[0] * t, z = d1[1] * (1 - t) + d2[1] * t, l = Math.hypot(x, z); out.push([cx + RR * x / l, cz + RR * z / l]); } return out; };
+  const ARC = [0, 1, 2, 3].map(arcPts), sh = [.92, .98, 1];
+  // triangle tourné vers le haut
+  const upTri = (buf, a, b, c, ca, cb, cc, ua, ub, uc) => { if ((b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]) >= 0) buf.tri(a, b, c, ca, cb, cc, ua, ub, uc); else buf.tri(a, c, b, ca, cc, cb, ua, uc, ub); };
 
   G.objKey = o => { const d = G.OBJ[o.t]; let v = o.v != null ? o.v : d.v; if ((d.fruit || d.pickFruit) && o.f === 0) v += 10; if (d.light && o.off) v += 100; return d.model + ':' + v; };
   G.fpDims = (d, r) => (r & 1) ? [d.fp[1], d.fp[0]] : [d.fp[0], d.fp[1]];
@@ -114,7 +120,7 @@
     topAt(x, z) {
       const tx = Math.floor(x), tz = Math.floor(z); if (!this.inb(tx, tz)) return 50;
       let h = this.terrainH(x, z); const o = this.objAt(tx, tz);
-      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (d.walk || !G.shapeTop) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) h = Math.max(h, o.y + t); } } } // forme réelle de l'objet (shape.js)
+      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (d.walk || !G.shapeTop) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) h = Math.max(h, o.y + (d.chop >= 3 && t < 1.5 ? 4 : t)); /* pas de marche sur les racines d'un arbre */ } } } // forme réelle de l'objet (shape.js)
       return h;
     }
     isWaterAt(x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!this.isWaterT(tx, tz)) return false; const o = this.objAt(tx, tz); return !(o && G.OBJ[o.t].walk); }
@@ -169,7 +175,13 @@
           col[k][0] = col[k][1] = col[k][2] = b; if (wt) { col[k][0] *= .85; col[k][2] *= 1.08; }
         }
         uv[0][0] = u0; uv[0][1] = v1; uv[1][0] = u1; uv[1][1] = v1; uv[2][0] = u1; uv[2][1] = v0; uv[3][0] = u0; uv[3][1] = v0;
-        if (!this.interior) tops.quad(pos[0], pos[3], pos[2], pos[1], col[0], col[3], col[2], col[1], uv[0], uv[3], uv[2], uv[1]);
+        const lvlI = this.lvl[i], L0 = lvlI * T, cv = [false, false, false, false], nbi = (dx, dz) => { const x = tx + dx, z = tz + dz; return this.inb(x, z) ? z * W + x : -1; };
+        if (!this.interior && !this.ramp[i]) for (let k = 0; k < 4; k++) { const ok = j => j >= 0 && (wt ? (!this.water[j] && !this.ramp[j] && this.lvl[j] >= lvlI) : (this.water[j] > 0 || (!this.ramp[j] && this.lvl[j] < lvlI))); const [s1, s2] = CS[k];
+          cv[k] = ok(nbi(SIDES[s1][0], SIDES[s1][1])) && ok(nbi(SIDES[s2][0], SIDES[s2][1])) && ok(nbi(DG[k][0], DG[k][1])); }
+        const anyCv = !wt && cv.some(x => x), cAvg = [(col[0][0] + col[1][0] + col[2][0] + col[3][0]) / 4, (col[0][1] + col[1][1] + col[2][1] + col[3][1]) / 4, (col[0][2] + col[1][2] + col[2][2] + col[3][2]) / 4], uvAt = (px, pz) => [u0 + px * (u1 - u0), v1 - pz * (v1 - v0)];
+        if (!this.interior && !anyCv) tops.quad(pos[0], pos[3], pos[2], pos[1], col[0], col[3], col[2], col[1], uv[0], uv[3], uv[2], uv[1]);
+        else if (anyCv) { const ring = []; for (const k of RING) { if (cv[k]) for (const p of ARC[k]) ring.push(p); else ring.push([CX[k], CZ[k]]); } const C = [tx + .5, L0, tz + .5], uc = uvAt(.5, .5);
+          for (let r = 0; r < ring.length; r++) { const p = ring[r], q = ring[(r + 1) % ring.length]; upTri(tops, C, [tx + p[0], L0, tz + p[1]], [tx + q[0], L0, tz + q[1]], cAvg, cAvg, cAvg, uc, uvAt(p[0], p[1]), uvAt(q[0], q[1])); } }
         // murs / falaises
         for (const [dx, dz, a, bb, na, nb] of SIDES) {
           const nx = tx + dx, nz = tz + dz; let nA, nB; const inb = this.inb(nx, nz);
@@ -177,6 +189,7 @@
           const tA = c[a], tB = c[bb];
           if (tA > nA + .001 || tB > nB + .001) {
             const A = [tx + CX[a], 0, tz + CZ[a]], B = [tx + CX[bb], 0, tz + CZ[bb]];
+            if (anyCv) { const ax0 = A[0], az0 = A[2]; if (cv[a]) { A[0] += (B[0] - ax0) * RR; A[2] += (B[2] - az0) * RR; } if (cv[bb]) { B[0] += (ax0 - B[0]) * RR; B[2] += (az0 - B[2]) * RR; } }
             const yA0 = Math.min(nA, tA), yB0 = Math.min(nB, tB);
             const uA = (A[0] + A[2]) * .5, uB = (B[0] + B[2]) * .5;
             const sh = wt ? .7 : 1;
@@ -190,6 +203,13 @@
             this.falls.set(i * 8 + (dx + 1) + (dz + 1) * 3, { c: key, x: tx + .5 + dx * .55, y: bot, z: tz + .5 + dz * .55, h: top - bot });
           }
         }
+        const lowH = j => this.water[j] ? this.lvl[j] * T + (this.water[j] === 2 ? SEABED : BED) : this.lvl[j] * T;
+        if (anyCv) for (const k of RING) { if (!cv[k]) continue; const [s1, s2] = CS[k], j1 = nbi(SIDES[s1][0], SIDES[s1][1]), j2 = nbi(SIDES[s2][0], SIDES[s2][1]), jd = nbi(DG[k][0], DG[k][1]), yb = Math.min(lowH(j1), lowH(j2)), pts = ARC[k];
+          for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1], uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; walls.quad([tx + p[0], yb, tz + p[1]], [tx + q[0], yb, tz + q[1]], [tx + q[0], L0, tz + q[1]], [tx + p[0], L0, tz + p[1]], [.62, .62, .62], [.62, .62, .62], [1, 1, 1], [1, 1, 1], [uA, yb / T], [uB, yb / T], [uB, L0 / T], [uA, L0 / T]); }
+          const Q = [tx + CX[k], 0, tz + CZ[k]], wj = this.water[j1] ? j1 : this.water[j2] ? j2 : this.water[jd] ? jd : -1;
+          const patch = (buf, y, colr, uvf) => { for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1]; upTri(buf, [Q[0], y, Q[2]], [tx + p[0], y, tz + p[1]], [tx + q[0], y, tz + q[1]], colr, colr, colr, uvf(CX[k], CZ[k]), uvf(p[0], p[1]), uvf(q[0], q[1])); } };
+          if (wj >= 0) { const bed = lowH(wj), ws = this.lvl[wj] * T + WS, cb = this.water[wj] === 2 ? [.52, .62, .7] : [.66, .7, .78], [b0, b1, b2, b3] = G.atlasUV(10); patch(tops, bed, cb, (x, z) => [b0 + x * (b2 - b0), b3 - z * (b3 - b1)]); patch(wat, ws, [.92, .98, 1], (x, z) => [(tx + x) * .3, (tz + z) * .3]); }
+          else { const jj = jd >= 0 ? jd : j1, sc = G.SURF[this.surf[jj]] ? G.SURF[this.surf[jj]].cell : 0, [g0, g1, g2, g3] = G.atlasUV(sc), cc = [.8, .8, .8]; patch(tops, yb, cc, (x, z) => [g0 + x * (g2 - g0), g3 - z * (g3 - g1)]); } }
         if (wt) { // surface de l'eau
           const y = this.lvl[i] * T + WS; const wp = [], wc = [], wu = [];
           for (let k = 0; k < 4; k++) {
@@ -197,7 +217,14 @@
             const shore = this.shoreCorner(X, Z); const deep = wt === 2 ? .82 : 1;
             wc.push(shore ? [.92, .98, 1] : [.42 * deep, .74 * deep, .96 * deep]);
           }
-          wat.quad(wp[0], wp[3], wp[2], wp[1], wc[0], wc[3], wc[2], wc[1], wu[0], wu[3], wu[2], wu[1]);
+          if (!cv.some(x => x)) wat.quad(wp[0], wp[3], wp[2], wp[1], wc[0], wc[3], wc[2], wc[1], wu[0], wu[3], wu[2], wu[1]);
+          else { const ring = []; for (const k of RING) { if (cv[k]) for (const p of ARC[k]) ring.push([p[0], p[1], sh]); else ring.push([CX[k], CZ[k], wc[k]]); } const dp = wt === 2 ? .82 : 1, dc = [.42 * dp, .74 * dp, .96 * dp], C = [tx + .5, y, tz + .5];
+            for (let r = 0; r < ring.length; r++) { const p = ring[r], q = ring[(r + 1) % ring.length]; upTri(wat, C, [tx + p[0], y, tz + p[1]], [tx + q[0], y, tz + q[1]], dc, p[2], q[2], [C[0] * .3, C[2] * .3], [(tx + p[0]) * .3, (tz + p[1]) * .3], [(tx + q[0]) * .3, (tz + q[1]) * .3]); }
+            const bed = L0 + (wt === 2 ? SEABED : BED);
+            for (const k of RING) { if (!cv[k]) continue; const [s1, s2] = CS[k], j1 = nbi(SIDES[s1][0], SIDES[s1][1]), j2 = nbi(SIDES[s2][0], SIDES[s2][1]), top = Math.max(this.lvl[j1], this.lvl[j2]) * T, pts = ARC[k], Q = [tx + CX[k], top, tz + CZ[k]];
+              const sc = G.SURF[this.surf[j1]] ? G.SURF[this.surf[j1]].cell : 0, [g0, g1, g2, g3] = G.atlasUV(sc), gu = (x, z) => [g0 + x * (g2 - g0), g3 - z * (g3 - g1)], cg = [.95, .95, .95];
+              for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1]; upTri(tops, Q, [tx + p[0], top, tz + p[1]], [tx + q[0], top, tz + q[1]], cg, cg, cg, gu(CX[k], CZ[k]), gu(p[0], p[1]), gu(q[0], q[1]));
+                const uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; walls.quad([tx + q[0], bed, tz + q[1]], [tx + p[0], bed, tz + p[1]], [tx + p[0], top, tz + p[1]], [tx + q[0], top, tz + q[1]], [.62, .62, .62], [.62, .62, .62], [1, 1, 1], [1, 1, 1], [uB, bed / T], [uA, bed / T], [uA, top / T], [uB, top / T]); } } }
         }
       }
       const g = new THREE.Group(); const add = (buf, mat, shadow) => { const geo = buf.geo(); if (!geo) return; const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = shadow; m.frustumCulled = false; g.add(m); };

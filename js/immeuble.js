@@ -15,12 +15,21 @@
     let prev = m, vi = 0;
     for (let f = 0; f < O[o.t].floors; f++) {
       const fm = f ? mk(m.id + '_e' + f, { W: m.W, H: m.H, noMat: true, empty: true }) : m; fm.meta.title = f ? 'Étage ' + f : 'Rez-de-chaussée'; fm.meta.fromId = 'world'; fm.meta.door = m.meta.door;
-      if (f) { const c = (mm, x, z) => { const q = mm.objAt(x, z); if (q && q.t !== 'paillasson') mm.removeObj(q); }; c(prev, 0, 0); c(prev, 1, 0); prev.addObj('escalier', 0, 0, 0, { iid: fm.id, v: 0 }); fm.addObj('escalier', 0, 0, 0, { iid: prev.id, v: 1 }); }
-      [[0, 2, 1], [0, 4, 1], [fm.W - 1, 2, 3], [fm.W - 1, 4, 3]].forEach(([x, z, r], k) => { if (z >= fm.H - 1 || fm.objAt(x, z)) return; const aid = fm.id + '_a' + k, am = mk(aid, { W: 7, H: 6 });
+      if (f) { const c = (mm, x, z) => { const q = mm.objAt(x, z); if (q && q.t !== 'paillasson') mm.removeObj(q); }, ux = f > 1 ? 2 : 0; c(prev, ux, 0); c(prev, ux + 1, 0); prev.addObj('escalier', ux, 0, 0, { iid: fm.id, v: 0 }); fm.addObj('escalier', 0, 0, 0, { iid: prev.id, v: 1 }); }
+      [[0, 2, 1], [0, 4, 1], [fm.W - 1, 2, 3], [fm.W - 1, 4, 3]].forEach(([x, z, r], k) => { if (z >= fm.H - 1) return; for (const [qx, qz] of [[x, z], [x + (r === 1 ? 1 : -1), z]]) { const q = fm.objAt(qx, qz); if (q && q.t !== 'escalier' && q.t !== 'porte_int') { if (G.ITEMS[q.t] && G.storage) { const sl = G.storage.findIndex(e => !e); if (sl >= 0) G.storage[sl] = { id: q.t, n: 1 }; } fm.removeObj(q); } } if (fm.objAt(x, z)) return; const aid = fm.id + '_a' + k, am = mk(aid, { W: 7, H: 6 });
         am.meta.title = 'Appartement ' + (f * 4 + k + 1); am.meta.fromId = 'world'; am.meta.door = m.meta.door; fm.addObj('porte_int', x, z, r, { iid: aid }); am.addObj('porte_int', r === 1 ? 6 : 0, 3, r === 1 ? 3 : 1, { iid: fm.id });
         am.meta.homes = [{ vi: (vi++ + G.hashStr(m.id)) % G.VILLAGERS.length, x: 3.5, z: 2.5 }]; G.ents.spawnVillagers(am); });
       prev = fm; }
   });
+  // réparation des immeubles déjà construits : chaque étage du milieu garde aussi son escalier qui descend
+  G.on('enterMap', m => { const k = m.interior && /^(.*)_e(d+)$/.exec(m.id); if (!k) return; const n = +k[2], down = n > 1 ? k[1] + '_e' + (n - 1) : k[1];
+    if ([...m.list].some(q => q.t === 'escalier' && q.iid === down)) return; const up = m.objAt(0, 0); if (up && up.t === 'escalier') { const id = up.iid; m.removeObj(up); for (const x of [2, 3]) { const q = m.objAt(x, 0); if (q) m.removeObj(q); } m.addObj('escalier', 2, 0, 0, { iid: id, v: 0 }); }
+    m.addObj('escalier', 0, 0, 0, { iid: down, v: 1 }); });
+  // en posant un immeuble, on choisit son style (les mêmes que les maisons)
+  const IST = [[7, 'Immeuble de ville'], [0, 'Immeuble en briques'], [4, 'Immeuble normand'], [2, 'Immeuble provençal'], [1, 'Immeuble à clins'], [8, 'Immeuble scandinave']];
+  const op = G.act.placeObj; G.act.placeObj = (it, tx, tz) => { const m = G.map, n0 = m.list.size; op(it, tx, tz); const d = O[it.obj]; if (!d || !d.floors || m.list.size === n0) return;
+    let o = null; for (const q of m.list) o = q; if (!o || o.t !== it.obj) return;
+    G.ui.dialog('Architecte', ['Quel style pour ton immeuble ?'], { choices: IST.map(x => x[1]) }).then(c => { if (c == null || c < 0 || !IST[c]) return; o.v = d.floors * 10 + IST[c][0]; m.refresh(o); G.sfx('craft'); G.saveGame(true); }); };
   // agence : choisir sa maison principale parmi ses maisons, immeubles et châteaux posés
   G.on('init', () => { const ag = G.npcRoles.agence; G.npcRoles.agence = v => G.npcSay(v, ['Tu veux habiter ailleurs ?'], ['Changer de maison principale', 'Autre chose…']).then(k => {
     if (k !== 0) return ag(v); const home = [...G.world.list].find(q => q.iid === G.homeId()), l = [...G.world.list].filter(q => q !== home && O[q.t].enter === 'maison' && /^(maison|immeuble|chateau)/.test(q.t)).slice(0, 8);

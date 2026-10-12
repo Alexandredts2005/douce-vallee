@@ -200,7 +200,7 @@
     setTimeout(() => G.ui.dialog('Gaston', gl, { pitch: .95, color: '#2f8a45' }), 600);
   });
   G.serialize = () => { const p = G.player; const ints = {}; for (const id in G.interiors) ints[id] = G.interiors[id].serialize();
-    const veh = p.vehicle ? { x: p.vehicle.x, z: p.vehicle.z } : null, onIsle = G.map.kind === 'ile' || (G.map.meta.fromId === 'ile');
+    const veh = p.vehicle ? { x: p.vehicle.x, z: p.vehicle.z, t: p.vehicle.o.t } : null, onIsle = G.map.kind === 'ile' || (G.map.meta.fromId === 'ile');
     const out = { v: 2, mode: G.mode, name: G.playerName, village: G.villageName, startDate: G.startDate, clock: G.clock, coins: G.coins, look: p.look, sel: G.sel,
       player: { x: p.x, z: p.z, yaw: p.yaw, hp: p.hp, food: p.food, map: onIsle ? 'ile' : G.map.id, veh }, inv: G.inv.slots, hot: G.inv.hot, world: G.world.serialize(), interiors: ints,
       dex: G.dex, storage: G.storage, designs: G.designs.map(x => x && { name: x.name, img: x.img }), flags: G.flags, best: G.mini.best, mods: {} };
@@ -218,7 +218,7 @@
     const im = G.interiors[d.player.map];
     if (d.player.map === 'ile') { const pr = G.world.meta.pier || G.world.meta.spawn; G.enterMap(G.world, pr.x, pr.z - 2.5, 0); }
     else if (im) G.enterMap(im, d.player.x, d.player.z, d.player.yaw); else G.enterMap(G.world, d.player.x, d.player.z, d.player.yaw);
-    if (d.player.veh) { const tx = Math.floor(d.player.veh.x - 1), tz = Math.floor(d.player.veh.z - 1); for (const [ox, oz] of [[0, 0], [2, 0], [0, 2], [-2, 0], [0, -2], [3, 3]]) if (G.world.canPlace('montgolfiere', tx + ox, tz + oz)) { G.world.addObj('montgolfiere', tx + ox, tz + oz); break; } }
+    if (d.player.veh) { const tx = Math.floor(d.player.veh.x - 1), tz = Math.floor(d.player.veh.z - 1); for (const [ox, oz] of [[0, 0], [2, 0], [0, 2], [-2, 0], [0, -2], [3, 3]]) { const vt = G.OBJ[d.player.veh.t] ? d.player.veh.t : 'montgolfiere'; if (G.world.canPlace(vt, tx + ox, tz + oz)) { G.world.addObj(vt, tx + ox, tz + oz); break; } } }
     G.emit('load', d.mods || {});
     startPlay(); G.ui.toast('Bon retour à ' + G.villageName + ', ' + G.playerName + ' !');
   };

@@ -2,6 +2,7 @@
 // ===== Joueur : marche, super saut chargé (2× sa taille), nage, collisions, déblocage, émotes, animations =====
 (function () {
   const R = .27, GRAV = 26, WALK = 3.7, RUN = 6.4, SWIM = 2.4, SWIMR = 3.5, HOP = .45, MAXJ = 2.0, CHARGE_T = .75;
+  let PTS9 = null, PTS5 = [[0, 0]];
   // ---------- inventaire & rangement partagé (maison + casiers de la gare) ----------
   const stackOps = slots => ({
     add(id, n = 1) { const st = (G.ITEMS[id] && G.ITEMS[id].stack) || 99; for (const s of slots) if (s && s.id === id && s.n < st) { const k = Math.min(n, st - s.n); s.n += k; n -= k; if (!n) break; } for (let i = 0; i < slots.length && n > 0; i++) if (!slots[i]) { const k = Math.min(n, st); slots[i] = { id, n: k }; n -= k; } return n; }
@@ -65,15 +66,16 @@
       if (tx === Math.floor(this.x) && tz === Math.floor(this.z)) { tx = Math.floor(this.x + fx * 1.3); tz = Math.floor(this.z + fz * 1.3); }
       return [tx, tz];
     }
-    blocked(x, z, feet, noV, noWater) {
+    blocked(x, z, feet, noV, noWater) { if (!PTS9) { PTS9 = []; for (const a of [-R, 0, R]) for (const b of [-R, 0, R]) PTS9.push([a, b]); PTS5 = [[0, 0], [-R * .7, -R * .7], [R * .7, -R * .7], [R * .7, R * .7], [-R * .7, R * .7]]; }
       const m = this.map, lim = m.interior ? .3 : 2.6;
       if (x < lim || z < lim || x > m.W - lim || z > m.H - (m.interior ? .05 : 1.5)) return true;
       const f = this.swim ? this.swimSurf + .14 : feet;
-      for (const [ox, oz] of [[-R, -R], [R, -R], [R, R], [-R, R]]) { const cx = x + ox, cz = z + oz; if (m.topAt(cx, cz) > f + G.STEP) return true; if (!noWater && (this.onGround || this.swim) && m.isWaterAt(cx, cz) && !G.canSwim(m, cx, cz)) return true; }
+      for (const [ox, oz] of PTS9) { const cx = x + ox, cz = z + oz; if (m.topAt(cx, cz) > f + G.STEP) return true; if (!noWater && (this.onGround || this.swim) && m.isWaterAt(cx, cz) && !G.canSwim(m, cx, cz)) return true; }
       if (!noV) for (const v of G.ents.villagers) if (v.map === m && v.visible && Math.hypot(v.x - x, v.z - z) < .55) return true;
       return false;
     }
-    groundAt(x, z) { const m = this.map; let h = m.topAt(x, z); for (const [ox, oz] of [[-R * .7, -R * .7], [R * .7, -R * .7], [R * .7, R * .7], [-R * .7, R * .7]]) h = Math.max(h, m.topAt(x + ox, z + oz)); return h; }
+    // on ne « grimpe » jamais sur ce qui dépasse d'une marche (troncs, barrières…) : seuls les points franchissables comptent
+    groundAt(x, z) { const m = this.map, lim = this.y + G.STEP + .05; let h = -1e9, hi = -1e9; for (const [ox, oz] of PTS5) { const t = m.topAt(x + ox, z + oz); hi = Math.max(hi, t); if (t <= lim) h = Math.max(h, t); } return h > -1e9 ? h : hi; }
     // ---------- déblocage : cherche la case libre la plus proche ----------
     unstick(force) {
       const m = this.map, tx = Math.floor(this.x), tz = Math.floor(this.z), was = this.swim; this.swim = false;

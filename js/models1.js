@@ -55,20 +55,23 @@
 
   // ---------- Arbres ----------
   const trunk = (b, h = 1.5, col = 0x8a5a3b, r = .17) => { b.cyl(r * .85, r * 1.25, h, 7, col, 0, h / 2, 0); b.cone(r * 2, .3, 7, col, 0, .12, 0); };
+  // feuilles : petites feuilles aplaties posées à la surface d'une boule de feuillage
+  const leaves = (b, cols, cx, cy, cz, R, n, sy = 1) => { for (let i = 0; i < n; i++) { const th = b.r() * TAU, ph = Math.acos(1 - b.r() * 1.75), d = [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)];
+    b.geo(new THREE.IcosahedronGeometry(.15, 0), cols[i % cols.length], b.M(cx + d[0] * R * .97, cy + d[1] * R * .97 * sy, cz + d[2] * R * .97, ph, Math.PI / 2 - th, 0, .9, .32, 1.45)); } };
   function canopy(b, cols, s = 1) {
     b.jit(.05);
-    b.blob(1.05 * s, 1, cols[0], 0, 2.35, 0, 1, .92, 1);
+    b.blob(1.05 * s, 2, cols[0], 0, 2.35, 0, 1, .92, 1);
     b.blob(.72 * s, 1, cols[1], .62 * s, 2.0, .22, 1, .9, 1);
     b.blob(.74 * s, 1, cols[1], -.6 * s, 2.05, -.12, 1, .9, 1);
-    b.blob(.78 * s, 1, cols[2], .05, 2.95, -.05, 1, .85, 1);
+    b.blob(.78 * s, 2, cols[2], .05, 2.95, -.05, 1, .85, 1);
     b.blob(.55 * s, 1, cols[2], .1, 2.2, .72 * s, 1, .9, 1);
-    b.jit(0);
+    b.jit(.12); leaves(b, cols, 0, 2.35, 0, 1.05 * s, 12, .92); leaves(b, [cols[2], cols[0]], .05, 2.95, -.05, .78 * s, 8, .85); b.jit(0);
   }
   MD.tree_oak = v => { const b = G.mb(11); trunk(b); canopy(b, [0x58b54a, 0x4aa443, 0x6cc458]); return b.done(); };
   MD.tree_birch = v => {
     const b = G.mb(12); b.cyl(.13, .17, 1.9, 7, 0xf2efe6, 0, .95, 0);
     for (let i = 0; i < 5; i++) b.box(.1, .04, .03, 0x3a3530, (i % 2 ? .06 : -.05), .35 + i * .3, .15, 0, 0, i % 2 ? .3 : -.3);
-    b.jit(.05); b.blob(.85, 1, 0xa3d46a, 0, 2.5, 0, 1, 1.15, 1); b.blob(.6, 1, 0x8cc35a, .45, 2.15, .2); b.blob(.6, 1, 0xb8e07a, -.4, 2.9, -.05); return b.done();
+    b.jit(.05); b.blob(.85, 2, 0xa3d46a, 0, 2.5, 0, 1, 1.15, 1); b.blob(.6, 1, 0x8cc35a, .45, 2.15, .2); b.blob(.6, 2, 0xb8e07a, -.4, 2.9, -.05); b.jit(.12); leaves(b, [0xa3d46a, 0xb8e07a, 0x8cc35a], 0, 2.5, 0, .85, 14, 1.15); b.jit(0); return b.done();
   };
   const FRUITC = [0xe8343a, 0xff9420, 0xffa38a];
   MD.tree_fruit = v => {

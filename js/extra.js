@@ -1,9 +1,9 @@
 'use strict';
-// ===== Carte deux fois plus grande (14 × 6 parcelles) et arches en pierre =====
+// ===== Carte 1,5 fois plus grande (11 × 6 parcelles) et arches en pierre =====
 (function () {
   const add = [['foret', 'colline', 'montagne', 'foret', 'plateau', 'colline', 'montagne'], ['plaine', 'verger', 'foret', 'etang', 'plaine', 'foret', 'colline'], ['jardin', 'plaine', 'verger', 'plaine', 'etang', 'plaine', 'foret'],
     ['plaine', 'foret', 'plaine', 'jardin', 'plaine', 'verger', 'plaine'], ['etang', 'plaine', 'colline', 'plaine', 'foret', 'plaine', 'plateau'], ['plage', 'plage', 'plage_rochers', 'plage', 'plage', 'plage', 'plage']];
-  G.DEFAULT_LAYOUT.forEach((r, z) => r.push(...add[z].filter(a => G.ACRES[a]).concat(add[z].filter(a => !G.ACRES[a]).map(() => 'plaine'))));
+  G.DEFAULT_LAYOUT.forEach((r, z) => r.push(...add[z].slice(0, 4).filter(a => G.ACRES[a]).concat(add[z].slice(0, 4).filter(a => !G.ACRES[a]).map(() => 'plaine'))));
   G.AC = G.DEFAULT_LAYOUT[0].length;
   G.MODELS.arche = v => { const b = G.mb(330), S = 0xcfc6b2, P = G.PAT ? G.PAT.pierre : 0; b.P(P);
     for (const s of [-1, 1]) { b.box(.5, 2.2, .6, S, s * 1.1, 1.1, 0); b.box(.62, .14, .7, 0xbdb4a2, s * 1.1, .07, 0); }
