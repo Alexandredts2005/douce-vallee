@@ -110,7 +110,7 @@
       C.cx = p.x; C.cy = ey; C.cz = p.z; p.root.visible = false; finishCam(C, p, m, dt); return;
     }
     else if (mouse) { C.yaw = C.tyaw; tx = p.x; ty = p.y + 1.05; tz = p.z; dist = p.vehicle ? 16 : (C.mdist || 5.5); pitch = C.mp; k = 1; }
-    else if (m.interior) { tx = G.lerp(m.W / 2, p.x, .35); tz = G.lerp(m.H / 2, p.z, .35) + .5; ty = .6; C.yaw = 0; dist = Math.max(9, m.W * 1.15); pitch = .9; C.tyaw = 0; }
+    else if (m.interior) { const cm = m.meta.cam; tx = G.lerp(m.W / 2, p.x, cm ? cm.fx : .35); tz = G.lerp(m.H / 2, p.z, cm ? cm.fz : .35) + (cm ? cm.dz : .5); ty = cm ? cm.ty : .6; C.yaw = 0; dist = cm ? cm.dist : Math.max(9, m.W * 1.15); pitch = cm ? cm.pitch : .9; C.tyaw = 0; }
     else if (p.vehicle) { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + .5; tz = p.z; dist = 24; pitch = .78; }
     else { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); C.dist += (C.tdist - C.dist) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + .9; tz = p.z; dist = C.dist;
       const hd = Math.cos(pitch) * dist; let need = pitch; for (const t of [.12, .25, .4, .55, .7]) { const sx = tx + Math.sin(C.yaw) * hd * t, sz = tz + Math.cos(C.yaw) * hd * t, h = m.terrainH(sx, sz); if (h < 40) need = Math.max(need, Math.atan2(h + .9 - ty + .4, hd * t)); }
@@ -145,11 +145,11 @@
   function updSky() {
     const h = G.clock.min / 60, [li, hi] = skyAt(h), n = G.night(), m = G.map, inside = m && m.interior;
     skyMat.uniforms.top.value.copy(cTop); skyMat.uniforms.hor.value.copy(cHor); scene.fog.color.copy(cHor);
-    const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); hemi.intensity = inside ? .14 + .2 * dayK : hi; amb.intensity = inside ? .05 + .05 * dayK : .1 + n * .08;
+    const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); const sunny = inside && m.meta.sunny; hemi.intensity = inside ? (sunny ? .3 + .3 * dayK : .14 + .2 * dayK) : hi; amb.intensity = inside ? (sunny ? .08 + .05 * dayK : .05 + .05 * dayK) : .1 + n * .08;
     G.skyInfo = { h, n, inside, top: cTop, hor: cHor, light: cLight, day: h >= 5.2 && h < 19.6 };
     const day = h >= 5.2 && h < 19.6, a = day ? (h - 5.2) / 14.4 * Math.PI : ((h >= 19.6 ? h - 19.6 : h + 4.4) / 9.6) * Math.PI;
     SD.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize();
-    sun.color.copy(cLight); sun.intensity = inside ? 0 : li; const c = G.cam;
+    sun.color.copy(cLight); sun.intensity = inside && !sunny ? 0 : li * (sunny ? .85 : 1); const c = G.cam;
     sun.position.set(c.cx + SD.x * 60, c.cy + SD.y * 60, c.cz + SD.z * 60); sun.target.position.set(c.cx, c.cy, c.cz);
     const sp = camera.position; sunM.position.set(sp.x - Math.cos(day ? a : a + Math.PI) * 330, sp.y + Math.sin(day ? a : -1) * 260, sp.z - 260); sunM.lookAt(sp); sunM.visible = !inside && day;
     moonM.position.set(sp.x + Math.cos(a) * 300, sp.y + Math.sin(!day ? a : -1) * 230 + 20, sp.z - 280); moonM.lookAt(sp); moonM.visible = !inside && !day;
