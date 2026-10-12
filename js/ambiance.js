@@ -4,8 +4,8 @@
   const TAU = Math.PI * 2, A = G.amb2 = { t: 0 };
   const CURVE = 'vec2 cd = wp.xz - uCC.xz; float ca = dot(cd, uCF); float cl = cd.x * uCF.y - cd.y * uCF.x; wp.y -= uCurve * (ca * ca + .3 * cl * cl);';
   // ---------- herbe ----------
-  function grassGeo() { const pos = [], col = [], base = new THREE.Color(0x2c6a28), mid = new THREE.Color(0x5aa844), tips = [0x9fdc72, 0xb8e884, 0x86cc5e].map(c => new THREE.Color(c));
-    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + k * .7, c = Math.cos(a), s = Math.sin(a), w = .03 + (k % 3) * .008, h = .28 + ((k * 7) % 5) * .05, r = .04 + (k % 3) * .05, ox = Math.cos(a) * r, oz = Math.sin(a) * r, lx = Math.cos(a) * h * .45, lz = Math.sin(a) * h * .45, t = tips[k % 3];
+  function grassGeo(nb = 6) { const pos = [], col = [], base = new THREE.Color(0x2c6a28), mid = new THREE.Color(0x5aa844), tips = [0x9fdc72, 0xb8e884, 0x86cc5e].map(c => new THREE.Color(c));
+    for (let k = 0; k < nb; k++) { const a = k / nb * Math.PI * 2 + k * .7, c = Math.cos(a), s = Math.sin(a), w = .03 + (k % 3) * .008, h = .28 + ((k * 7) % 5) * .05, r = .04 + (k % 3) * .05, ox = Math.cos(a) * r, oz = Math.sin(a) * r, lx = Math.cos(a) * h * .45, lz = Math.sin(a) * h * .45, t = tips[k % 3];
       const B1 = [ox - s * w, 0, oz + c * w], B2 = [ox + s * w, 0, oz - c * w], M1 = [ox + lx * .35 - s * w * .7, h * .55, oz + lz * .35 + c * w * .7], M2 = [ox + lx * .35 + s * w * .7, h * .55, oz + lz * .35 - c * w * .7], T = [ox + lx, h, oz + lz];
       for (const [p, q] of [[[B1, B2, M2], [base, base, mid]], [[B1, M2, M1], [base, mid, mid]], [[M1, M2, T], [mid, mid, t]]]) { p.forEach(v => pos.push(...v)); q.forEach(v => col.push(v.r, v.g, v.b)); } }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('gc', new THREE.Float32BufferAttribute(col, 3)); return g; }
@@ -15,18 +15,20 @@
     const mat = new THREE.ShaderMaterial({ uniforms: U, fog: true, side: THREE.DoubleSide,
       vertexShader: 'attribute vec3 gc; uniform float uT, uCurve; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; float sw = sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; ' + CURVE + ' vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc * (.82 + .3 * fract(sin(dot(floor(wp.xz * .7), vec2(12.9898, 78.233))) * 43758.5453)) * (.9 + .15 * sin(wp.x * .21 + wp.z * .17));\n#include <fog_vertex>\n}',
       fragmentShader: 'uniform vec3 uTint; varying vec3 vC;\n#include <fog_pars_fragment>\nvoid main(){ gl_FragColor = vec4(vC * uTint, 1.0);\n#include <fog_fragment>\n}' });
-    const m = new THREE.InstancedMesh(grassGeo(), mat, GR.N); m.count = 0; m.frustumCulled = false; m.renderOrder = 0; scene.add(m); GR.mesh = m;
+    GR.mat = mat; GR.geoN = grassGeo(6); GR.geoF = grassGeo(3); GR.group = new THREE.Group(); scene.add(GR.group); GR.ch = new Map(); GR.q = [];
   });
   const SC = new THREE.Color(), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
-  function buildGrass(m, px, pz) {
-    const R = 21, x0 = Math.max(0, Math.floor(px) - R), x1 = Math.min(m.W - 1, Math.floor(px) + R), z0 = Math.max(0, Math.floor(pz) - R), z1 = Math.min(m.H - 1, Math.floor(pz) + R); let n = 0;
-    for (let z = z0; z <= z1 && n < GR.N; z++) for (let x = x0; x <= x1 && n < GR.N; x++) {
+  // herbe sur toute la carte, par blocs de 24 × 24 cases construits peu à peu (les plus proches d'abord)
+  const GCH = 24;
+  function grassChunk(m, kx, kz) { const key = kz * 1000 + kx, x0 = kx * GCH, z0 = kz * GCH, x1 = Math.min(m.W, x0 + GCH), z1 = Math.min(m.H, z0 + GCH), tmp = GR.tmp || (GR.tmp = new Float32Array(GCH * GCH * 4 * 16)); let me = GR.ch.get(key), n = 0;
+    for (let z = z0; z < z1; z++) for (let x = x0; x < x1; x++) {
       const i = m.idx(x, z), s = m.surf[i]; if (m.water[i] || m.ramp[i] || !(s === 0 || s === 1 || s === 14)) continue; const o = m.objAt(x, z); if (o && (G.OBJ[o.t].h > .3 || G.OBJ[o.t].enter)) continue;
-      if ((x - px) * (x - px) + (z - pz) * (z - pz) > R * R) continue; const k = 3 + (G.hash2(x, z, 11) < .5 ? 1 : 0);
-      for (let j = 0; j < k && n < GR.N; j++) { const rx = x + G.hash2(x, z, 20 + j), rz = z + G.hash2(z, x, 40 + j), sc = .7 + G.hash2(x + j, z, 60) * .7;
-        V.set(rx, m.terrainH(rx, rz) - .02, rz); Q.setFromAxisAngle(Y, G.hash2(x, z + j, 80) * TAU); S.set(sc, sc * (s === 1 ? 1.25 : 1), sc); M4.compose(V, Q, S); GR.mesh.setMatrixAt(n++, M4); } }
-    GR.mesh.count = n; GR.mesh.instanceMatrix.needsUpdate = true; GR.cx = px; GR.cz = pz; GR.map = m; GR.rev = m.rev;
-  }
+      const k = 3 + (G.hash2(x, z, 11) < .5 ? 1 : 0);
+      for (let j = 0; j < k; j++) { const rx = x + G.hash2(x, z, 20 + j), rz = z + G.hash2(z, x, 40 + j), sc = .7 + G.hash2(x + j, z, 60) * .7;
+        V.set(rx, m.terrainH(rx, rz) - .02, rz); Q.setFromAxisAngle(Y, G.hash2(x, z + j, 80) * TAU); S.set(sc, sc * (s === 1 ? 1.25 : 1), sc); M4.compose(V, Q, S); M4.toArray(tmp, n++ * 16); } }
+    if (me && me.userData.cap < n) { GR.group.remove(me); me.dispose(); GR.ch.delete(key); me = null; }
+    if (!me) { const cap = Math.max(1, n); me = new THREE.InstancedMesh(GR.geoN, GR.mat, cap); me.frustumCulled = false; me.userData = { cap, k: [kx, kz], c: [(x0 + x1) / 2, (z0 + z1) / 2] }; GR.group.add(me); GR.ch.set(key, me); }
+    me.instanceMatrix.array.set(tmp.subarray(0, n * 16)); me.count = n; me.instanceMatrix.needsUpdate = true; }
   // ---------- aurores ----------
   G.on('init', scene => {
     const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, uniforms: { uT: { value: 0 }, uA: { value: 0 } },
@@ -75,9 +77,29 @@
       for (; k < A.halos.length; k++) A.halos[k].visible = false; }
   });
   G.on('frame', dt => {
-    const m = G.map, p = G.player; if (!GR.mesh || !m || !p) return; const on = !m.interior && G.settings.quality !== 'low' && G.settings.grass !== false; GR.mesh.visible = on; if (!on) return;
-    GR.U.uT.value += dt; if (GR.map !== m || Math.abs(p.x - GR.cx) > 4 || Math.abs(p.z - GR.cz) > 4 || ((GR.t -= dt) < 0 && GR.rev !== m.rev)) { GR.t = 1.5; buildGrass(m, p.x, p.z); }
+    const m = G.map, p = G.player; if (!GR.mat || !m || !p) return; const on = !m.interior && G.settings.quality !== 'low' && G.settings.grass !== false; GR.group.visible = on; if (!on) return;
+    GR.U.uT.value += dt; const tx = G.cam.cx || p.x, tz = G.cam.cz || p.z;
+    if (GR.map !== m) { for (const me of GR.ch.values()) { GR.group.remove(me); me.dispose(); } GR.ch.clear(); GR.map = m; GR.rev = m.rev; GR.q = [];
+      for (let kz = 0; kz < Math.ceil(m.H / GCH); kz++) for (let kx = 0; kx < Math.ceil(m.W / GCH); kx++) GR.q.push([kx, kz]); const dd = k => Math.hypot((k[0] + .5) * GCH - tx, (k[1] + .5) * GCH - tz); GR.q.sort((a, b) => dd(a) - dd(b)); }
+    if (GR.rev !== m.rev && (GR.t -= dt) < 0) { GR.t = .4; GR.rev = m.rev; const px = Math.floor(p.x / GCH), pz = Math.floor(p.z / GCH);
+      for (const me of GR.ch.values()) { const [kx, kz] = me.userData.k; if (Math.abs(kx - px) <= 1 && Math.abs(kz - pz) <= 1) grassChunk(m, kx, kz); else if (!GR.q.some(q => q[0] === kx && q[1] === kz)) GR.q.push([kx, kz]); } }
+    for (let i = 0; i < 4 && GR.q.length; i++) { const [kx, kz] = GR.q.shift(); grassChunk(m, kx, kz); }
+    // seuls les blocs dans le champ de la caméra sont dessinés ; au loin, des touffes plus simples
+    const CV = m.cullV, cw8 = m._cw, ch8 = m._ch, R8 = GCH / 8;
+    for (const me of GR.ch.values()) { const [kx, kz] = me.userData.k; let v = true;
+      if (CV && cw8) { v = false; for (let cz = kz * R8; cz < Math.min(ch8, kz * R8 + R8) && !v; cz++) for (let cx = kx * R8; cx < Math.min(cw8, kx * R8 + R8); cx++) if (CV[cz * cw8 + cx]) { v = true; break; } }
+      me.visible = v && me.count > 0; if (me.visible) me.geometry = Math.hypot(me.userData.c[0] - tx, me.userData.c[1] - tz) > 50 ? GR.geoF : GR.geoN; }
     const L = G.lights, si = G.skyInfo; if (L) { const t = GR.U.uTint.value; t.copy(L.hemi.color).multiplyScalar(L.hemi.intensity * .95); SC.copy(L.sun.color).multiplyScalar(L.sun.intensity * .55); t.add(SC); t.r = G.clamp(t.r * 1.15, .34, 1.25); t.g = G.clamp(t.g * 1.15, .4, 1.25); t.b = G.clamp(t.b * 1.15, .55, 1.25); }
     GR.U.fogColor.value.copy(G.scene.fog.color); GR.U.fogNear.value = G.scene.fog.near; GR.U.fogFar.value = G.scene.fog.far;
   });
+  const LP = { t: 0 };
+  G.on('init', scene => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,214,150,1)'); g.addColorStop(.35, 'rgba(255,190,120,.55)'); g.addColorStop(1, 'rgba(255,170,100,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    const geo = new THREE.PlaneGeometry(1, 1); geo.rotateX(-Math.PI / 2);
+    LP.mat = G.curveMat(new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    LP.mesh = new THREE.InstancedMesh(geo, LP.mat, 800); LP.mesh.count = 0; LP.mesh.frustumCulled = false; LP.mesh.renderOrder = 1; scene.add(LP.mesh); });
+  G.on('frame', dt => { const m = G.map; if (!LP.mesh || !m) return; const n = G.night ? G.night() : 0, on = !m.interior && n > .15; LP.mesh.visible = on; if (!on) return; LP.mat.opacity = Math.min(1, (n - .15) * 2) * .65;
+    if ((LP.t -= dt) > 0 && LP.map === m && LP.rev === m.rev) return; LP.t = 1; LP.map = m; LP.rev = m.rev; let k = 0;
+    for (const o of m.lights) { if (o.off || k >= 800) continue; const d = G.OBJ[o.t], [cx, cz] = m.center(o), r = d.h > 1.5 ? 7.5 : d.fire ? 5 : 3.8; V.set(cx, m.terrainH(cx, cz) + .05, cz); Q.identity(); S.set(r, 1, r); M4.compose(V, Q, S); LP.mesh.setMatrixAt(k++, M4); }
+    LP.mesh.count = k; LP.mesh.instanceMatrix.needsUpdate = true; });
 })();
