@@ -135,21 +135,23 @@
     const prop = new THREE.Mesh(G.getGeo('helice'), G.MATS); prop.position.set(0, .85, 1.36); mesh.add(prop);
     const sh = new THREE.Mesh(G.getGeo('blob'), G.M.shadow); sh.frustumCulled = false; G.scene.add(sh);
     p.vehicle = { plane: 1, o: { t: o.t, r: o.r }, x: cx, z: cz, y: o.y, alt: 0, talt: 8, mesh, prop, sh, t: 0, landing: false, h: [0, PI / 2, PI, -PI / 2][o.r || 0], spd: 0, bank: 0 };
-    m.removeObj(o); G.sfx('fanfare'); G.ui.toast('Avion ! ZQSD pour piloter · Espace monter · Maj descendre · E atterrir');
+    m.removeObj(o); G.sfx('fanfare'); G.ui.toast('Avion ! ZQD pour piloter · S freiner (surplace) · Espace monter · Maj descendre · E atterrir');
   };
   F.updVehicle = (p, dt) => { const v = p.vehicle; if (!v.plane) return ou(p, dt);
     const I = G.input, m = G.map, free = G.ui.canPlay(); v.t += dt;
     let ix = 0, iz = 0; if (free && !v.landing) { if (I.down('KeyD', 'ArrowRight')) ix += 1; if (I.down('KeyA', 'ArrowLeft')) ix -= 1; if (I.down('KeyW', 'ArrowUp')) iz += 1; if (I.down('KeyS', 'ArrowDown')) iz -= 1; if (I.gp.on) { ix += I.gp.lx; iz -= I.gp.ly; } ix += I.touch.mx; iz -= I.touch.my; }
+    // S / flèche bas : freine jusqu'au surplace (l'avion reste en l'air)
+    const brake = free && !v.landing && v.alt > .6 && iz < -.3; if (brake) iz = 0;
     const cy = G.cam.yaw, mx = Math.cos(cy) * ix - Math.sin(cy) * iz, mz = -Math.sin(cy) * ix - Math.cos(cy) * iz, mag = Math.min(1, Math.hypot(mx, mz));
     // l'avion avance toujours : il tourne doucement vers la direction voulue
     let turn = 0; if (mag > .15) { let d = Math.atan2(mx, mz) - v.h; d = Math.atan2(Math.sin(d), Math.cos(d)); turn = G.clamp(d * 2, -1.6, 1.6); v.h += turn * dt; }
-    const air = v.alt > .6, tsp = v.landing ? (air ? 4 : 0) : (mag > .15 ? 10 : 6.5);
+    const air = v.alt > .6, tsp = v.landing ? (air ? 4 : 0) : brake ? 0 : (mag > .15 ? 10 : 6.5);
     v.spd += (tsp - v.spd) * Math.min(1, (v.landing && !air ? 1.6 : .7) * dt);
     v.x = G.clamp(v.x + Math.sin(v.h) * v.spd * dt, 4, m.W - 4); v.z = G.clamp(v.z + Math.cos(v.h) * v.spd * dt, 4, m.H - 4);
     if (free && !v.landing) { if (I.down('Space')) v.talt = Math.min(26, v.talt + dt * 5); if (I.down('ShiftLeft', 'ShiftRight')) v.talt = Math.max(4, v.talt - dt * 5); }
     if (free && I.hit('KeyE') && !v.landing) { v.landing = true; G.ui.toast('Atterrissage…'); }
     const ground = Math.max(m.topAt(v.x, v.z), m.isWaterAt(v.x, v.z) ? m.waterSurf(Math.floor(v.x), Math.floor(v.z)) : -9);
-    if (v.landing) v.talt = 0; const climb = (v.talt - v.alt) * Math.min(1, (v.spd > 3 || v.landing ? .7 : .05) * dt); v.alt += climb;
+    if (v.landing) v.talt = 0; const climb = (v.talt - v.alt) * Math.min(1, (v.spd > 3 || v.landing || v.alt > .6 ? .7 : .05) * dt); v.alt += climb;
     v.y += (ground + v.alt - v.y) * Math.min(1, 3 * dt);
     if (v.landing && v.y - ground < .1 && v.spd < .4) { const tx = Math.floor(v.x - 1.5), tz = Math.floor(v.z - 1.5);
       if (m.canPlace(v.o.t, tx, tz, v.o.r) && !m.isWaterAt(v.x, v.z)) { G.scene.remove(v.mesh); G.scene.remove(v.sh); m.addObj(v.o.t, tx, tz, v.o.r); p.vehicle = null; p.teleport(tx + 1.5, tz + 3.4, 0); G.sfx('land'); G.fx.puff(tx + 1.5, ground + .1, tz + 1.5, 14, 0xf3ead2, 1); return; }
