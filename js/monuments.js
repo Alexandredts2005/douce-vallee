@@ -488,7 +488,7 @@
   // la caméra n'est jamais bloquée : ce qui se trouve entre elle et le joueur disparaît
   const Z0 = new THREE.Matrix4().makeScale(0, 0, 0), hid = new Map();
   G.on('frame', () => { const m = G.map, p = G.player, cp = G.camera && G.camera.position, now = new Set();
-    if (m && p && cp && !m.interior && m.objr && G.state === 'play') { const ty = p.y + 1; for (let i = 1; i <= 18; i++) { const t = i / 18, x = p.x + (cp.x - p.x) * t, y = ty + (cp.y - ty) * t, z = p.z + (cp.z - p.z) * t, o = m.objAt(Math.floor(x), Math.floor(z)); if (!o || now.has(o)) continue; const d = G.OBJ[o.t]; if (d.h >= 1.6 && !d.walk && o.y + d.h > y - .3) now.add(o); } }
+    if (m && p && cp && !m.interior && m.objr && G.state === 'play') { const ty = p.y + 1, po = m.objAt(Math.floor(p.x), Math.floor(p.z)); for (let i = 1; i <= 18; i++) { const t = i / 18, x = p.x + (cp.x - p.x) * t, y = ty + (cp.y - ty) * t, z = p.z + (cp.z - p.z) * t, o = m.objAt(Math.floor(x), Math.floor(z)); if (!o || o === po || now.has(o)) continue; const d = G.OBJ[o.t]; if (d.h >= 1.6 && !d.walk && o.y + d.h > y - .3) now.add(o); } }
     for (const [o, mm] of hid) if (!now.has(o) || mm !== m) { if (o._anim === Z0) o._anim = null; mm.refresh(o); hid.delete(o); }
     for (const o of now) if (!hid.has(o)) { o._anim = Z0; m.refresh(o); hid.set(o, m); } });
   // ===================== 8. MUR DE DEVANT (avec sa porte) dans toutes les pièces : visible de l'intérieur, invisible dès que la caméra passe derrière =====================
@@ -517,4 +517,8 @@
     if (G.mouseMode && G.mouseMode() && !(G.firstPerson && G.firstPerson())) { const nx = G.clamp(cp.x, .4, m.W - .4), nz = Math.max(cp.z, .4); if (nx !== cp.x || nz !== cp.z) { cp.x = nx; cp.z = nz; c.lookAt(p.x, p.y + 1, p.z); } }
     m._fw.visible = cp.z < m.H - .05; });
 
+  // on entre par la porte (en haut du perron), pas au pied des marches
+  O.hotel_ville_g.door = 2.05; if (O.chateau_grand) O.chateau_grand.door = 1.2;
+  const ofr = G.act.front; G.act.front = o => { const d = O[o.t]; if (d.door == null) return ofr(o); const m = G.map, p = G.player, [cx, cz] = m.center(o), F = G.FR[o.r || 0], fwd = (p.x - cx) * F[0] + (p.z - cz) * F[1], lat = Math.abs((p.x - cx) * F[1] - (p.z - cz) * F[0]);
+    return fwd > d.door - .7 && fwd < d.door + 1.0 && lat < 1.3; };
 })();
