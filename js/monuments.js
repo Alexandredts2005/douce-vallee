@@ -424,4 +424,55 @@
   let stT = 0, stCd = 0; G.on('enterMap', () => { stCd = 1.2; stT = 0; });
   G.on('update', dt => { const m = G.map, p = G.player; if (!m || !m.interior || !p || (stCd -= dt) > 0) return; const o = m.objAt(Math.floor(p.x), Math.floor(p.z));
     if (o && o.t === 'escalier' && o.iid) { if ((stT += dt) > .25) { stT = 0; stCd = 2; G.act.interact(); } } else stT = 0; });
+  // ===================== 7. INTÉRIEUR DE LA MAIRIE : grande salle de marbre, piliers immenses, bureau au centre, lustres géants =====================
+  const MW = 24, MH = 18, MHT = 17;
+  G.ROOMKINDS.mairie = Object.assign({}, G.ROOMKINDS.mairie, { W: MW, H: MH });
+  G.ROOMNPC.mairie = ['mairie', 12, 7.55];
+  MD.pilier = () => { const b = G.mb(460), MB = 0xf4efe6, MV = 0xe6ddd0;
+    b.P(PT.pierre); b.box(1.0, .5, 1.0, MV, 0, .25, 0); b.P(0); lathe(b, [[.48, .5], [.48, .62], [.42, .7], [.44, .8], [.38, .9], [0, .9]], MB, 0, 0, 0, 24);
+    b.cyl(.34, .38, MHT - 2.6, 24, MB, 0, .9 + (MHT - 2.6) / 2, 0, 0, 0, 0, 0, true); for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; b.box(.05, MHT - 2.8, .05, MV, Math.cos(a) * .35, .9 + (MHT - 2.6) / 2, Math.sin(a) * .35); }
+    const y = MHT - 1.7; b.tor(.37, .05, GOLD, 0, y, 0, PI / 2, 0, 0, 0, 24); lathe(b, [[.35, y], [.42, y + .3], [.55, y + .7], [.62, y + .8], [0, y + .8]], MB, 0, 0, 0, 24);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; b.geo(new THREE.SphereGeometry(.13, 8, 6), GOLD, b.M(Math.cos(a) * .5, y + .55, Math.sin(a) * .5, 0, -a, 0, .5, 1.3, .9), 0, true); b.sph(.08, GOLD, Math.cos(a) * .62, y + .72, Math.sin(a) * .62); }
+    b.P(PT.pierre); b.box(1.4, .5, 1.4, MV, 0, MHT - .65, 0); b.P(0); b.box(1.5, .1, 1.5, GOLD, 0, MHT - .35, 0); return b.done(); };
+  O.pilier = { id: 'pilier', n: 'Pilier', model: 'pilier', v: 0, fp: [1, 1], h: MHT, fixed: 1 };
+  G.ROOMFILL.mairie = (m, P) => { m.meta.sunny = 1; m.meta.cam = { pitch: .42, dist: 20, ty: 3.2, fx: .6, fz: .7, dz: 1.8 };
+    for (const x of [5, 18]) for (const z of [3, 7, 11, 15]) P('pilier', x, z);
+    P('bureau', 11, 8); P('tapis', 11, 10); P('tapis', 11, 12);
+    for (const [x, z] of [[8, 13], [14, 13], [8, 15], [14, 15]]) P('banc_parc', x, z); for (const [x, z] of [[1, 1], [22, 1], [1, 16], [22, 16], [9, 8], [14, 8]]) P('plante', x, z);
+    P('horloge', 12, 2); P('tableau', 2, 6, 1); P('statue', 11, 3); P('statue', 13, 3); };
+  let marb = null;
+  function mairieShell(m) {
+    if (m.shell) { m.group.remove(m.shell); m.shell.traverse(c => c.geometry && c.geometry.dispose()); }
+    if (!marb) { marb = G.patTex('floor', 'marbre'); }
+    const W = m.W, H = m.H, h = MHT, g = new THREE.Group(), b = G.mb(461), gx = { patches: [] };
+    const pl = (w, hh, ru, rv, x, y, z, rx, ry, col) => { const geo = new THREE.PlaneGeometry(w, hh), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * ru, uv.getY(i) * rv); const me = new THREE.Mesh(geo, G.toon({ map: marb, color: col }, {})); me.position.set(x, y, z); me.rotation.set(rx, ry, 0); me.receiveShadow = true; g.add(me); };
+    pl(W, H, W / 3, H / 3, W / 2, .002, H / 2, -PI / 2, 0, 0xffffff); pl(W, h, W / 3, h / 3, W / 2, h / 2, .002, 0, 0, 0xfff6e6); pl(H, h, H / 3, h / 3, .002, h / 2, H / 2, 0, PI / 2, 0xfff6e6); pl(H, h, H / 3, h / 3, W - .002, h / 2, H / 2, 0, -PI / 2, 0xfff6e6);
+    // damier de marbre noir et blanc sous le bureau, frises dorées
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) if ((i + j) % 2) b.box(1, .01, 1, 0x2e2a2a, 9 + i, .006, 6 + j);
+    b.box(W + .6, .3, H + .6, 0x3a2a1e, W / 2, -.16, H / 2); b.box(W + .4, h, .2, 0xe9e1d4, W / 2, h / 2, -.1); b.box(.2, h, H + .2, 0xe9e1d4, -.1, h / 2, H / 2); b.box(.2, h, H + .2, 0xe9e1d4, W + .1, h / 2, H / 2);
+    for (const [x, z, w, d] of [[W / 2, .05, W, .1], [.05, H / 2, .1, H], [W - .05, H / 2, .1, H]]) { b.box(w, .4, d, 0xd8cfc0, x, .2, z); b.box(w, .08, d + .02, GOLD, x, .42, z); b.box(w, .6, d + .06, 0xf3ede2, x, h - .3, z); b.box(w + .02, .1, d + .08, GOLD, x, h - .66, z); b.box(w, .3, d + .04, 0xf3ede2, x, 8.2, z); b.box(w + .02, .06, d + .06, GOLD, x, 8.0, z); }
+    // hautes fenêtres sur deux niveaux, en plein cintre
+    const win = (x, z, ry, wy, wh) => { const T = face(x, 0, z, ry), ww = 1.7;
+      b.box(ww + .4, wh + .3, .08, 0xf7f2e8, ...T(0, wy, .04), 0, ry, 0); b.geo(new THREE.CylinderGeometry(ww / 2 + .2, ww / 2 + .2, .08, 20, 1, false, -PI / 2, PI), 0xf7f2e8, b.M(...T(0, wy + wh / 2, .04), -PI / 2, ry, 0)); b.tor(ww / 2 + .2, .06, GOLD, ...T(0, wy + wh / 2, .09), 0, ry, 0, 0, 20);
+      const gp = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), G.M.window); gp.position.set(...T(0, wy, .085)); gp.rotation.y = ry; g.add(gp); const cg = new THREE.Mesh(new THREE.CircleGeometry(ww / 2, 18, 0, PI), G.M.window); cg.position.set(...T(0, wy + wh / 2, .085)); cg.rotation.y = ry; g.add(cg);
+      b.box(.06, wh, .04, 0xf7f2e8, ...T(0, wy, .11), 0, ry, 0); for (let k = 1; k < 6; k++) b.box(ww, .05, .04, 0xf7f2e8, ...T(0, wy - wh / 2 + k * wh / 6, .11), 0, ry, 0);
+      for (const sd of [-1, 1]) b.box(.18, wh + 1.2, .14, GOLD, ...T(sd * (ww / 2 + .55), wy + .3, .08), 0, ry, 0);
+      return { x, z, ry, ww, y0: wy - wh / 2, y1: wy + wh / 2 }; };
+    const wins = []; for (const [wy, wh] of [[4.2, 5.4], [11.5, 4.2]]) { for (let k = 0; k < 4; k++) wins.push(win((k + .5) * W / 4, 0, 0, wy, wh)); for (let k = 0; k < 3; k++) { const z = 1.5 + (k + .5) * (H - 3) / 3; wins.push(win(0, z, PI / 2, wy, wh)); wins.push(win(W, z, -PI / 2, wy, wh)); } }
+    // poutres de marbre entre les piliers (portent les lustres)
+    for (const x of [5.5, 18.5]) { b.P(PT.pierre); b.box(1.1, .9, H - 2, 0xe9e1d4, x, h - .2, H / 2 - .5); b.P(0); b.box(1.2, .1, H - 2, GOLD, x, h - .7, H / 2 - .5); }
+    b.P(PT.pierre); for (const z of [3.5, 7.5, 11.5, 15.5]) b.box(13, .8, 1.0, 0xe9e1d4, 12, h - .2, z); b.P(0);
+    // lustres géants en cristal
+    for (const [x, z] of [[12, 5.5], [12, 9.5], [12, 13.5]]) { const y = h - 6; b.cyl(.025, .025, 5.6, 4, GOLD, x, y + 3.1, z);
+      for (const [r, yy, n] of [[1.6, y - 1.2, 20], [1.15, y - .55, 14], [.7, y, 10], [.35, y + .5, 6]]) { b.tor(r, .06, GOLD, x, yy, z, PI / 2, 0, 0, 0, 32);
+        for (let i = 0; i < n; i++) { const a = i / n * TAU, cx = x + Math.cos(a) * r, cz = z + Math.sin(a) * r; b.cyl(.04, .04, .22, 6, 0xfffaf0, cx, yy + .14, cz); b.sph(.05, 0xffd27a, cx, yy + .3, cz, 1, 1.5, 1, 1, 6, 4); for (let d = 1; d <= 3; d++) b.sph(.045, 0xeaf6ff, cx, yy - d * .14, cz, 1, 1.4, 1, 1, 6, 4); } }
+      for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; b.cyl(.008, .008, 1.2, 3, 0xeaf6ff, x + Math.cos(a) * 1.3, y - .6, z + Math.sin(a) * 1.3, 0, 0, 0, 1); }
+      b.sph(.3, 0xeaf6ff, x, y - 1.9, z, 1, 1.6, 1, 1, 12, 10); b.cyl(.1, .25, .9, 12, GOLD, x, y - 1.2, z); }
+    const sm = new THREE.Mesh(b.done(), G.MATS); sm.castShadow = true; sm.receiveShadow = true; g.add(sm);
+    const pm = new THREE.MeshBasicMaterial({ color: 0xffdf9e, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const w of wins) { if (w.y0 > 8) continue; const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3)); const me = new THREE.Mesh(geo, pm); me.renderOrder = 2; g.add(me); gx.patches.push([me, w]); }
+    gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.sunny = 1; }
+  const ob3 = G.buildShell; G.buildShell = m => { if (m.kind !== 'mairie' || m.W < 20) return ob3(m); mairieShell(m); };
+  G.on('load', () => { for (const id in G.interiors) { const im = G.interiors[id]; if (im.kind === 'mairie' && im.W < 20 && G.map !== im) { G.scene.remove(im.group); delete G.interiors[id]; } } });
+
 })();
