@@ -597,4 +597,20 @@
     if (/_e\d/.test(m.id)) m.shell.traverse(c => { if (c.material === G.M.window) c.material = G.M.windowSky; });
     if (m._gx || (m.kind === 'maison' && isCh(m)) || (m.kind === 'mairie' && m.W >= 20)) return; decor(m); };
 
+  // ===================== 10. MAISON DU JOUEUR : finitions réalistes (parquet chêne, peinture mate, radiateurs, prises, plinthes) =====================
+  let HPq = null, HWl = null;
+  const hTex = () => { if (HPq) return; HPq = cnv(512, (x, n) => { const r = G.rng(11); for (let j = 0; j < 8; j++) for (let i = 0; i < 2; i++) { const off = (j % 2) * 128, l = 165 + r() * 35 | 0, y = j * 64, x0 = i * 256 + off;
+      for (const xx of [x0, x0 - 512]) { x.fillStyle = `rgb(${l},${l * .7 | 0},${l * .45 | 0})`; x.fillRect(xx, y, 256, 64); for (let k = 0; k < 14; k++) { x.strokeStyle = `rgba(${90 + r() * 40 | 0},${55 + r() * 25 | 0},25,${.12 + r() * .15})`; x.lineWidth = 1 + r() * 1.5; x.beginPath(); const yy = y + 4 + r() * 56; x.moveTo(xx, yy); x.bezierCurveTo(xx + 80, yy + r() * 6 - 3, xx + 170, yy + r() * 6 - 3, xx + 256, yy + r() * 4 - 2); x.stroke(); }
+        if (r() < .3) { x.fillStyle = 'rgba(80,45,20,.35)'; x.beginPath(); x.ellipse(xx + 40 + r() * 170, y + 20 + r() * 25, 6, 3, 0, 0, TAU); x.fill(); } x.strokeStyle = 'rgba(50,30,15,.55)'; x.lineWidth = 2; x.strokeRect(xx + 1, y + 1, 254, 62); } } });
+    HWl = cnv(256, (x, n) => { x.fillStyle = '#efe9df'; x.fillRect(0, 0, n, n); const r = G.rng(5); for (let i = 0; i < 2500; i++) { x.fillStyle = `rgba(${r() < .5 ? 255 : 200},${r() < .5 ? 250 : 190},${r() < .5 ? 240 : 180},.18)`; x.fillRect(r() * n, r() * n, 2, 2); } }); };
+  const ob7 = G.buildShell; G.buildShell = m => { ob7(m); if (!m.interior || !m.shell || m.kind !== 'maison' || isCh(m) || /_e\d|_a\d/.test(m.id)) return; hTex(); const sh = m.meta.shell || {}, W = m.W, H = m.H;
+    for (const c of m.shell.children) { if (!c.isMesh || c.geometry.type !== 'PlaneGeometry') continue; const fl = c.rotation.x < -1, wl = !fl && c.position.y > .5 && c.position.y < 2;
+      if (fl && !sh.floor) { c.material = G.toon({ map: HPq }, {}); const uv = c.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) > .5 ? W / 4 : 0, uv.getY(i) > .5 ? H / 4 : 0); uv.needsUpdate = true; }
+      else if (wl && !sh.wall) c.material = G.toon({ map: HWl }, {}); }
+    const b = G.mb(490), nW = Math.max(1, Math.floor(W / 4));
+    for (let k = 0; k < nW; k++) { const x = (k + .5) * W / nW; G.rbox(b, .95, .55, .1, .03, 0xf4f4f2, x, .5, .1); for (let i = 0; i < 9; i++) b.box(.06, .5, .11, 0xe8e8e6, x - .4 + i * .1, .5, .11); b.cyl(.02, .02, .08, 6, 0xd0d0d0, x + .5, .32, .12, Math.PI / 2, 0, 0); b.box(1.1, .05, .16, 0xf7f5f0, x, 1.33, .1); }
+    for (const [x, y, z, ry] of [[.03, .3, 1.5, Math.PI / 2], [W - .03, .3, H - 2, -Math.PI / 2], [.03, 1.1, H - 1.4, Math.PI / 2], [W * .25, .3, .03, 0]]) { const T = face(x, y, z, ry); G.rbox(b, .09, .09, .015, .006, 0xfafafa, ...T(0, 0, 0), 0, ry, 0); if (y < 1) for (const s of [-.015, .015]) b.cyl(.006, .006, .01, 6, 0x333333, ...T(s, 0, .01), Math.PI / 2, ry, 0); else b.box(.03, .045, .012, 0xeeeeee, ...T(0, 0, .01), 0, ry, 0); }
+    b.box(W, .1, .02, 0xfafafa, W / 2, .05, .02); b.box(.02, .1, H, 0xfafafa, .02, .05, H / 2); b.box(.02, .1, H, 0xfafafa, W - .02, .05, H / 2);
+    const me = new THREE.Mesh(b.done(), G.MATS); me.receiveShadow = true; me.frustumCulled = false; m.shell.add(me); };
+
 })();
