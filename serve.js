@@ -79,6 +79,9 @@ server.on('upgrade', (req, sock) => {
 setInterval(() => { const lim = Date.now() - 90000; for (const c of [...clients.values()]) if (c.last < lim) { leave(c); try { c.sock.destroy(); } catch (e) { } clients.delete(c.id); } }, 10000);
 // les villages qui ne sont plus publiés depuis 7 jours sont oubliés (leurs propriétaires les republient en jouant)
 setInterval(() => { const lim = Date.now() - 7 * 24 * 3600 * 1000; let n = 0; for (const h in towns) if (towns[h].at < lim) { delete towns[h]; n++; } if (n) persist(); }, 3600 * 1000);
+// en ligne 24 h/24 : sur Render (offre gratuite), le serveur s'endort après 15 min sans visite ; il se rend donc visite toutes les 10 min
+// par son adresse publique (un réveil extérieur tourne aussi sur GitHub : .github/workflows/reveil.yml)
+if (ON_RENDER && process.env.RENDER_EXTERNAL_URL) setInterval(() => { try { require('https').get(process.env.RENDER_EXTERNAL_URL + '/api/ping', r => r.resume()).on('error', () => { }); } catch (e) { } }, 10 * 60 * 1000);
 server.listen(PORT, '0.0.0.0', () => {
   console.log('\n  🌿 Douce Vallée ' + VER + ' — serveur prêt !\n  Sur ce PC :              http://localhost:' + PORT);
   if (!ON_RENDER) for (const list of Object.values(os.networkInterfaces())) for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log('  Amis sur le même Wi-Fi : http://' + a.address + ':' + PORT);
