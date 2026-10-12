@@ -9,8 +9,9 @@
     const iw = w / 2 - r, ih = h / 2 - r, c = Math.min(iw, ih) * .4, s = new THREE.Shape();
     s.moveTo(-iw + c, -ih); s.lineTo(iw - c, -ih); s.quadraticCurveTo(iw, -ih, iw, -ih + c); s.lineTo(iw, ih - c); s.quadraticCurveTo(iw, ih, iw - c, ih);
     s.lineTo(-iw + c, ih); s.quadraticCurveTo(-iw, ih, -iw, ih - c); s.lineTo(-iw, -ih + c); s.quadraticCurveTo(-iw, -ih, -iw + c, -ih);
+    const wood = [OAK, LOAK, WAL, DK].includes(col), op = b.pat; if (wood && !op && G.PAT) b.P(G.PAT.planches);
     const dd = Math.max(.001, d - 2 * r), g = new THREE.ExtrudeGeometry(s, { depth: dd, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 2, curveSegments: 2 });
-    g.translate(0, 0, -dd / 2); return b.geo(g, col, b.M(x, y, z, rx, ry, rz), mat);
+    g.translate(0, 0, -dd / 2); b.geo(g, col, b.M(x, y, z, rx, ry, rz), mat); if (wood && !op) b.P(0); return b;
   };
   const flame = (b, x, y, z, s = 1) => { b.cone(.13 * s, .38 * s, 7, 0xff8a1f, x, y + .19 * s, z, 0, 0, 0, 3); b.cone(.08 * s, .26 * s, 7, 0xffe14a, x, y + .15 * s, z + .02, 0, .5, 0, 3); };
   const knob = (b, x, y, z) => b.sph(.022, GOLD, x, y, z, 1, 1, .7);
@@ -24,7 +25,8 @@
     rbox(b, 1.02, .5, .08, .04, WAL, 0, .3, .94);
     rbox(b, .92, .2, 1.78, .08, CREAM, 0, .41, -.01);
     rbox(b, .97, .13, 1.2, .07, 0x7f9fd8, 0, .53, .28); rbox(b, .98, .08, .26, .04, 0xffffff, 0, .58, -.3); rbox(b, .99, .135, .14, .04, 0xf2c46b, 0, .535, .66);
-    for (const x of [-.22, .22]) b.sph(.21, 0xffffff, x, .62, -.67, 1, .32, .62, 0, 14, 10);
+    for (const z of [.0, .3, .55]) b.cyl(.025, .025, .97, 8, 0x6f8fc8, 0, .6, z, 0, 0, PI / 2);
+    rbox(b, .98, .1, .35, .04, 0xc96f5a, 0, .62, .72); for (const x of [-.22, .22]) b.sph(.21, 0xffffff, x, .62, -.67, 1, .32, .62, 0, 14, 10);
     return b.done(); };
   // chaise : pieds fuselés, assise coussin, dossier à barreaux
   MD.chair = v => { const b = G.mb(41);
@@ -47,6 +49,7 @@
     rbox(b, 1.86, .26, .8, .07, c, 0, .23, 0); rbox(b, 1.86, .6, .18, .08, c, 0, .55, -.32);
     for (const x of [-.41, .41]) { rbox(b, .8, .15, .62, .07, l, x, .43, .07); rbox(b, .8, .4, .16, .08, l, x, .7, -.22, -.18); }
     for (const sx of [-1, 1]) { rbox(b, .18, .42, .8, .08, c, sx * .87, .4, 0); b.cyl(.1, .1, .8, 14, c, sx * .87, .62, 0, PI / 2, 0, 0, 0, true); }
+    for (let i = 0; i < 9; i++) for (let j = 0; j < 2; j++) b.sph(.022, new THREE.Color(c).multiplyScalar(.7), -.8 + i * .2 + j * .1, .66 + j * .14, -.225 - j * .02, 1, 1, .5, 0, 6, 4);
     b.sph(.17, 0xf2c46b, -.58, .62, -.05, 1, 1, .4, 0, 12, 8); b.sph(.15, 0xffffff, .6, .61, -.05, 1, 1, .4, 0, 12, 8);
     return b.done(); };
   // armoire : corniche, portes à panneaux moulurés, socle

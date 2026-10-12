@@ -420,4 +420,8 @@
       for (const [lx, y] of [[-w.ww / 2, w.y0], [w.ww / 2, w.y0], [w.ww / 2, w.y1], [-w.ww / 2, w.y1]]) { const X = w.x + lx * c, Z = w.z - lx * sn, k = y / d.y; pts.push([G.clamp(X - d.x * k, 0, m.W), .012, G.clamp(Z - d.z * k, 0, m.H)]); }
       [0, 1, 2, 0, 2, 3].forEach((i, j) => p.setXYZ(j, ...pts[i])); p.needsUpdate = true; } });
 
+  // escaliers : on monte (ou descend) tout seul en marchant dessus
+  let stT = 0, stCd = 0; G.on('enterMap', () => { stCd = 1.2; stT = 0; });
+  G.on('update', dt => { const m = G.map, p = G.player; if (!m || !m.interior || !p || (stCd -= dt) > 0) return; const o = m.objAt(Math.floor(p.x), Math.floor(p.z));
+    if (o && o.t === 'escalier' && o.iid) { if ((stT += dt) > .25) { stT = 0; stCd = 2; G.act.interact(); } } else stT = 0; });
 })();
