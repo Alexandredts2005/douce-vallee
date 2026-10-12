@@ -2,7 +2,7 @@
 // ===== Carte en tuiles : niveaux/falaises, pentes, eau & cascades, objets instanciés (1 draw call par type) =====
 (function () {
   const T = G.TIER, CH = 24, WS = -.32, BED = -.9, SEABED = -1.35;
-  const tmp4 = [0, 0, 0, 0], nb4 = [0, 0, 0, 0], M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S1 = new THREE.Vector3(1, 1, 1), YA = new THREE.Vector3(0, 1, 0);
+  const tmp4 = [0, 0, 0, 0], nb4 = [0, 0, 0, 0], M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S1 = new THREE.Vector3(1, 1, 1), SV = new THREE.Vector3(), YA = new THREE.Vector3(0, 1, 0);
   // ---------- tampon de géométrie ----------
   class Buf {
     constructor() { this.p = []; this.c = []; this.u = []; }
@@ -70,8 +70,10 @@
     }
     mat(o, anim) {
       const d = G.OBJ[o.t], [w, dd] = G.fpDims(d, o.r);
-      P.set(o.x + w / 2, o.y, o.z + dd / 2); Q.setFromAxisAngle(YA, o.r * Math.PI / 2); M.compose(P, Q, S1);
-      if (anim) { const A = G.m4.copy(anim); M.multiplyMatrices(G.m4b.makeTranslation(P.x, P.y, P.z), A.multiply(G.m4c.makeRotationY(o.r * Math.PI / 2))); }
+      // arbres : chacun tourné et dimensionné un peu différemment (seulement à l'affichage), pour des forêts sans clones
+      const tree = d.chop >= 3 && d.fp[0] === 1 && d.fp[1] === 1, yaw = o.r * Math.PI / 2 + (tree ? G.hash2(o.x, o.z, 31) * Math.PI * 2 : 0), sc = tree ? SV.setScalar(.9 + G.hash2(o.x, o.z, 57) * .22) : S1;
+      P.set(o.x + w / 2, o.y, o.z + dd / 2); Q.setFromAxisAngle(YA, yaw); M.compose(P, Q, sc);
+      if (anim) { const A = G.m4.copy(anim); M.multiplyMatrices(G.m4b.makeTranslation(P.x, P.y, P.z), A.multiply(G.m4c.makeRotationY(yaw))); if (tree) M.scale(sc); }
       M.toArray(o._m);
     }
     write(o, anim) {

@@ -3,6 +3,8 @@
 (function () {
   const MD = G.MODELS, TAU = Math.PI * 2, WIN = 0xfff0c2, DW = 0x85552f, LW = 0xd4a46c, WOOD = 0xb07a48, IRON = 0x3f444c, ST = 0xd9d2c2;
   const P = (...a) => G.prism(...a), win = (...a) => G.windowAt(...a);
+  // façades arrière : on réutilise les fenêtres détaillées d'archi.js (chargé après, mais les modèles sont construits à la demande)
+  const A = () => G.ARCH, fen = (b, H, f, a, y, o) => G.ARCH.fenetre(b, H, f, a, y, o);
   const door2 = (b, x, z, col = 0x8a5a34, w = .9) => { b.box(w, 1.3, .07, col, x, .78, z); b.box(.02, 1.25, .08, 0x5a3a22, x, .78, z); b.sph(.035, 0xffd23f, x - .08, .78, z + .05); b.sph(.035, 0xffd23f, x + .08, .78, z + .05); b.box(w + .3, .1, .5, ST, x, .05, z + .25); };
   MD.mairie = v => {
     const b = G.mb(120), W = 0xf6f1e6; b.box(3.8, .22, 2.8, ST, 0, .11, -.05); b.box(3.4, 2.3, 2.1, W, 0, 1.36, -.25);
@@ -13,6 +15,10 @@
     b.cyl(.27, .27, .06, 18, 0xffffff, 0, 2.62, 1.37, Math.PI / 2); b.add(new THREE.TorusGeometry(.27, .03, 6, 18), 0xd9b84a, b.M(0, 2.62, 1.4), 0, true); b.box(.03, .2, .02, 0x2a2a2a, 0, 2.7, 1.41); b.box(.15, .03, .02, 0x2a2a2a, .06, 2.62, 1.41);
     b.cyl(.03, .03, 1.6, 5, 0xb8b8b8, 1.75, 3.3, -.3); b.box(.6, .36, .02, 0x4fb35f, 2.06, 3.85, -.3); b.box(.6, .12, .025, 0xffffff, 2.06, 3.85, -.3);
     for (const x of [-1.7, 1.7]) { b.jit(.12); b.ico(.3, 1, 0x4fa847, x, .35, 1.2, 1, .8, 1); b.jit(0); }
+    // arrière et côtés : fenêtres à volets, porte de service
+    const Hm = { w: 3.4, d: 2.1, zc: -.25, fh: .22, wh: 2.29 }, fo = { w: .48, h: .8, frame: 0xffffff, shut: 0x55689f, curt: 0xfff6e0, pane: 'petits', sill: ST };
+    for (const a of [-1.25, -.45, 1.25]) fen(b, Hm, 1, a, 1.45, fo); A().porte(b, Hm, 1, .45, { w: .55, h: 1.2, col: 0x55689f, style: 'vitre', frame: 0xffffff, lamp: 1, lampPos: 'top', steps: 1 });
+    for (const f of [2, 3]) { fen(b, Hm, f, -.5, 1.45, fo); fen(b, Hm, f, .5, 1.45, fo); }
     return b.done();
   };
   MD.musee = v => {
@@ -22,6 +28,10 @@
     b.sph(.75, 0x7fb6c8, 0, 3.2, -.35, 1, .8, 1, 0, 16, 10); b.cyl(.06, .06, .5, 6, 0xd9b84a, 0, 4.0, -.35);
     door2(b, 0, .78, 0x6b4a32); b.box(.5, .7, .03, 0xd9544d, -1.2, 1.5, .76); b.box(.5, .7, .03, 0x5b8fd6, 1.2, 1.5, .76);
     b.sph(.18, 0xffffff, 0, 2.78, 1.33, 1.6, .9, .3); b.box(.5, .08, .05, 0x6b4a32, 0, 2.78, 1.36);
+    // arrière et côtés : hautes fenêtres cintrées, porte des réserves
+    const Hm = { w: 3.5, d: 2.1, zc: -.3, fh: .3, wh: 2.2 }, fo = { w: .42, h: .95, arch: 1, frame: 0xffffff, pane: 'petits', sill: ST, curt: 0xf3e2c4 };
+    for (const a of [-1.2, -.4, .4]) fen(b, Hm, 1, a, 1.35, fo); A().porte(b, Hm, 1, 1.2, { w: .5, h: 1.15, col: 0x6b4a32, style: 'planches', frame: 0xffffff, lamp: 1, lampPos: 'top', steps: 1 });
+    for (const f of [2, 3]) for (const a of [-.45, .45]) fen(b, Hm, f, a, 1.35, fo);
     return b.done();
   };
   MD.couturiere = v => {
@@ -43,6 +53,13 @@
     for (const x of [-2.6, 2.6]) b.box(.18, 2.4, .18, 0xf3e6c8, x, 1.3, .9);
     b.box(5.9, .1, 1.3, 0x3f7a58, 0, 2.2, -1.6, -.12); for (const x of [-2.5, 0, 2.5]) b.cyl(.06, .06, 2.1, 6, IRON, x, 1.1, -2.1);
     b.box(1.8, .4, .06, 0x2f4f9a, 0, 2.62, .93); b.box(1.6, .1, .07, 0xffffff, 0, 2.62, .94);
+    // côté quais : portes vitrées, fenêtres, panneau, horaires et horloge
+    const Hg = { w: 5.4, d: 2, zc: -.1, fh: .2, wh: 2.22 }, fo = { w: .55, h: .6, frame: 0xf7f5ee, pane: 'petits', sill: 0xd9b84a };
+    A().porte(b, Hg, 1, 0, { w: .9, h: 1.3, col: 0x6b4a32, style: 'vitre', frame: 0xf3e6c8, lamp: 2, steps: 0 });
+    for (const a of [-2, -1.1, 1.1, 2]) fen(b, Hg, 1, a, 1.75, fo); for (const f of [2, 3]) fen(b, Hg, f, 0, 1.75, fo);
+    b.box(1.8, .4, .06, 0x2f4f9a, 0, 2.62, -1.13); b.box(1.6, .1, .07, 0xffffff, 0, 2.62, -1.14);
+    for (const x of [-1.55, 1.55]) { b.box(.32, .46, .04, 0x2a2d33, x, 1.2, -1.12); for (let k = 0; k < 4; k++) b.box(.24, .025, .045, k ? 0xfff3b0 : 0xffd23f, x, 1.36 - k * .1, -1.13); }
+    b.cyl(.34, .34, .06, 18, 0xffffff, 0, 3.55, -.53, Math.PI / 2); b.add(new THREE.TorusGeometry(.34, .04, 6, 18), 0x2a2d33, b.M(0, 3.55, -.56), 0, true); b.box(.035, .24, .02, 0x2a2a2a, 0, 3.64, -.57); b.box(.18, .035, .02, 0x2a2a2a, -.07, 3.55, -.57);
     return b.done();
   };
   MD.rails = v => { const b = G.mb(124); for (let i = 0; i < 3; i++) b.box(1.1, .07, .18, 0x7a5236, 0, .035, -.33 + i * .33); for (const x of [-.32, .32]) b.box(.07, .07, 1.02, 0x9aa2ad, x, .1, 0); return b.done(); };
@@ -81,7 +98,9 @@
   MD.hut = v => {
     const b = G.mb(137); b.box(2.6, .2, 2.4, 0xc69c68, 0, .1, 0); for (let i = 0; i < 9; i++) { b.cyl(.09, .09, 1.8, 6, i % 2 ? 0xc8a46a : 0xb8945a, -1.1 + i * .275, 1.05, 1.05); b.cyl(.09, .09, 1.8, 6, i % 2 ? 0xc8a46a : 0xb8945a, -1.1 + i * .275, 1.05, -1.05); }
     b.box(2.3, 1.8, 2, 0xb8945a, 0, 1.05, 0); b.cone(2.1, 1.6, 8, 0xd9be7c, 0, 2.7, 0); b.cone(2.15, .4, 8, 0xc9ac68, 0, 2.05, 0);
-    b.box(.7, 1.2, .06, 0x5a3a22, 0, .8, 1.07); b.box(.5, .4, .05, WIN, .75, 1.3, 1.07, 0, 0, 0, 1); return b.done();
+    b.box(.7, 1.2, .06, 0x5a3a22, 0, .8, 1.07); b.box(.5, .4, .05, WIN, .75, 1.3, 1.07, 0, 0, 0, 1);
+    const Hh = { w: 2.3, d: 2, zc: 0, fh: .15, wh: 1.8 }; for (const f of [2, 3]) fen(b, Hh, f, 0, 1.25, { w: .44, h: .42, frame: 0x8a6a3a, pane: 'petits', sill: 0x8a6a3a, curt: 0xfff1d6 });
+    b.box(.5, .4, .05, WIN, -.14, 1.3, -1.07, 0, 0, 0, 1); b.box(.6, .06, .14, 0x8a6a3a, -.14, 1.07, -1.1); return b.done();
   };
   MD.treasure = v => { const b = G.mb(138); b.box(.8, .45, .55, 0x8a5a34, 0, .23, 0); b.cyl(.275, .275, .8, 10, 0x9a6a40, 0, .45, 0, 0, 0, Math.PI / 2, 0, true); for (const x of [-.3, 0, .3]) b.box(.05, .75, .58, 0xffd23f, x, .32, 0); b.box(.14, .16, .05, 0xffd23f, 0, .44, .29); return b.done(); };
   MD.clockpost = v => { const b = G.mb(139); b.cyl(.12, .16, .2, 8, IRON, 0, .1, 0); b.cyl(.05, .06, 2.1, 6, IRON, 0, 1.15, 0); b.cyl(.28, .28, .12, 16, IRON, 0, 2.4, 0, Math.PI / 2); for (const z of [-.07, .07]) b.cyl(.24, .24, .02, 16, 0xffffff, 0, 2.4, z, Math.PI / 2, 0, 0, 1); return b.done(); };

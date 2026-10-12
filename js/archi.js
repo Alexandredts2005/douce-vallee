@@ -160,12 +160,13 @@ vec3 dvPat(vec3 c) {
     return { yT, yR, yE, tn, t, cs, hw, hd, top: yR + t / cs };
   }
   function cheminee(b, x, z, y0, y1, col = 0xb85a41) { b.P(PT.brique); b.box(.38, y1 - y0, .38, col, x, (y0 + y1) / 2, z); b.P(0); b.P(PT.pierre); b.box(.46, .08, .46, STONEC, x, y1 + .04, z); b.P(0); for (const dx of [-.08, .08]) b.cyl(.055, .065, .16, 8, 0xc0603c, x + dx, y1 + .16, z); }
+  // lucarne sur le pan avant (ou arrière avec o.back)
   function lucarne(b, H, R, x, o) {
-    const dw = o.w || .7, zf = H.zc + H.d / 2 - .1, depth = zf - H.zc, y0 = R.roofY(zf) - .12, dh = .72, yTop = y0 + dh;
-    b.P(o.wallPat || 0); b.box(dw, dh, depth, o.wall, x, y0 + dh / 2, H.zc + depth / 2); b.P(0);
-    b.P(o.pat || 0); P(b, dw + .22, .34, depth + .14, o.col, x, yTop - .02, H.zc + depth / 2 + .07, 0); b.P(0);
-    const D = { w: dw, d: depth * 2, zc: H.zc, fh: 0, wh: 0 }; fenetre(b, D, 0, x, y0 + dh * .46, { w: dw * .55, h: dh * .52, frame: o.frame, pane: 'petits', sill: o.frame });
-    b.box(dw + .04, .05, .04, o.frame || 0xf7f5ee, x, yTop - .01, zf + .03);
+    const sg = o.back ? -1 : 1, dw = o.w || .7, zf = H.zc + sg * (H.d / 2 - .1), depth = Math.abs(zf - H.zc), y0 = R.roofY(zf) - .12, dh = .72, yTop = y0 + dh;
+    b.P(o.wallPat || 0); b.box(dw, dh, depth, o.wall, x, y0 + dh / 2, H.zc + sg * depth / 2); b.P(0);
+    b.P(o.pat || 0); P(b, dw + .22, .34, depth + .14, o.col, x, yTop - .02, H.zc + sg * (depth / 2 + .07), 0); b.P(0);
+    const D = { w: dw, d: depth * 2, zc: H.zc, fh: 0, wh: 0 }; fenetre(b, D, o.back ? 1 : 0, sg * x, y0 + dh * .46, { w: dw * .55, h: dh * .52, frame: o.frame, pane: 'petits', sill: o.frame });
+    b.box(dw + .04, .05, .04, o.frame || 0xf7f5ee, x, yTop - .01, zf + sg * .03);
   }
   function quoins(b, H, faces, col) { b.P(PT.pierre); const n = Math.floor(H.wh / .2); for (const f of faces) for (const s of [-1, 1]) for (let k = 0; k < n; k++) { const y = H.fh + .1 + k * .2, wide = k % 2 ? .34 : .2, fw = f < 2 ? H.w : H.d; wb(b, H, f, s * (fw / 2 - wide / 2 + .02), y, 0, wide, .17, .035, col); } b.P(0); }
   function corners(b, H, col) { for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.box(.09, H.wh, .09, col, sx * (H.w / 2 + .01), H.fh + H.wh / 2, H.zc + sz * (H.d / 2 + .01)); }
@@ -191,15 +192,15 @@ vec3 dvPat(vec3 c) {
     b.P(PT.pierre); b.box(H.w + .1, H.fh, H.d + .1, s.base, 0, H.fh / 2, H.zc); b.P(0);
     // murs
     b.P(s.wp); b.box(H.w, H.wh, H.d, s.wall, 0, H.fh + H.wh / 2, H.zc); b.P(0);
-    if (s.quoin != null) quoins(b, H, [0, 2, 3], s.quoin);
+    if (s.quoin != null) quoins(b, H, [0, 1, 2, 3], s.quoin);
     if (s.corners) corners(b, H, s.trim);
     if (fl > 1) for (const f of [0, 1, 2, 3]) wb(b, H, f, 0, H.fh + 1.85, 0, (f < 2 ? H.w : H.d) + .04, .08, .05, s.trim);
     // colombages
     if (s.colombage != null) { const c = s.colombage, y0 = H.fh, y1 = H.fh + H.wh, ym = H.fh + .6, lo = ym - y0, up = y1 - ym;
-      for (const f of [0, 2, 3]) { const fw = f < 2 ? H.w : H.d; for (const y of [y0 + .04, ym, y1 - .04]) wb(b, H, f, 0, y, .015, fw + .02, .07, .04, c);
-        for (const a of [-fw / 2 + .04, fw / 2 - .04].concat(f === 0 ? [-.45, .45] : [])) wb(b, H, f, a, (y0 + y1) / 2, .015, .07, H.wh, .04, c);
-        if (!s.japon) for (const [a, sg] of f === 0 ? [[-.84, 1], [.84, -1]] : [[-.55, 1], [.55, -1]]) beam(b, H, f, a, (y0 + ym) / 2, Math.hypot(lo, .5), sg * Math.atan2(.5, lo), c);
-        if (f > 0 && !s.japon) for (const [a, sg] of [[-.75, -1], [.75, 1]]) beam(b, H, f, a, (ym + y1) / 2, Math.hypot(up, .36), sg * Math.atan2(.36, up), c); } }
+      for (const f of [0, 1, 2, 3]) { const fw = f < 2 ? H.w : H.d; for (const y of [y0 + .04, ym, y1 - .04]) wb(b, H, f, 0, y, .015, fw + .02, .07, .04, c);
+        for (const a of [-fw / 2 + .04, fw / 2 - .04].concat(f < 2 ? [-.45, .45] : [])) wb(b, H, f, a, (y0 + y1) / 2, .015, .07, H.wh, .04, c);
+        if (!s.japon) for (const [a, sg] of f < 2 ? [[-.84, 1], [.84, -1]] : [[-.55, 1], [.55, -1]]) beam(b, H, f, a, (y0 + ym) / 2, Math.hypot(lo, .5), sg * Math.atan2(.5, lo), c);
+        if (f > 1 && !s.japon) for (const [a, sg] of [[-.75, -1], [.75, 1]]) beam(b, H, f, a, (ym + y1) / 2, Math.hypot(up, .36), sg * Math.atan2(.36, up), c); } }
     // toit
     const R = s.Z ? toitZ(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, over: .12 }) : toitX(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, genoise: s.genoise, og: .1 });
     // porche à colonnes (avant de la porte, pour que le toit du porche passe au-dessus)
@@ -213,15 +214,24 @@ vec3 dvPat(vec3 c) {
     porte(b, H, 0, 0, { w: .58, col: s.door, style: s.ds, frame: FR, lamp: s.lamp, lampPos: s.shut != null || s.fronton != null ? (s.imposte || s.arch || s.porch ? 'none' : 'top') : 'side', auvent: s.porch ? null : s.auvent, auventPat: s.rp, imposte: s.imposte, fronton: s.fronton, arch: s.arch, num: 1, steps: s.porch ? 0 : 1 });
     const y1 = H.fh + 1.05, WX = o.wx || [-.95, .95]; for (const x of WX) win(0, x, y1, { fleurs: s.fleurs });
     for (let k = 1; k < fl; k++) { const y = H.fh + 1.85 + (k - 1) * 1.55 + .78; for (const x of WX) win(0, x, y, { fleurs: s.fleurs }); win(0, 0, y, { w: .42 }); }
-    win(2, 0, y1, { w: .46 }); win(3, 0, y1, { w: .46 }); win(1, -.6, y1, { w: .46, shut: null }); win(1, .6, y1, { w: .46, shut: null });
-    if (fl > 1) { win(2, 0, y1 + 1.55, { w: .46 }); win(3, 0, y1 + 1.55, { w: .46 }); }
+    // façade arrière (on la voit en tournant la caméra) : porte de jardin, fenêtres à chaque étage, garde-corps sur les immeubles
+    const yk = k => k ? H.fh + 1.85 + (k - 1) * 1.55 + .78 : y1, wide = H.w > 3.2;
+    porte(b, H, 1, 0, { w: .54, h: 1.15, col: s.door, style: s.ds === 'vitre' ? 'vitre' : 'planches', frame: FR, lamp: s.lamp ? 1 : 0, lampPos: 'top', steps: 1 });
+    for (let k = 0; k < fl; k++) { for (const x of WX) { win(1, x, yk(k), { fleurs: k === 1 && !wide ? s.fleurs : null });
+        if (k && wide) { const y = yk(k); wb(b, H, 1, x, y - .38, 0, .66, .05, .22, STONEC); for (let i = 0; i <= 6; i++) wb(b, H, 1, x - .3 + i * .1, y - .23, .19, .02, .28, .02, IRONC); wb(b, H, 1, x, y - .08, .19, .66, .03, .03, IRONC); } }
+      if (k) win(1, 0, yk(k), { w: .42 });
+      for (const f of [2, 3]) win(f, 0, yk(k), { w: .46 }); }
+    // fenêtre de grenier dans les pignons
+    if (s.Z) fenetre(b, H, 1, 0, R.yT + .32, { w: .36, h: .34, frame: FR, pane: 'petits', shut: s.shut, heart: s.heart, sill: FR });
+    else if (R.yR - R.yT > .75) for (const f of s.bigChim ? [3] : [2, 3]) fenetre(b, H, f, 0, R.yT + (R.yR - R.yT) * .36, { w: .3, h: .32, frame: FR, pane: 'petits', sill: FR });
     // balcon du chalet sous le pignon
     if (s.balcon) { const zf = H.zc + H.d / 2, by = R.yT + .02; b.P(PT.planches); b.box(1.5, .07, .42, 0x8a5a34, 0, by, zf + .21); b.P(0); for (let k = 0; k <= 8; k++) b.box(.07, .36, .03, 0x6b4426, -.72 + k * .18, by + .2, zf + .4); b.box(1.56, .05, .06, 0x6b4426, 0, by + .4, zf + .4); for (const sx of [-1, 1]) { b.box(.05, .36, .4, 0x6b4426, sx * .76, by + .2, zf + .2); b.box(.06, .3, .06, 0x6b4426, sx * .7, by - .17, zf + .3, .6); }
       fenetre(b, H, 0, 0, by + .42, { w: .42, h: .5, frame: FR, curt: s.curt, pane: 'petits', shut: s.shut, heart: 1 }); }
     if (s.oeil) { const y = R.yT + (R.yR - R.yT) * .42; disc(b, H, 0, 0, y, .01, .19, .03, GLASS, 1); ring(b, H, 0, 0, y, .045, .2, .035, FR); wb(b, H, 0, 0, y, .05, .025, .38, .02, FR); wb(b, H, 0, 0, y, .05, .38, .025, .02, FR); }
     if (s.Z && s.colombage == null && !s.balcon && !s.oeil) fenetre(b, H, 0, 0, R.yT + .32, { w: .36, h: .34, frame: FR, pane: 'petits' });
     // lucarnes
-    if (s.dormer && !s.Z) { const xs = s.dormer === 2 ? [-.7, .7] : [0]; for (const x of xs) lucarne(b, H, R, x, { w: .66, col: s.roof, pat: s.rp, wall: s.colombage != null ? s.wall : s.trim, wallPat: s.colombage != null ? PT.crepi : 0, frame: FR }); }
+    if (s.dormer && !s.Z) { const xs = s.dormer === 2 ? [-.7, .7] : [0], o = { w: .66, col: s.roof, pat: s.rp, wall: s.colombage != null ? s.wall : s.trim, wallPat: s.colombage != null ? PT.crepi : 0, frame: FR };
+      for (const x of xs) lucarne(b, H, R, x, o); for (const x of s.dormer === 2 ? [-.85, .2] : [-.3]) lucarne(b, H, R, x, Object.assign({ back: 1 }, o)); }
     // cheminée
     if (s.bigChim) { b.P(PT.moellons); b.box(.5, R.top - H.fh + .45, .5, s.base, H.w / 2 - .15, (R.top + H.fh + .45) / 2 - .02, H.zc - .35); b.P(0); b.P(PT.pierre); b.box(.58, .08, .58, STONEC, H.w / 2 - .15, R.top + .47, H.zc - .35); b.P(0); }
     else if (s.japon) { } // pas de cheminée sur la maison japonaise
@@ -231,6 +241,9 @@ vec3 dvPat(vec3 c) {
     if (s.ivy) { b.jit(.1); for (let i = 0; i < 11; i++) { const yy = H.fh + .15 + (i % 6) * .3, zz = H.zc + H.d / 2 - .15 - (i % 4) * .22 - (i > 5 ? .3 : 0); b.blob(.14, 1, i % 2 ? 0x3f8f45 : 0x4fa847, -H.w / 2 - .03, yy, zz, .45, 1, 1.3); } b.jit(0); }
     if (s.japon) { const zf = H.zc + H.d / 2; b.jit(.06); for (const sx of [-1, 1]) { b.blob(.2, 1, 0x3f7a45, sx * 1.25, .35, zf + .45, 1.3, .55, 1); b.blob(.15, 1, 0x4a8a4f, sx * 1.25, .62, zf + .45, 1.2, .5, 1); } b.jit(0);
       b.P(PT.pierre); b.cyl(.09, .12, .5, 6, 0xa9a297, -1.35, .25, zf + 1.05); b.box(.3, .2, .3, 0xb9b3a6, -1.35, .6, zf + 1.05); b.cone(.26, .18, 4, 0x8f8b82, -1.35, .79, zf + 1.05, 0, Math.PI / 4); b.P(0); b.box(.16, .1, .16, 0xffe2a0, -1.35, .6, zf + 1.05, 0, 0, 0, 1); }
+    // derrière : tonneau sous la descente de gouttière, massif au coin
+    const zr = H.zc - H.d / 2; if (!s.Z) { const x = H.w / 2 - .14, z = zr - .2; b.P(PT.planches); b.cyl(.19, .17, .5, 12, 0x9a6a40, x, .25, z); b.P(0); for (const y of [.1, .4]) b.cyl(.195, .195, .035, 12, IRONC, x, y, z); b.cyl(.16, .16, .01, 12, 0x5f8fae, x, .48, z, 0, 0, 0, 2); }
+    bush(b, -H.w / 2 + .25, zr - .28, .8, 0x4fa847, s.fleurs ? (Array.isArray(s.fleurs) ? s.fleurs[1 % s.fleurs.length] : 0xffffff) : null);
     const zb = H.zc + H.d / 2 + .32; if (!s.porch && !s.japon) { bush(b, -1.32, zb - .05, .9, 0x4fa847, s.fleurs ? (Array.isArray(s.fleurs) ? s.fleurs[0] : 0xff8fc0) : null); bush(b, 1.32, zb - .05, .85, 0x58b54a, 0xffd23f); }
   }
   G.ARCH = { maison, PT, onW, wb, ws, half, disc, ring, beam, fenetre, porte, toitX, toitZ, cheminee, lucarne, quoins, corners, bush, dark, light, GLASS, GOLD, IRONC, STONEC, ZINC, P };
@@ -270,6 +283,11 @@ vec3 dvPat(vec3 c) {
     // bannière, blason, drapeau
     b.box(.5, .95, .03, roof, 0, 2.55, .77); b.cone(.25, .3, 3, roof, 0, 1.96, .77, Math.PI, Math.PI / 6, 0); b.sph(.11, GOLD, 0, 2.72, .8); b.box(.5, .05, .04, GOLD, 0, 3.0, .79);
     b.cyl(.015, .015, 1.1, 4, W, 0, 4.4, -.25); b.box(.5, .3, .02, GOLD, .26, 4.82, -.25);
+    // arrière et côtés : fenêtres cintrées sur deux niveaux, poterne
+    const Hc = { w: 2.5, d: 2.0, zc: -.25, fh: .2, wh: 3.3 }, fo = { w: .34, h: .62, arch: 1, frame: S2, sill: S2, pane: 'petits', curt: 0xfff1d6 };
+    for (const a of [-.75, .75]) { fenetre(b, Hc, 1, a, 1.45, fo); fenetre(b, Hc, 1, a, 2.7, fo); } fenetre(b, Hc, 1, 0, 2.7, fo);
+    porte(b, Hc, 1, 0, { w: .5, h: 1.0, col: W, style: 'planches', frame: S2, arch: 1, steps: 1, lamp: 1, lampPos: 'top' });
+    for (const f of [2, 3]) { fenetre(b, Hc, f, .55, 1.45, fo); fenetre(b, Hc, f, .55, 2.7, fo); }
     // massifs et lierre
     b.jit(.1); for (const x of [-.85, .85]) { b.blob(.26, 1, 0x4fa847, x, .3, 1.15, 1.2, .8, 1); for (let i = 0; i < 4; i++) b.sph(.045, [0xe8434a, 0xffffff, 0xffd23f, 0xff8fc0][i], x - .15 + i * .1, .5, 1.25, 1, 1, 1, 0, 6, 4); } for (let i = 0; i < 6; i++) b.blob(.12, 1, i % 2 ? 0x3f8f45 : 0x4fa847, -1.2 + (i % 2) * .1, .5 + i * .35, .78, 1.2, 1, .4); b.jit(0);
     return b.done(); };

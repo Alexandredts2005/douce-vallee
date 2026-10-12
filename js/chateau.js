@@ -22,6 +22,8 @@
   function epi(b, x, y, z, s = 1) { b.cyl(.025 * s, .04 * s, .3 * s, 6, GOLD, x, y + .15 * s, z); b.sph(.07 * s, GOLD, x, y + .34 * s, z, 1, 1, 1, 0, 8, 6); b.cone(.04 * s, .18 * s, 6, GOLD, x, y + .5 * s, z); }
   function topiaire(b, x, z) { b.cyl(.2, .16, .3, 8, 0xd9d2c2, x, .15, z); b.cone(.24, .9, 10, 0x2f6b3a, x, .75, z); b.sph(.1, 0x2f6b3a, x, 1.25, z); }
   function statue(b, x, z, col = 0xece6d8) { b.P(PT.pierre); b.box(.36, .5, .36, 0xd9d2c2, x, .25, z); b.P(0); b.cyl(.09, .14, .5, 8, col, x, .75, z); b.sph(.09, col, x, 1.08, z); b.box(.36, .06, .06, col, x, .9, z, 0, 0, .5); }
+  // marches qui descendent du soubassement côté jardin (z0 : bord arrière du soubassement, h : sa hauteur)
+  function backSteps(b, z0, h, n, w, col) { b.P(PT.pierre); for (let k = 0; k < n; k++) { const hk = h * (k + 1) / n; b.box(w + (n - k) * .3, hk, .3, col, 0, hk / 2, z0 - (n - 1 - k) * .3 - .15); } b.P(0); }
   function perron(b, x, z0, w, steps, col) { b.P(PT.pierre); for (let k = 0; k < steps; k++) b.box(w + (steps - k) * .3, .15, .32, col, x, .075 + k * .15, z0 + (steps - k) * .3 - .1); b.P(0); }
   function cheminee(b, x, z, y0, y1, col, cap) { b.P(PT.pierre); b.box(.36, y1 - y0, .7, col, x, (y0 + y1) / 2, z); b.box(.44, .1, .78, cap, x, y1 + .05, z); b.P(0); for (const dz of [-.18, .18]) b.cyl(.05, .06, .16, 6, 0xc0603c, x, y1 + .18, z + dz); }
   // ---------- 1. château classique (pierre blonde, toits à la Mansart, dôme central) ----------
@@ -53,6 +55,13 @@
     b.cyl(.28, .3, .55, 8, ST, 0, yD + 2.35, -.3); for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; b.box(.07, .4, .07, ST2, Math.cos(a) * .3, yD + 2.37, -.3 + Math.sin(a) * .3); } b.cone(.34, .45, 8, SL, 0, yD + 2.85, -.3); epi(b, 0, yD + 3.05, -.3, 1.2);
     for (const s of [-1, 1]) { const yP = PL.fh + PL.wh + .14; frustum(b, 1.7, 3.8, .3, 1.6, 1.9, SL, s * 3.45, yP, -.4, PT.ardoise); epi(b, s * 3.45, yP + 1.9, -.4); for (const z of [-1.2, .4]) b.box(.06, .06, .06, GOLD, s * 3.45, yP + 1.92, z); }
     for (const [x, z] of [[-1.6, -1.4], [1.6, -1.4], [-3.45, -1.6], [3.45, -1.6]]) cheminee(b, x, z, yC, yC + 2.1, ST2, ST);
+    // façade sur jardin : fenêtres sur deux niveaux, porte-fenêtre, œils-de-bœuf, perron et ifs
+    for (const s of [-1, 1]) { for (const a of [.8, 1.62, 2.27]) { fenetre(b, C, 1, s * a, y1, Object.assign({ w: .44, h: 1.15, arch: 1, pane: 'petits' }, WIN)); fenetre(b, C, 1, s * a, y2, Object.assign({ w: .44, h: 1.0, pane: 'petits' }, WIN)); }
+      const H = s < 0 ? PL : PR; fenetre(b, H, 1, 0, y1, Object.assign({ w: .5, h: 1.15, arch: 1, pane: 'petits' }, WIN)); fenetre(b, H, 1, 0, y2, Object.assign({ w: .5, h: 1.0, pane: 'petits' }, WIN));
+      const x = s * 2.2, z = -1.9; b.P(PT.pierre); b.box(.5, .62, .45, ST, x, yC + .45, z); b.P(0); b.cyl(.13, .13, .05, 12, GLASS, x, yC + .5, z - .24, Math.PI / 2, 0, 0, 1); b.add(new THREE.TorusGeometry(.15, .035, 5, 14), ST2, b.M(x, yC + .5, z - .25), 0, true); G.prism(b, .62, .25, .5, SL, x, yC + .76, z);
+      topiaire(b, s * 1.9, -3.1); }
+    fenetre(b, C, 1, 0, y2, Object.assign({ w: .44, h: 1.0, pane: 'petits' }, WIN)); porte(b, C, 1, 0, { w: .8, h: 1.55, col: 0x2f4f7a, style: 'vitre', frame: 0xf7f2e6, arch: 1, steps: 0, lamp: 2 });
+    backSteps(b, -2.65, .45, 3, 1.6, 0xe9e1cf);
     // perron, statues, ifs taillés
     perron(b, 0, 1.4, 1.8, 3, 0xe9e1cf); for (const s of [-1, 1]) { statue(b, s * 1.8, 2.3); topiaire(b, s * 2.6, 2.6); topiaire(b, s * 4.0, 2.6); b.jit(.06); b.blob(.3, 1, 0x4a8a4f, s * 3.3, .3, 2.05, 2.2, .7, .9); b.jit(0); for (let k = 0; k < 6; k++) b.sph(.06, [0xffffff, 0xe8434a, 0xffd23f][k % 3], s * (2.75 + k * .22), .55, 2.25, 1, 1, 1, 0, 6, 4); }
   }
@@ -76,7 +85,13 @@
       b.P(PT.pierre); b.cyl(r, r + .05, hT, 16, TU, x, .35 + hT / 2, z); b.cyl(r + .12, r + .02, .3, 16, TU2, x, .35 + hT + .1, z); b.P(0);
       for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; b.box(.1, .18, .1, TU2, x + Math.cos(a) * (r + .06), .35 + hT - .12, z + Math.sin(a) * (r + .06)); }
       b.P(PT.ardoise); b.cone(r + .18, 2.6, 16, SL, x, .35 + hT + .25 + 1.3, z); b.P(0); epi(b, x, .35 + hT + 2.5, z, 1.1);
-      if (z > 0) for (const y of [1.3, 2.9]) { const zf = z + r * .92; b.box(.34, .6, .06, TU2, x - Math.sign(x) * .2, .35 + y, zf); b.box(.26, .52, .05, GLASS, x - Math.sign(x) * .2, .35 + y, zf + .02, 0, 0, 0, 1); b.box(.26, .03, .06, TU2, x - Math.sign(x) * .2, .35 + y + .05, zf + .03); } }
+      const sz = Math.sign(z); for (const y of [1.3, 2.9]) { const zf = z + sz * r * .92; b.box(.34, .6, .06, TU2, x - Math.sign(x) * .2, .35 + y, zf); b.box(.26, .52, .05, GLASS, x - Math.sign(x) * .2, .35 + y, zf + sz * .02, 0, 0, 0, 1); b.box(.26, .03, .06, TU2, x - Math.sign(x) * .2, .35 + y + .05, zf + sz * .03); } }
+    // façade sur jardin : fenêtres, porte cintrée, lucarnes à pinacles, marches
+    for (const s of [-1, 1]) for (const a of [.75, 1.5]) { fenetre(b, C, 1, s * a, y1, Object.assign({ w: .5, h: 1.0 }, WIN)); fenetre(b, C, 1, s * a, y2, Object.assign({ w: .5, h: .9 }, WIN)); }
+    fenetre(b, C, 1, 0, y2, Object.assign({ w: .5, h: .9 }, WIN)); porte(b, C, 1, 0, { w: .7, h: 1.4, col: 0x6b4426, style: 'planches', frame: TU2, arch: 1, steps: 0, lamp: 2 });
+    for (const x of [-.95, .95]) { const z = -1.75, y = yC + .3; b.P(PT.pierre); b.box(.75, 1.05, .5, TU, x, y + .52, z); b.P(0); fenetre(b, blk(x, z, .75, .5, 0, 0), 1, 0, y + .5, Object.assign({ w: .4, h: .6 }, WIN)); b.P(PT.pierre); G.prism(b, .85, .55, .5, TU2, x, y + 1.05, z); b.P(0);
+      for (const s of [-1, 1]) { b.box(.1, .3, .1, TU2, x + s * .38, y + 1.2, z - .2); b.cone(.07, .3, 6, TU2, x + s * .38, y + 1.5, z - .2); } b.cone(.08, .35, 6, TU2, x, y + 1.75, z); }
+    backSteps(b, -2.9, .35, 2, 1.4, TU2);
     for (const s of [-1, 1]) { topiaire(b, s * 1.25, 2.3); topiaire(b, s * 2.3, 2.3); b.jit(.06); b.blob(.28, 1, 0x4a8a4f, s * 3.6, .3, 2.2, 1.6, .7, .9); b.jit(0); for (let k = 0; k < 5; k++) b.sph(.06, [0xff8fc0, 0xffffff, 0xb583e6][k % 3], s * (3.2 + k * .2), .55, 2.4, 1, 1, 1, 0, 6, 4); }
   }
   // ---------- 3. château Louis XIII (brique rose, chaînages de pierre, hauts toits d'ardoise) ----------
@@ -84,7 +99,7 @@
     const BR = 0xc0614a, ST = 0xeee6d4, SL = 0x3f4552, WIN = { glass: 0x9fb9d4, frame: 0xffffff, sill: ST, lintel: ST, lintelPat: PT.pierre, curt: 0xfff1d6, shut: null };
     b.P(PT.pierre); b.box(8.8, .35, 4.6, 0xd2c9b6, 0, .175, -.45); b.P(0);
     const C = blk(0, -.55, 5.0, 3.0, .35, 3.2), PL = blk(-3.35, -.35, 1.9, 3.6, .35, 3.6), PR = blk(3.35, -.35, 1.9, 3.6, .35, 3.6);
-    for (const H of [C, PL, PR]) { walls(b, H, BR, PT.brique); quoins(b, H, [0, 2, 3], ST); cornice(b, H, H.fh + 1.75, ST, .03, .1); cornice(b, H, H.fh + H.wh + .06, ST); }
+    for (const H of [C, PL, PR]) { walls(b, H, BR, PT.brique); quoins(b, H, [0, 1, 2, 3], ST); cornice(b, H, H.fh + 1.75, ST, .03, .1); cornice(b, H, H.fh + H.wh + .06, ST); }
     const y1 = .35 + .9, y2 = .35 + 2.5;
     for (const a of [-1.75, -.95, .95, 1.75]) { fenetre(b, C, 0, a, y1, Object.assign({ w: .48, h: 1.05, pane: 'petits' }, WIN)); fenetre(b, C, 0, a, y2, Object.assign({ w: .48, h: .95, pane: 'petits' }, WIN)); }
     for (const H of [PL, PR]) { for (const a of [-.45, .45]) { fenetre(b, H, 0, a, y1, Object.assign({ w: .46, h: 1.05, pane: 'petits' }, WIN)); fenetre(b, H, 0, a, y2 + .2, Object.assign({ w: .46, h: .95, pane: 'petits' }, WIN)); } }
@@ -97,7 +112,13 @@
     for (const s of [-1, 1]) { const yP = PL.fh + PL.wh + .14; frustum(b, 2.2, 3.9, .4, 1.8, 2.5, SL, s * 3.35, yP, -.35, PT.ardoise); epi(b, s * 3.35, yP + 2.5, .4); epi(b, s * 3.35, yP + 2.5, -1.1);
       b.P(PT.brique); b.box(.42, 2.6, .8, BR, s * 3.35, yP + 1.4, -1.9); b.P(0); b.P(PT.pierre); b.box(.5, .1, .88, ST, s * 3.35, yP + 2.75, -1.9); b.P(0); }
     for (const x of [-1.5, 1.5]) { b.P(PT.brique); b.box(.4, 2.6, .7, BR, x, yC + 1.2, -1.9); b.P(0); b.P(PT.pierre); b.box(.48, .1, .78, ST, x, yC + 2.55, -1.9); b.P(0); }
-    for (const s of [-1, 1]) { topiaire(b, s * 1.6, 2.4); statue(b, s * 2.6, 2.5); b.jit(.06); b.blob(.3, 1, 0x4a8a4f, s * 3.6, .3, 2.3, 1.7, .7, .9); b.jit(0); for (let k = 0; k < 5; k++) b.sph(.06, [0xe8434a, 0xffffff, 0xffd23f][k % 3], s * (3.2 + k * .2), .55, 2.45, 1, 1, 1, 0, 6, 4); }
+    // façade sur jardin : fenêtres à petits carreaux, porte à imposte, lucarnes de pierre, marches
+    for (const a of [-1.75, -.95, .95, 1.75]) { fenetre(b, C, 1, a, y1, Object.assign({ w: .48, h: 1.05, pane: 'petits' }, WIN)); fenetre(b, C, 1, a, y2, Object.assign({ w: .48, h: .95, pane: 'petits' }, WIN)); }
+    for (const H of [PL, PR]) for (const a of [-.45, .45]) { fenetre(b, H, 1, a, y1, Object.assign({ w: .46, h: 1.05, pane: 'petits' }, WIN)); fenetre(b, H, 1, a, y2 + .2, Object.assign({ w: .46, h: .95, pane: 'petits' }, WIN)); }
+    fenetre(b, C, 1, 0, y2, Object.assign({ w: .48, h: .95, pane: 'petits' }, WIN)); porte(b, C, 1, 0, { w: .8, h: 1.45, col: 0x3f5f45, style: 'panneaux', frame: ST, imposte: 1, steps: 0, lamp: 2 });
+    for (const x of [-.7, .7]) { const z = -1.65, y = yC + .25; b.P(PT.pierre); b.box(.6, .8, .45, ST, x, y + .4, z); b.P(0); fenetre(b, blk(x, z, .6, .45, 0, 0), 1, 0, y + .4, Object.assign({ w: .32, h: .45 }, WIN)); b.P(PT.pierre); b.add(new THREE.CylinderGeometry(.34, .34, .45, 12, 1, false, -Math.PI / 2, Math.PI), ST, b.M(x, y + .8, z, -Math.PI / 2, 0, 0)); b.P(0); }
+    backSteps(b, -2.75, .35, 2, 1.5, ST);
+    for (const s of [-1, 1]) { topiaire(b, s * 1.6, 2.4); statue(b, s * 2.6, 2.5); topiaire(b, s * 1.9, -3.15); b.jit(.06); b.blob(.3, 1, 0x4a8a4f, s * 3.6, .3, 2.3, 1.7, .7, .9); b.jit(0); for (let k = 0; k < 5; k++) b.sph(.06, [0xe8434a, 0xffffff, 0xffd23f][k % 3], s * (3.2 + k * .2), .55, 2.45, 1, 1, 1, 0, 6, 4); }
   }
   const STYLES = G.CHATEAUX = [{ n: 'Château classique à la française', f: classique }, { n: 'Château de la Loire', f: loire }, { n: 'Château Louis XIII', f: louis13 }];
   MD.chateau2 = v => { const b = G.mb(260 + v); STYLES[v % STYLES.length].f(b); return b.done(); };

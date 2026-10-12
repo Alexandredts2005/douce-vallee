@@ -125,7 +125,11 @@
       for (const f of [s < 0 ? 3 : 2]) for (const a of [-1.2, 0, 1.2]) { W(b, H, f, a, y1, Object.assign({ w: .44, h: 1.2 }, WINM)); W(b, H, f, a, y2, Object.assign({ w: .44, h: 1.1 }, WINM)); } }
     for (const a of [-.75, .75]) { W(b, AV, 0, a, y2, Object.assign({ w: .5, h: 1.3, arch: 1 }, WINM)); statue(b, a, AV.fh + .45, 1.75, 0xece6d8, .9); }
     W(b, AV, 0, 0, y2, Object.assign({ w: .56, h: 1.4, arch: 1 }, WINM));
-    for (const a of [-1, 1]) for (const f of [1]) W(b, C, f, a * 2, y2, Object.assign({ w: .44, h: 1.1 }, WINM));
+    // façade arrière (côté cour) : fenêtres sur les deux niveaux, porte de service, lucarnes, marches
+    for (const s of [-1, 1]) { for (const a of [.8, 1.6, 2.4]) { W(b, C, 1, s * a, y1, Object.assign({ w: .44, h: 1.2, arch: 1 }, WINM)); W(b, C, 1, s * a, y2, Object.assign({ w: .44, h: 1.1 }, WINM)); }
+      const H = s < 0 ? PL : PR; for (const a of [-.42, .42]) { W(b, H, 1, a, y1, Object.assign({ w: .44, h: 1.2, arch: 1 }, WINM)); W(b, H, 1, a, y2, Object.assign({ w: .44, h: 1.1 }, WINM)); } }
+    W(b, C, 1, 0, y2, Object.assign({ w: .5, h: 1.2, arch: 1 }, WINM)); D(b, C, 1, 0, { w: .8, h: 1.5, col: 0x2f4f7a, style: 'vitre', frame: 0xf7f2e6, arch: 1, steps: 0, lamp: 2 });
+    b.P(PT.pierre); for (let k = 0; k < 2; k++) b.box(1.6 + (2 - k) * .3, .25 * (k + 1), .2, 0xe9e1cf, 0, .125 * (k + 1), -2.9 - (1 - k) * .2 - .1); b.P(0);
     // grande porte et portes latérales, balcon aux drapeaux
     D(b, AV, 0, 0, { w: .9, h: 1.7, col: 0x2f4f7a, style: 'vitre', frame: 0xf7f2e6, arch: 1, steps: 0, lamp: 2 });
     for (const a of [-.78, .78]) D(b, AV, 0, a, { w: .46, h: 1.35, col: 0x2f4f7a, style: 'vitre', frame: 0xf7f2e6, arch: 1, steps: 0, lampPos: 'none' });
@@ -139,10 +143,11 @@
     // toits à la Mansart en ardoise, lucarnes, crêtes dorées
     const yC = C.fh + C.wh + .18; frustum(b, 6.2, 3.6, 5.4, 2.6, 1.3, SLATE, 0, yC, -.7, PT.ardoise); frustum(b, 5.4, 2.6, 4.4, .6, .55, SLATE, 0, yC + 1.3, -.7, PT.ardoise);
     for (let k = 0; k < 18; k++) b.box(.04, .14, .04, GOLD, -2.2 + k * .26, yC + 1.92, -.7);
+    for (const s of [-1, 1]) for (const x of [1.95, 2.75]) { const z = -2.25; b.P(PT.pierre); b.box(.46, .62, .4, MST, s * x, yC + .5, z); b.P(0); b.cyl(.13, .13, .05, 12, 0x9fb9d4, s * x, yC + .52, z - .21, PI / 2, 0, 0, 1); b.tor(.15, .035, MST2, s * x, yC + .52, z - .22, 0, 0, 0, 0, 14); G.prism(b, .6, .26, .46, SLATE, s * x, yC + .8, z); }
     for (const s of [-1, 1]) for (const x of [1.95, 2.75]) { const z = .85; b.P(PT.pierre); b.box(.46, .62, .4, MST, s * x, yC + .5, z); b.P(0); b.cyl(.13, .13, .05, 12, 0x9fb9d4, s * x, yC + .52, z + .21, PI / 2, 0, 0, 1); b.tor(.15, .035, MST2, s * x, yC + .52, z + .22, 0, 0, 0, 0, 14); G.prism(b, .6, .26, .46, SLATE, s * x, yC + .8, z); epi(b, s * x, yC + 1.05, z, .6); }
     for (const H of [PL, PR]) { const yP = H.fh + H.wh + .18; frustum(b, 1.95, 4.25, .5, 2.2, 2.6, SLATE, H.xc, yP, H.zc, PT.ardoise); for (const z of [-1.0, -.3, .4]) epi(b, H.xc, yP + 2.6, H.zc + z, .9);
       for (const z of [-.9, .7]) { b.P(PT.pierre); b.box(.36, 1.9, .55, MST2, H.xc + (H.xc < 0 ? -.45 : .45), yP + .9, H.zc + z); b.P(0); }
-      b.P(PT.pierre); b.box(.42, .5, .36, MST, H.xc, yP + .55, H.zc + 2.0); b.P(0); b.cyl(.1, .1, .04, 10, 0x9fb9d4, H.xc, yP + .58, H.zc + 2.19, PI / 2, 0, 0, 1); G.prism(b, .52, .24, .4, SLATE, H.xc, yP + .82, H.zc + 2.0); }
+      for (const sz of [1, -1]) { b.P(PT.pierre); b.box(.42, .5, .36, MST, H.xc, yP + .55, H.zc + sz * 2.0); b.P(0); b.cyl(.1, .1, .04, 10, 0x9fb9d4, H.xc, yP + .58, H.zc + sz * 2.19, PI / 2, 0, 0, 1); G.prism(b, .52, .24, .4, SLATE, H.xc, yP + .82, H.zc + sz * 2.0); } }
     // pavillon central : dôme carré, campanile à horloges, lanterne, drapeau
     const yD = AV.fh + AV.wh + .18; frustum(b, 2.7, 4.2, 2.1, 3.0, 1.0, SLATE, 0, yD, -.45, PT.ardoise);
     b.P(PT.pierre); b.box(1.5, 1.7, 1.5, MST, 0, yD + 1.85, -.45); b.P(0); corn(b, blk(0, -.45, 1.5, 1.5, 0, 0), yD + 2.75, MST2, .12, .16);
@@ -204,6 +209,12 @@
     frustum(b, 1.5, 1.45, .25, .25, 1.6, 0x4d5866, TOW.xc, yT + 1.38, TOW.zc, PT.ardoise); epi(b, TOW.xc, yT + 2.95, TOW.zc, 1.2);
     for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { b.cone(.08, .5, 6, 0x4d5866, TOW.xc + sx * .68, yT + 1.6, TOW.zc + sz * .65); b.sph(.04, GOLD, TOW.xc + sx * .68, yT + 1.87, TOW.zc + sz * .65); }
     lampadaire3(b, -2.75, 1.25, 1.7);
+    // côté quais : portes vers les voies, hautes fenêtres cintrées, enseigne « VOIES » ; fenêtres sur le pignon
+    for (const a of [-1.05, 0, 1.05]) D(b, HALL, 1, a, { w: .62, h: 1.3, col: 0x2f5a46, style: 'vitre', frame: 0xf2ead8, steps: 0, lampPos: 'none' });
+    for (const a of [-1.6, -.55, .55, 1.6]) W(b, HALL, 1, a, 2.75, { w: .4, h: .9, arch: 1, glass: 0x9fb9d4, frame: 0xf2ead8, sill: GS2, pane: 'petits' });
+    for (const a of [-1.6, 1.6]) { b.cyl(.04, .04, .14, 6, 0xfff1c8, ...F(HALL.xc, 1.55, HALL.zc - HALL.d / 2, PI)(a, 0, .2), 0, 0, 0, 1); b.cone(.07, .07, 6, IR, ...F(HALL.xc, 1.66, HALL.zc - HALL.d / 2, PI)(a, 0, .2)); b.box(.04, .04, .22, IR, ...F(HALL.xc, 1.72, HALL.zc - HALL.d / 2, PI)(a, 0, .1)); }
+    sign(b, F(HALL.xc, 0, HALL.zc - HALL.d / 2, PI), 'VOIES', 3.55, .08, GOLD, .03);
+    for (const a of [-.6, .6]) { W(b, HALL, 3, a, 1.3, { w: .4, h: .85, arch: 1, glass: 0x9fb9d4, frame: 0xf2ead8, sill: GS2 }); W(b, HALL, 3, a, 2.75, { w: .4, h: .8, glass: 0x9fb9d4, frame: 0xf2ead8, sill: GS2 }); }
     return b.done(); };
   O.gare.h = 9;
 

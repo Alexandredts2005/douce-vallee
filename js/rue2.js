@@ -23,6 +23,25 @@
       for (let k = 0; k < nW; k++) { const x = -W / 2 + (k + .5) * W / nW; b.box(.46, .55, .5, o.wall, x, top + .58, fz - .12); P(b, .64, .34, .64, o.roofCol, x, top + .86, fz - .12); b.box(.3, .34, .03, WIN, x, top + .55, fz + .15, 0, 0, 0, 1); } }
     else { const rh = o.roofH || 1.15; P(b, D + .55, rh, W + .3, o.roofCol, 0, top + .1, z0, Math.PI / 2); P(b, D, rh * .85, W, o.wall, 0, top + .1, z0, Math.PI / 2); if (o.oeil) { b.cyl(.2, .2, .06, 14, WIN, 0, top + .5, fz - .2, Math.PI / 2, 0, 0, 1); b.add(new THREE.TorusGeometry(.21, .04, 5, 16), o.trim, b.M(0, top + .5, fz - .17), 0, true); } }
     if (o.chimney) { b.box(.32, .95, .32, 0xa9553e, W / 2 - .45, top + .85, z0 - .45); b.box(.38, .08, .38, 0x8e4532, W / 2 - .45, top + 1.34, z0 - .45); }
+    // ---------- façade arrière : bandeaux, chaînes d'angle, porte de service, fenêtres à chaque étage, toit fini ----------
+    const bz = z0 - D / 2, F = o.frame || 0xf7f5ee, slot = k => -W / 2 + (k + .5) * W / nW;
+    const bwin = (x, y) => { b.box(.62, .82, .06, F, x, y, bz - .02); b.box(.5, .7, .07, WIN, x, y, bz - .03, 0, 0, 0, 1); b.box(.035, .7, .08, F, x, y, bz - .045); b.box(.5, .035, .08, F, x, y + .1, bz - .045);
+      if (o.arched) b.add(new THREE.CylinderGeometry(.31, .31, .07, 12, 1, false, -Math.PI / 2, Math.PI), F, b.M(x, y + .41, bz - .03, -Math.PI / 2, 0, 0)); else b.box(.72, .07, .13, o.trim, x, y + .46, bz - .05);
+      b.box(.7, .06, .12, o.trim, x, y - .45, bz - .05);
+      if (o.shutters != null) for (const s of [-1, 1]) { b.box(.2, .74, .045, o.shutters, x + s * .43, y, bz - .04); for (let l = 0; l < 4; l++) b.box(.18, .02, .05, dark(o.shutters), x + s * .43, y - .27 + l * .18, bz - .045); } };
+    for (let i = 0; i < fl; i++) b.box(W + .14, .1, .18, o.trim, 0, .16 + g + i * FH, bz - .03);
+    for (const s of [-1, 1]) b.box(.14, Ht, .1, o.trim, s * (W / 2 - .02), .16 + Ht / 2, bz - .02);
+    const dx = slot(nW - 1), dcol = o.door || (o.shutters != null ? dark(o.shutters) : 0x6b4426);
+    b.box(.76, 1.36, .06, F, dx, .84, bz - .02); b.box(.62, 1.24, .08, dcol, dx, .78, bz - .03); for (const y of [.5, 1.05]) b.box(.5, .32, .085, dark(dcol), dx, y, bz - .035); b.sph(.035, 0xffd23f, dx - .2, .8, bz - .09); b.box(.92, .07, .42, ST, dx, .05, bz - .2);
+    b.box(.1, .05, .16, 0x3f444c, dx, 1.62, bz - .08); b.cyl(.05, .045, .12, 6, 0xffe2a0, dx, 1.54, bz - .15, 0, 0, 0, 1);
+    for (let k = 0; k < nW - 1; k++) bwin(slot(k), 1.1);
+    for (let i = 1; i < fl; i++) for (let k = 0; k < nW; k++) bwin(slot(k), .16 + g + (i - .5) * FH + .12);
+    b.cyl(.045, .045, top, 6, 0xa8adb4, W / 2 - .14, top / 2, bz - .07); b.cyl(.06, .06, W * .9, 6, 0xa8adb4, 0, top + .05, bz - .1, 0, 0, Math.PI / 2);
+    for (let k = 0; k < Math.round(W / .3); k++) b.box(.08, .1, .1, o.trim, -W / 2 + .15 + k * .3, top - .02, bz - .1);
+    if (o.roof === 'plat') { b.box(W + .1, .34, .14, o.trim, 0, top + .32, bz + .02); if (o.balustre) for (let k = 0; k < Math.round(W / .22); k++) b.cyl(.035, .045, .26, 6, ST, -W / 2 + .12 + k * .22, top + .3, bz - .05); }
+    else if (o.roof === 'mansarde') { b.box(W + .1, 1.0, .1, o.roofCol, 0, top + .6, bz + .22, .32);
+      for (let k = 0; k < nW; k++) { const x = slot(k); b.box(.46, .55, .5, o.wall, x, top + .58, bz + .12); P(b, .64, .34, .64, o.roofCol, x, top + .86, bz + .12); b.box(.3, .34, .03, WIN, x, top + .55, bz - .15, 0, 0, 0, 1); } }
+    else if (o.oeil) { b.cyl(.2, .2, .06, 14, WIN, 0, top + .5, bz + .2, Math.PI / 2, 0, 0, 1); b.add(new THREE.TorusGeometry(.21, .04, 5, 16), o.trim, b.M(0, top + .5, bz + .17), 0, true); }
     return { W, fz, g, top, Ht };
   }
   G.facade = facade;

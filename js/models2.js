@@ -73,8 +73,16 @@
   MD.scarecrow = v => { const b = G.mb(63); b.box(.08, 1.5, .08, DWOOD, 0, .75, 0); b.box(1, .07, .07, DWOOD, 0, 1.15, 0); b.box(.5, .5, .25, 0x5b8fd6, 0, 1.05, 0); b.sph(.2, 0xe8d29a, 0, 1.48, 0); b.cyl(.38, .38, .03, 10, 0xd9be5c, 0, 1.63, 0); b.cone(.2, .28, 8, 0xd9be5c, 0, 1.78, 0); b.box(.05, .05, .01, 0x2a2a2a, -.07, 1.52, .19); b.box(.05, .05, .01, 0x2a2a2a, .07, 1.52, .19); return b.done(); };
   MD.snowman = v => { const b = G.mb(64); b.sph(.42, 0xffffff, 0, .4, 0); b.sph(.3, 0xffffff, 0, .95, 0); b.sph(.21, 0xffffff, 0, 1.35, 0); b.cone(.04, .18, 5, 0xff8a1f, 0, 1.35, .26, Math.PI / 2); b.sph(.03, 0x222222, -.07, 1.42, .18); b.sph(.03, 0x222222, .07, 1.42, .18); b.cyl(.15, .15, .2, 10, 0x2a2a35, 0, 1.6, 0); b.cyl(.22, .22, .03, 10, 0x2a2a35, 0, 1.51, 0); b.cyl(.015, .02, .5, 4, DWOOD, .45, 1.0, 0, 0, 0, -1); b.cyl(.015, .02, .5, 4, DWOOD, -.45, 1.0, 0, 0, 0, 1); b.box(.5, .06, .1, 0xe8434a, 0, 1.17, .05); return b.done(); };
   MD.swing = v => { const b = G.mb(65); for (const x of [-.85, .85]) { b.box(.08, 2.05, .08, DWOOD, x, 1, .3, .28); b.box(.08, 2.05, .08, DWOOD, x, 1, -.3, -.28); } b.cyl(.05, .05, 1.8, 6, DWOOD, 0, 1.95, 0, 0, 0, Math.PI / 2); for (const x of [-.25, .25]) b.cyl(.012, .012, 1.4, 3, 0xe8d29a, x, 1.25, 0); b.box(.6, .05, .25, 0xe8434a, 0, .55, 0); return b.done(); };
-  MD.windmill = v => { const b = G.mb(66); b.cyl(.85, 1.25, 4, 10, 0xf2ece0, 0, 2, 0); b.cone(1.05, 1.1, 10, 0xb5533f, 0, 4.55, 0); b.box(.5, .9, .06, DWOOD, 0, .45, 1.2); b.box(.35, .35, .05, WIN, 0, 2.6, 1.0, -.2, 0, 0, 1); b.cyl(.12, .12, .4, 8, DWOOD, 0, 3.6, 1.05, Math.PI / 2); for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + .3; b.box(.32, 1.8, .04, i % 2 ? 0xf7f5ee : 0xe9dfc8, Math.sin(a) * .95, 3.6 + Math.cos(a) * .95, 1.28, 0, 0, -a); } return b.done(); };
-  MD.lighthouse = v => { const b = G.mb(67); for (let i = 0; i < 6; i++) { const r0 = .85 - i * .08, r1 = .85 - (i + 1) * .08; b.cyl(r1, r0, .8, 12, i % 2 ? 0xe8443a : 0xf7f5ee, 0, .4 + i * .8, 0); } b.cyl(.6, .6, .12, 12, IRON, 0, 4.86, 0); b.cyl(.36, .36, .6, 10, 0xfff3b0, 0, 5.2, 0, 0, 0, 0, 1); b.cone(.48, .5, 10, 0xe8443a, 0, 5.75, 0); b.box(.4, .7, .06, DWOOD, 0, .35, .82); return b.done(); };
+  MD.windmill = v => { const b = G.mb(66); b.cyl(.85, 1.25, 4, 10, 0xf2ece0, 0, 2, 0); b.cone(1.05, 1.1, 10, 0xb5533f, 0, 4.55, 0); b.box(.5, .9, .06, DWOOD, 0, .45, 1.2); b.box(.35, .35, .05, WIN, 0, 2.6, 1.0, -.2, 0, 0, 1); b.cyl(.12, .12, .4, 8, DWOOD, 0, 3.6, 1.05, Math.PI / 2); for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + .3; b.box(.32, 1.8, .04, i % 2 ? 0xf7f5ee : 0xe9dfc8, Math.sin(a) * .95, 3.6 + Math.cos(a) * .95, 1.28, 0, 0, -a); }
+    // petites fenêtres tout autour de la tour (dos et côtés)
+    for (const [ang, y] of [[Math.PI, 1.3], [Math.PI, 2.9], [Math.PI / 2, 1.9], [-Math.PI / 2, 2.4], [Math.PI * .75, 3.5]]) { const r = 1.25 - .4 * y / 4 + .02, x = Math.sin(ang) * r, z = Math.cos(ang) * r;
+      b.box(.4, .46, .05, DWOOD, x, y, z, -.1, ang, 0); b.box(.3, .36, .06, WIN, x + Math.sin(ang) * .01, y, z + Math.cos(ang) * .01, -.1, ang, 0, 1); b.box(.03, .36, .07, DWOOD, x + Math.sin(ang) * .015, y, z + Math.cos(ang) * .015, -.1, ang, 0); }
+    return b.done(); };
+  MD.lighthouse = v => { const b = G.mb(67); for (let i = 0; i < 6; i++) { const r0 = .85 - i * .08, r1 = .85 - (i + 1) * .08; b.cyl(r1, r0, .8, 12, i % 2 ? 0xe8443a : 0xf7f5ee, 0, .4 + i * .8, 0); } b.cyl(.6, .6, .12, 12, IRON, 0, 4.86, 0); b.cyl(.36, .36, .6, 10, 0xfff3b0, 0, 5.2, 0, 0, 0, 0, 1); b.cone(.48, .5, 10, 0xe8443a, 0, 5.75, 0); b.box(.4, .7, .06, DWOOD, 0, .35, .82);
+    // hublots qui montent en spirale le long de l'escalier intérieur
+    for (let k = 0; k < 5; k++) { const y = 1.1 + k * .75, ang = Math.PI + k * 1.9, r = .85 - .08 * y / .8 + .02, x = Math.sin(ang) * r, z = Math.cos(ang) * r;
+      b.box(.24, .34, .05, IRON, x, y, z, 0, ang, 0); b.box(.16, .26, .06, WIN, x + Math.sin(ang) * .01, y, z + Math.cos(ang) * .01, 0, ang, 0, 1); }
+    return b.done(); };
   MD.bridge = v => { const b = G.mb(68); for (let i = 0; i < 5; i++) b.box(1.02, .1, .17, i % 2 ? WOOD : LWOOD, 0, .05, -.4 + i * .2); for (const x of [-.48, .48]) { b.box(.06, .06, 1.02, DWOOD, x, .55, 0); b.box(.08, .55, .08, DWOOD, x, .28, -.45); b.box(.08, .55, .08, DWOOD, x, .28, .45); } b.box(.9, .12, .12, DWOOD, 0, -.05, 0, 0, 0, 0); return b.done(); };
   MD.pier = v => { const b = G.mb(69); for (let i = 0; i < 5; i++) b.box(1.02, .09, .18, i % 2 ? 0xb08a5c : 0xc69c68, 0, .05, -.4 + i * .2); for (const x of [-.42, .42]) b.cyl(.07, .07, 1.6, 6, DWOOD, x, -.7, 0); return b.done(); };
   MD.planks = v => { const b = G.mb(70); for (let i = 0; i < 5; i++) b.box(.98, .08, .18, i % 2 ? WOOD : LWOOD, 0, .04, -.4 + i * .2); return b.done(); };
@@ -126,6 +134,10 @@
     b.box(2.3, 1.7, 2.1, 0x8a5d38, 0, .9, -.05);
     prism(b, 3.1, 1.2, 2.9, 0x5a3f2c, 0, 1.75, -.05, Math.PI / 2); prism(b, 2.6, 1.0, 2.3, 0x9a6a40, 0, 1.75, -.05, Math.PI / 2);
     door(b, .3, 1.21, 0x6b4a32); windowAt(b, -.65, 1.05, 1.22); b.box(.36, .8, .36, DSTONE, -.8, 2.6, -.5); flame(b, -.8, 2.98, -.5, .0001);
+    // arrière et côtés : fenêtres à volets, tas de bûches contre le mur
+    const A = G.ARCH, fo = { w: .46, h: .5, frame: 0xf3e6c8, shut: 0x4f7a3a, curt: 0xfff1d6, pane: 'petits', sill: 0x6b4a32 };
+    A.fenetre(b, { w: 2.4, d: 2.54, zc: -.05 }, 1, .45, 1.05, fo); for (const f of [2, 3]) A.fenetre(b, { w: 2.74, d: 2.2, zc: -.05 }, f, 0, 1.05, fo);
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 4 - r; k++) b.cyl(.09, .09, .62, 9, k % 2 ? 0x9a6a40 : 0x8a5d38, -.75 + k * .19 + r * .095, .09 + r * .16, -1.47, 0, 0, Math.PI / 2);
     return b.done();
   };
   MD.tent = v => {
