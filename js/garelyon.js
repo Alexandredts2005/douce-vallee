@@ -184,13 +184,13 @@
   // grand escalier du restaurant « Le Train Bleu » (3 × 8) : marches de pierre, balustres, rampe dorée, palier et candélabres
   MD.escalier_tb = v => { const b = G.mb(485), ST = 0xeee5d2, ST2 = 0xd8ccb2, n = 24, top = 5.2, run = 6.4;
     for (let k = 0; k < n; k++) { const y = (k + 1) * top / n, z = 3.8 - (k + .5) * run / n; b.P(G.PAT.pierre); b.box(2.6, y, run / n + .02, k % 2 ? ST : 0xf3ecdc, 0, y / 2, z); b.P(0); b.box(2.62, .03, .06, ST2, 0, y, z + run / n / 2); }
-    b.box(2.6, .1, .7, 0x8a1f2c, 0, top + .01, -2.9); for (let k = 0; k < n; k++) { b.box(1.6, .012, run / n, 0x8a1f2c, 0, (k + 1) * top / n + .006, 3.8 - (k + .5) * run / n); b.box(1.6, top / n, .012, 0x7a1a26, 0, (k + .5) * top / n, 3.8 - k * run / n + .006); }
+    b.box(2.6, .1, 1.4, 0x8a1f2c, 0, top + .01, -3.3); for (let k = 0; k < n; k++) { b.box(1.6, .012, run / n, 0x8a1f2c, 0, (k + 1) * top / n + .006, 3.8 - (k + .5) * run / n); b.box(1.6, top / n, .012, 0x7a1a26, 0, (k + .5) * top / n, 3.8 - k * run / n + .006); }
     for (const s of [-1, 1]) { const x = s * 1.25, pts = [];
       for (let k = 0; k <= n; k += 2) { const y = k * top / n, z = 3.8 - k * run / n; seg(b, [x, y, z], [x, y + .85, z], .025, .025, IRON, 6); b.sph(.035, GOLD, x, y + .5, z, 1, 1.6, 1, 0, 8, 6); pts.push([x, y + .88, z]); }
       for (let i = 0; i < pts.length - 1; i++) seg(b, pts[i], pts[i + 1], .045, .045, GOLD, 8);
       b.P(G.PAT.pierre); b.box(.3, 1.2, .3, ST2, x, .6, 3.85); b.P(0); b.cyl(.08, .1, .3, 10, IRON, x, 1.35, 3.85); b.sph(.17, 0xfff1c8, x, 1.65, 3.85, 1, 1, 1, 1, 14, 10); b.cone(.05, .12, 8, GOLD, x, 1.86, 3.85); }
-    b.P(G.PAT.pierre); b.box(2.9, .35, .9, ST2, 0, top - .12, -3.0); b.P(0); for (let z = -3.4; z <= -2.5; z += .18) for (const s of [-1, 1]) seg(b, [s * 1.4, top, z], [s * 1.4, top + .8, z], .02, .02, IRON, 5);
-    for (const s of [-1, 1]) seg(b, [s * 1.4, top + .82, -3.45], [s * 1.4, top + .82, -2.45], .04, .04, GOLD, 8);
+    b.P(G.PAT.pierre); b.box(2.9, .35, 1.45, ST2, 0, top - .12, -3.27); b.P(0); for (let z = -3.95; z <= -2.5; z += .18) for (const s of [-1, 1]) seg(b, [s * 1.4, top, z], [s * 1.4, top + .8, z], .02, .02, IRON, 5);
+    for (const s of [-1, 1]) seg(b, [s * 1.4, top + .82, -3.98], [s * 1.4, top + .82, -2.45], .04, .04, GOLD, 8);
     return b.done(); };
 
   // ---------- objets ----------
@@ -205,6 +205,117 @@
   fx1('banc_gare', 'Banc de gare', 'banc_gare', [2, 1], .5, { walk: 1, sit: 1 });
   fx1('malles', 'Malles de voyage', 'malles', [1, 1], 1.2);
   fx1('escalier_tb', 'Escalier du Train Bleu', 'escalier_tb', [3, 8], 6);
+  // on monte l'escalier marche par marche (rampes et poteaux bloquent sur les côtés) ; la mezzanine est un plancher à 5,2 de haut
+  const MY = 5.2, stepH = lz => lz >= 3.8 ? 0 : Math.min(24, Math.ceil((3.8 - lz) / (6.4 / 24))) * MY / 24;
+  O.escalier_tb.hAt = (o, x, z, m) => { const [cx, cz] = m.center(o), F = G.FR[o.r & 3], dx = x - cx, dz = z - cz, lz = dx * F[0] + dz * F[1], lx = dx * F[1] - dz * F[0];
+    return Math.abs(lx) > 1.22 ? (lz > 3.5 ? 1.8 : stepH(lz) + 1.2) : stepH(lz); };
+  MD.vide = () => { const b = G.mb(486); b.box(.01, .01, .01, 0x000000, 0, -2, 0); return b.done(); };
+  const TB_TABLES = [25.6, 27.6, 29.6, 31.6, 33.6, 35.6];
+  fx1('mezz_tb', 'Mezzanine du Train Bleu', 'vide', [4, 13], MY, { hAt: (o, x, z) => {
+    if (x - o.x < .3 || z - o.z < .22) return MY + 2; if (x - o.x > 3.86 && (z < 30 || z > 33)) return MY + 1.2;
+    for (const tz of TB_TABLES) if (Math.abs(z - tz) < .48 && x - o.x > .6 && x - o.x < 2.4) return MY + .9; return MY; } });
+  // gares déjà visitées avec l'ancien escalier : on pose la mezzanine et on décale l'escalier
+  G.on('enterMap', m => { if (!m || m.kind !== 'gare' || m.W < 44 || [...m.list].some(o => o.t === 'mezz_tb')) return;
+    for (const o of [...m.list]) if (o.t === 'escalier_tb' || (o.x <= 3 && o.z >= 25 && o.t !== 'paillasson')) m.removeObj(o);
+    m.addObj('mezz_tb', 0, 25); if (m.canPlace('escalier_tb', 4, 30, 1)) m.addObj('escalier_tb', 4, 30, 1); });
+
+  // ---------- 5. L'EXTÉRIEUR DE LA GARE (6 × 3) : façade de pierre, verrière en plein cintre, beffroi à quatre horloges,
+  // marquise de fer et de verre, et la grande halle vitrée au-dessus des quais (elle déborde au-dessus des rails, derrière) ----------
+  const FONT = { A: ['010', '101', '111', '101', '101'], E: ['111', '100', '110', '100', '111'], G: ['111', '100', '101', '101', '111'], R: ['110', '101', '110', '101', '101'], V: ['101', '101', '101', '101', '010'], O: ['111', '101', '101', '101', '111'], I: ['111', '010', '010', '010', '111'], S: ['111', '100', '111', '001', '111'], U: ['101', '101', '101', '101', '111'], C: ['111', '100', '100', '100', '111'], M: ['10001', '11011', '10101', '10001', '10001'], N: ['1001', '1101', '1011', '1001', '1001'], T: ['111', '010', '010', '010', '010'] };
+  // lettres en relief sur une façade (face +z si sg = 1, face −z si sg = −1)
+  function lettres(b, txt, x, y, z, px, col, sg = 1) { let w = -1; for (const c of txt) w += (FONT[c] ? FONT[c][0].length : 2) + 1; let cx = -w * px / 2;
+    for (const c of txt) { const g = FONT[c]; if (!g) { cx += 3 * px; continue; } g.forEach((row, r) => [...row].forEach((k, i) => { if (k === '1') b.box(px * .92, px * .92, px * .5, col, x + sg * (cx + (i + .5) * px), y + (4 - r) * px, z); })); cx += (g[0].length + 1) * px; } }
+  function horloge(b, x, y, z, ry, r) { const q = new THREE.Quaternion().setFromAxisAngle(UP, ry), P = (lx, ly, lz) => new V3(lx, ly, lz).applyQuaternion(q).add(new V3(x, y, z));
+    let p = P(0, 0, .04); b.cyl(r + .08, r + .08, .08, 28, 0xd8cbb0, p.x, p.y, p.z, PI / 2, ry, 0); p = P(0, 0, .09); b.cyl(r, r, .03, 28, 0xfffaf0, p.x, p.y, p.z, PI / 2, ry, 0); p = P(0, 0, .1); b.tor(r, .025, GOLD, p.x, p.y, p.z, 0, ry, 0, 0, 28);
+    for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; p = P(Math.cos(a) * r * .8, Math.sin(a) * r * .8, .11); b.box(k % 3 ? .035 : .07, .022, .012, 0x222222, p.x, p.y, p.z, 0, ry, a); }
+    for (const [a, L, w] of [[PI / 2 - (10 + 8 / 60) / 12 * TAU, r * .5, .035], [PI / 2 - 8 / 60 * TAU, r * .78, .022]]) { p = P(Math.cos(a) * L / 2, Math.sin(a) * L / 2, .12); b.box(L, w, .012, 0x1e1e1e, p.x, p.y, p.z, 0, ry, a); } p = P(0, 0, .13); b.sph(.03, GOLD, p.x, p.y, p.z, 1, 1, 1, 0, 8, 6); }
+  MD.gare = v => { const b = G.mb(490), A = G.ARCH, PT = A.PT, GS = 0xeadfc8, GS2 = 0xd8cbb0, GS3 = 0xf3ead6, SL = 0x4d5866, IR = 0x34403e, GL = 0xbfdcf0, W = A.fenetre, D = A.porte;
+    const blk = (xc, zc, w, d, fh, wh) => ({ xc, zc, w, d, fh, wh }), HALL = blk(-.95, -.05, 4.1, 2.7, .25, 4.35), TOW = blk(2.15, .6, 1.4, 1.3, .25, 6.7), WING = blk(2.2, -.75, 1.5, 1.3, .25, 3.1);
+    const walls = H => { b.P(PT.pierre); b.box(H.w, H.wh, H.d, GS, H.xc, H.fh + H.wh / 2, H.zc); b.P(0); }, corn = (H, y, o = .1, h = .16) => { b.P(PT.pierre); b.box(H.w + o * 2, h, H.d + o * 2, GS2, H.xc, y, H.zc); b.P(0); };
+    b.P(PT.pierre); b.box(6.3, .25, 3.1, 0xcfc4ad, 0, .125, 0); b.P(0);
+    for (const H of [HALL, TOW, WING]) { walls(H); corn(H, H.fh + .1, .05, .2); corn(H, H.fh + H.wh + .08, .12, .2); }
+    corn(HALL, HALL.fh + 2.2, .04, .1);
+    // --- la grande verrière en plein cintre (réseau de fer en éventail) et ses voussoirs ---
+    const zf = HALL.zc + HALL.d / 2, X = HALL.xc, yS = 3.0, R = 1.3;
+    b.geo(new THREE.CylinderGeometry(R, R, .06, 32, 1, false, -PI / 2, PI), GL, b.M(X, yS, zf + .09, -PI / 2, 0, 0), 2);
+    b.box(R * 2, yS - 2.1, .06, GL, X, (yS + 2.1) / 2, zf + .09, 0, 0, 0, 2); b.box(R * 2 + .1, yS - 2.05, .04, 0x2a3a46, X, (yS + 2.1) / 2, zf + .03); b.P(PT.pierre); b.box(R * 2 + .5, .12, .2, GS2, X, 2.04, zf + .1); b.P(0);
+    b.geo(new THREE.CylinderGeometry(R - .02, R - .02, .02, 32, 1, false, -PI / 2, PI), 0x2a3a46, b.M(X, yS, zf + .03, -PI / 2, 0, 0));
+    for (let k = 1; k < 10; k++) { const a = k / 10 * PI; b.box(R, .035, .03, IR, X + Math.cos(a) * R / 2, yS + Math.sin(a) * R / 2, zf + .13, 0, 0, a); }
+    for (const rr of [.45, .95]) b.geo(new THREE.TorusGeometry(rr, .025, 5, 24, PI), IR, b.M(X, yS, zf + .13), 0, true); b.box(R * 2, .05, .04, IR, X, yS, zf + .13); for (const a of [-.95, -.48, 0, .48, .95]) b.box(.035, yS - 2.1, .03, IR, X + a * R, (yS + 2.1) / 2, zf + .13); b.box(R * 2, .04, .03, IR, X, 2.55, zf + .13);
+    for (let k = 0; k <= 14; k++) { const a = k / 14 * PI; b.P(PT.pierre); b.box(.3, .2, .16, k === 7 ? GS3 : GS2, X + Math.cos(a) * (R + .26), yS + Math.sin(a) * (R + .26), zf + .1, 0, 0, a - PI / 2); b.P(0); }
+    b.P(PT.pierre); b.box(.4, .45, .2, GS3, X, yS + R + .32, zf + .12); b.P(0); b.sph(.12, GOLD, X, yS + R + .35, zf + .24, 1, 1.2, .5, 0, 10, 8);
+    // trois portes vitrées sous la marquise
+    for (const a of [-1.15, 0, 1.15]) D(b, HALL, 0, a, { w: .6, h: 1.3, col: 0x2f5a46, style: 'vitre', frame: 0xf2ead8, steps: 0, lampPos: 'none' });
+    // pilastres, statues assises au sommet, attique « GARE » et cartouche
+    for (const s of [-1, 1]) { const x = X + s * 1.92; b.P(PT.pierre); b.box(.32, HALL.wh, .14, GS3, x, HALL.fh + HALL.wh / 2, zf + .07); b.box(.42, .22, .26, GS2, x, HALL.fh + HALL.wh - .1, zf + .1); b.P(0);
+      b.P(PT.pierre); b.box(.36, .3, .36, GS2, x, HALL.fh + HALL.wh + .35, zf - .1); b.P(0); b.cyl(.09, .15, .45, 8, 0xf3ecdc, x, HALL.fh + HALL.wh + .72, zf - .1); b.sph(.1, 0xf3ecdc, x, HALL.fh + HALL.wh + 1.03, zf - .1); b.box(.36, .05, .07, 0xf3ecdc, x, HALL.fh + HALL.wh + .85, zf - .05, 0, 0, s * .5); }
+    b.P(PT.pierre); b.box(3.2, .9, .35, GS, X, HALL.fh + HALL.wh + .5, zf - .2); b.P(0); lettres(b, 'GARE', X, HALL.fh + HALL.wh + .25, zf, .1, GOLD);
+    b.P(PT.pierre); G.prism(b, 2.0, .55, .35, GS2, X, HALL.fh + HALL.wh + .95, zf - .2); b.P(0); b.sph(.17, GOLD, X, HALL.fh + HALL.wh + 1.2, zf - .02, 1.3, 1, .4, 0, 12, 8);
+    // fenêtres des côtés et du dos de la halle
+    const WO = { glass: 0x9fb9d4, frame: 0xf2ead8, sill: GS2, pane: 'petits' };
+    for (const a of [-.6, .6]) { W(b, HALL, 3, a, 1.4, Object.assign({ w: .45, h: .95, arch: 1 }, WO)); W(b, HALL, 3, a, 3.3, Object.assign({ w: .45, h: .8 }, WO)); }
+    // toit à la Mansart de la halle, crête dorée, œils-de-bœuf
+    const yR = HALL.fh + HALL.wh + .18; b.P(PT.ardoise); b.box(HALL.w - .2, .9, HALL.d - .6, SL, X, yR + .45, HALL.zc - .3); b.P(0);
+    for (let k = 0; k < 14; k++) b.box(.035, .14, .035, GOLD, X - 1.7 + k * .26, yR + .97, HALL.zc - .3);
+    for (const a of [-1.1, 0, 1.1]) { b.P(PT.pierre); b.box(.4, .45, .2, GS, X + a, yR + .45, HALL.zc + .97); b.P(0); b.cyl(.12, .12, .04, 14, GL, X + a, yR + .47, HALL.zc + 1.08, PI / 2, 0, 0, 1); b.tor(.13, .025, GOLD, X + a, yR + .47, HALL.zc + 1.09, 0, 0, 0, 0, 14); }
+    // marquise de fer et de verre, consoles, lanternes
+    const zm = zf + .5, YM = 1.88; b.box(4.0, .05, 1.0, 0xcfe6f5, X, YM, zm, -.1, 0, 0, 2); b.box(4.05, .1, .05, IR, X, YM - .04, zf + 1.0); b.box(4.05, .08, .05, IR, X, YM + .05, zf + .02);
+    for (let k = 0; k < 18; k++) b.sph(.03, IR, X - 1.95 + k * .23, YM - .11, zf + 1.0, 1, 1, 1, 0, 5, 4);
+    for (const a of [-1.85, -.6, .6, 1.85]) { b.box(.04, .04, 1.0, IR, X + a, YM - .03, zm, -.1); seg(b, [X + a, YM - .5, zf + .03], [X + a, YM - .03, zf + .9], .02, .02, IR, 5); b.geo(new THREE.TorusGeometry(.18, .015, 5, 10, PI), IR, b.M(X + a, YM - .25, zf + .25, 0, PI / 2, 0), 0, true); }
+    for (const a of [-.58, .58]) { b.cyl(.01, .01, .15, 4, IR, X + a, YM - .14, zf + .75); b.cyl(.07, .06, .16, 8, IR, X + a, YM - .28, zf + .75); b.cyl(.05, .05, .1, 8, 0xfff1c8, X + a, YM - .36, zf + .75, 0, 0, 0, 1); }
+    // --- le beffroi à quatre horloges (façon « Big Ben » de la Gare de Lyon) ---
+    for (const s of [-1, 1]) { b.P(PT.pierre); b.box(.16, TOW.wh, .16, GS3, TOW.xc + s * .66, TOW.fh + TOW.wh / 2, TOW.zc + .66); b.box(.16, TOW.wh, .16, GS3, TOW.xc + s * .66, TOW.fh + TOW.wh / 2, TOW.zc - .66); b.P(0); }
+    D(b, TOW, 0, 0, { w: .55, h: 1.25, col: 0x2f5a46, style: 'vitre', frame: 0xf2ead8, arch: 1, steps: 0, lamp: 2 });
+    for (const y of [2.6, 3.9, 5.2]) { W(b, TOW, 0, 0, y, Object.assign({ w: .32, h: .8, arch: 1 }, WO)); W(b, TOW, 2, 0, y, Object.assign({ w: .32, h: .8, arch: 1 }, WO)); W(b, TOW, 1, 0, y, Object.assign({ w: .32, h: .8, arch: 1 }, WO)); W(b, TOW, 3, 0, y - .65, Object.assign({ w: .32, h: .7, arch: 1 }, WO)); }
+    for (const y of [2.1, 3.35, 4.6]) corn(TOW, y, .03, .08);
+    const yB = TOW.fh + TOW.wh; b.P(PT.pierre); b.box(1.55, 1.5, 1.45, GS, TOW.xc, yB + .75, TOW.zc); b.P(0); corn(blk(TOW.xc, TOW.zc, 1.55, 1.45, 0, 0), yB + 1.55, .1, .18);
+    for (let f = 0; f < 4; f++) { const ry = f * PI / 2, dx = Math.sin(ry) * .74, dz = Math.cos(ry) * .74; horloge(b, TOW.xc + dx, yB + .75, TOW.zc + dz, ry, .55); }
+    for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { const x = TOW.xc + sx * .74, z = TOW.zc + sz * .7; b.P(PT.pierre); b.cyl(.13, .14, 1.4, 10, GS3, x, yB + .9, z); b.P(0); b.P(PT.ardoise); b.cone(.17, .55, 10, SL, x, yB + 1.9, z); b.P(0); b.sph(.035, GOLD, x, yB + 2.2, z, 1, 1, 1, 0, 6, 4); }
+    const yP = yB + 1.64; b.P(PT.ardoise); b.cone(1.0, 2.6, 4, SL, TOW.xc, yP + 1.3, TOW.zc, 0, PI / 4); b.P(0);
+    for (let f = 0; f < 4; f++) { const ry = f * PI / 2, dx = Math.sin(ry) * .42, dz = Math.cos(ry) * .42; b.P(PT.pierre); b.box(.3, .5, .25, GS, TOW.xc + dx, yP + .55, TOW.zc + dz, 0, ry, 0); b.P(0); G.prism(b, .4, .22, .3, SL, TOW.xc + dx * 1.05, yP + .85, TOW.zc + dz * 1.05, ry); b.box(.12, .22, .02, 0xffe2a0, TOW.xc + dx * 1.3, yP + .55, TOW.zc + dz * 1.3, 0, ry, 0, 1); }
+    b.cyl(.03, .05, .7, 8, GOLD, TOW.xc, yP + 2.9, TOW.zc); b.sph(.09, GOLD, TOW.xc, yP + 3.0, TOW.zc, 1, 1, 1, 0, 10, 8); b.cone(.04, .25, 6, GOLD, TOW.xc, yP + 3.4, TOW.zc);
+    b.cyl(.012, .012, .7, 4, 0xdddddd, TOW.xc + .1, yP + 3.35, TOW.zc); [0x1f3f9a, 0xffffff, 0xe1262f].forEach((c, k) => b.box(.13, .26, .012, c, TOW.xc + .17 + k * .13, yP + 3.55, TOW.zc));
+    // aile basse et son toit
+    b.P(PT.ardoise); G.prism(b, WING.d + .3, .7, WING.w + .2, SL, WING.xc, WING.fh + WING.wh + .14, WING.zc, PI / 2); b.P(0); W(b, WING, 2, 0, 1.4, Object.assign({ w: .4, h: .9, arch: 1 }, WO)); W(b, WING, 2, 0, 2.7, Object.assign({ w: .4, h: .6 }, WO));
+    // côté quais : portes vers les voies, fenêtres cintrées, « VOIES », horloge
+    const zb = HALL.zc - HALL.d / 2; for (const a of [-1.15, 0, 1.15]) D(b, HALL, 1, a, { w: .6, h: 1.3, col: 0x2f5a46, style: 'vitre', frame: 0xf2ead8, steps: 0, lampPos: 'none' });
+    for (const a of [-1.55, -.55, .55, 1.55]) W(b, HALL, 1, a, 2.85, Object.assign({ w: .38, h: .85, arch: 1 }, WO)); lettres(b, 'VOIES', X, 3.65, zb - .02, .08, GOLD, -1); horloge(b, X, 4.25, zb - .02, PI, .32);
+    // --- la grande halle vitrée au-dessus des quais (voûte de fer et de verre, colonnes de fonte, lampes) ---
+    const SX0 = -3.6, SX1 = 7.4, SZ0 = -1.55, SZ1 = -4.45, SY = 3.4, SR = 1.25, SZC = (SZ0 + SZ1) / 2, SW = SZ0 - SZ1, ARC = t => [SZC + Math.cos(t) * SW / 2, SY + Math.sin(t) * SR];
+    for (let x = SX0; x <= SX1 + .01; x += 1.1) { for (let i = 0; i < 12; i++) { const [z0, y0] = ARC(i / 12 * PI), [z1, y1] = ARC((i + 1) / 12 * PI); b.box(.07, .1, Math.hypot(z1 - z0, y1 - y0) + .02, IR, x, (y0 + y1) / 2, (z0 + z1) / 2, -Math.atan2(y1 - y0, z1 - z0), 0, 0); }
+      for (const z of [SZ0, SZ1]) b.box(.06, .06, .5, IR, x, SY - .15, z + (z === SZ0 ? -.2 : .2), z === SZ0 ? -.6 : .6, 0, 0); }
+    const gl = []; for (let i = 0; i < 12; i++) { const [z0, y0] = ARC(i / 12 * PI), [z1, y1] = ARC((i + 1) / 12 * PI); b.box(SX1 - SX0, .04, .04, IR, (SX0 + SX1) / 2, y0, z0); gl.push([z0, y0, z1, y1]); }
+    for (const [z0, y0, z1, y1] of gl) b.box(SX1 - SX0, .02, Math.hypot(z1 - z0, y1 - y0), 0xd8ecf8, (SX0 + SX1) / 2, (y0 + y1) / 2 + .02, (z0 + z1) / 2, -Math.atan2(y1 - y0, z1 - z0), 0, 0, 2);
+    for (const z of [SZ0, SZ1]) { b.box(SX1 - SX0 + .2, .16, .14, IR, (SX0 + SX1) / 2, SY, z); b.box(SX1 - SX0 + .2, .05, .06, 0x5a6a68, (SX0 + SX1) / 2, SY - .2, z);
+      for (let x = SX0 + .2; x <= SX1; x += 2.2) { if (z === SZ1 && x > 4.6 && x < 7.4) continue; // passage vers le tunnel de la rue commerçante b.cyl(.07, .1, SY - .1, 10, IR, x, (SY - .1) / 2, z); b.cyl(.15, .12, .18, 10, IR, x, .09, z); b.cyl(.14, .08, .2, 10, GOLD, x, SY - .2, z);
+        b.geo(new THREE.TorusGeometry(.35, .025, 5, 10, PI / 2), IR, b.M(x, SY - .4, z + (z === SZ0 ? -.35 : .35), 0, PI / 2, z === SZ0 ? 0 : PI / 2), 0, true); } }
+    for (const x of [SX0, SX1]) for (let i = 1; i < 6; i++) { const [z1, y1] = ARC(i / 6 * PI); b.box(.04, Math.hypot(z1 - SZC, y1 - SY), .04, IR, x, (SY + y1) / 2, (SZC + z1) / 2, Math.atan2(z1 - SZC, y1 - SY), 0, 0); }
+    for (let x = SX0 + .55; x < SX1; x += 2.2) { b.cyl(.01, .01, .9, 4, 0x555555, x, SY + .6, SZC); b.cyl(.09, .05, .1, 8, IR, x, SY + .12, SZC); b.sph(.1, 0xfff1c8, x, SY, SZC, 1, 1, 1, 1, 10, 8); }
+    // perron, bacs à fleurs
+    b.P(PT.pierre); b.box(4.4, .12, .4, GS2, X, .06, zf + .2); b.P(0);
+    for (const s of [-1, 1]) { const x = X + s * 2.25; rb(b, .5, .35, .3, .03, 0x2f4a3a, x, .42, zf + .2); for (let k = 0; k < 5; k++) b.sph(.06, [0xe8434a, 0xffffff, 0xffd23f][k % 3], x - .18 + k * .09, .65, zf + .2, 1, 1, 1, 0, 6, 5); }
+    return b.done(); };
+
+  // ---------- 6. PORTAILS DE TUNNEL : pierre de taille, voussoirs et clé, pilastres, corniche, lanternes, lierre ;
+  // v = largeur*10 + niveau de la falaise (le modèle descend du haut de la falaise jusqu'au sol) ----------
+  MD.tunnel = v => { const w = Math.floor(v / 10) || 3, lv = v % 10 || 2, y0 = -lv * G.TIER, b = G.mb(495 + v), PT = G.PAT, ow = w === 3 ? 2.3 : 1.9, oh = w === 3 ? 2.55 : 2.35, z = .5, hr = oh - ow / 2;
+    const S1 = 0xb7ab94, S2 = 0x9d927d, S3 = 0xd6ccb6, FW = ow + 2.1, FH = Math.min(-y0 + .35, oh + 1.25), DK = 0x0b0907;
+    b.P(PT.pierre); b.box(FW, FH, .3, S1, 0, y0 + FH / 2, z - .1); b.P(0);
+    b.box(ow, hr, .04, DK, 0, y0 + hr / 2, z + .07); b.geo(new THREE.CircleGeometry(ow / 2, 24, 0, PI), DK, b.M(0, y0 + hr, z + .07));
+    for (const [k, c] of [[.92, 0x16120e], [.82, 0x0e0b09]]) { b.box(ow * k, hr, .03, c, 0, y0 + hr / 2, z + .08); b.geo(new THREE.CircleGeometry(ow / 2 * k, 24, 0, PI), c, b.M(0, y0 + hr, z + .08)); }
+    for (let k = 0; k <= 12; k++) { const a = k / 12 * PI, key = k === 6; b.P(PT.pierre); b.box(key ? .34 : .26, key ? .42 : .3, .36, key ? S3 : (k % 2 ? S2 : S1), Math.cos(a) * (ow / 2 + .17), y0 + hr + Math.sin(a) * (ow / 2 + .17), z + .12, 0, 0, a - PI / 2); b.P(0); }
+    for (const s of [-1, 1]) { const x = s * (ow / 2 + .2); b.P(PT.pierre); for (let k = 0; k < Math.ceil(hr / .3); k++) b.box(k % 2 ? .44 : .34, .27, .36, k % 2 ? S2 : S1, x + s * (k % 2 ? .05 : 0), y0 + .15 + k * .3, z + .12); b.P(0);
+      const px = s * (FW / 2 - .2); b.P(PT.pierre); b.box(.36, FH, .2, S3, px, y0 + FH / 2, z + .1); b.box(.46, .25, .28, S2, px, y0 + .12, z + .12); b.box(.46, .2, .28, S2, px, y0 + FH - .45, z + .12); b.P(0);
+      // lanterne murale
+      const lx = s * (ow / 2 + .62), ly = y0 + hr + .15; b.box(.06, .06, .3, IRON, lx, ly + .25, z + .3); seg(b, [lx, ly + .4, z + .12], [lx, ly + .25, z + .42], .015, .015, IRON, 5); b.cyl(.09, .07, .05, 8, IRON, lx, ly + .14, z + .42); b.cyl(.06, .06, .18, 8, 0xfff1c8, lx, ly, z + .42, 0, 0, 0, 1); b.cone(.1, .12, 8, IRON, lx, ly + .16, z + .42); for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI / 4; b.box(.012, .18, .012, IRON, lx + Math.cos(a) * .065, ly, z + .42 + Math.sin(a) * .065); } }
+    b.P(PT.pierre); b.box(FW + .3, .18, .42, S3, 0, y0 + FH - .2, z + .1); b.box(FW + .1, .1, .36, S2, 0, y0 + FH - .34, z + .1); b.P(0);
+    for (let k = 0; k < Math.round(FW / .22); k++) b.cyl(.04, .05, .22, 6, S3, -FW / 2 + .15 + k * .22, y0 + FH - .02, z + .05);
+    if (w === 2) { rb(b, 2.75, .32, .05, .02, 0x1f3a2c, 0, y0 + hr + ow / 2 + .45, z + .32); lettres(b, 'RUE COMMERCANTE', 0, y0 + hr + ow / 2 + .345, z + .36, .042, GOLD); }
+    b.jit(.25); for (let k = 0; k < 14; k++) { const x = -FW / 2 + .2 + ((k * 37) % 100) / 100 * (FW - .4), h = .3 + ((k * 53) % 70) / 100; b.blob(.13, 0, k % 2 ? 0x3f7a35 : 0x4f8f3f, x, y0 + FH - .25 - h * .5, z + .32, .9, h * 2.4, .5); } b.jit(0);
+    return b.done(); };
+
+  // ---------- 7. LE TRAIN QUI TRAVERSE LE VILLAGE : le même Orient-Express (wagon-lits puis Pullman), roulant le long de x ----------
+  MD.train = v => { const b = G.mb(447); loco(b, 0); voiture(b, -4.95, .55, 0); voiture(b, -10.95, -5.15, 1); const g = b.done(); g.rotateY(PI / 2); g.computeBoundingSphere(); g.computeBoundingBox(); return g; };
 
   // ---------- 4. L'AMÉNAGEMENT DU GRAND HALL (44 × 38) ----------
   G.ROOMNPC.gare = ['gare', 28, 27.4];
@@ -217,12 +328,12 @@
     for (const [x, z] of [[8, 21], [12, 4], [17, 20], [27, 9], [31, 21], [36, 14]]) P('malles', x, z, (x + z) % 4); for (const [x, z] of [[8, 19], [17, 14], [27, 17], [36, 5]]) P('chariot_bagages', x, z, 1);
     P('kiosque_journaux', 21, 9); P('stand_fleurs', 18, 22);
     // hall des pas perdus : jardinière sur la rosace, escalier du Train Bleu, guichets, kiosque, terrasses, orangers, oliviers
-    P('jardiniere', 21, 30); P('escalier_tb', 3, 30, 1); P('guichet', 26, 26); P('kiosque_journaux', 16, 25); P('stand_fleurs', 32, 34); P('piano', 12, 35);
+    P('jardiniere', 21, 30); P('mezz_tb', 0, 25); P('escalier_tb', 4, 30, 1); P('guichet', 26, 26); P('kiosque_journaux', 16, 25); P('stand_fleurs', 32, 34); P('piano', 12, 35);
     for (const [x, z] of [[18, 29], [25, 29]]) P('banc_gare', x, z, 0); for (const [x, z] of [[18, 34], [25, 34]]) P('banc_gare', x, z, 2);
     for (const [x, z, v] of [[14, 28, 0], [30, 28, 1], [14, 33, 1], [30, 33, 0], [9, 26, 0], [35, 26, 1]]) P(v ? 'olivier_caisse' : 'oranger_caisse', x, z);
-    for (const [x, z] of [[20, 36], [24, 36], [1, 25], [12, 29], [42, 37], [17, 37]]) P('palmier_pot', x, z);
+    for (const [x, z] of [[20, 36], [24, 36], [13, 31], [12, 29], [42, 37], [17, 37]]) P('palmier_pot', x, z);
     for (const [x, z] of [[13, 26], [31, 26], [11, 36], [33, 37], [19, 32], [26, 32]]) P('candelabre', x, z);
-    for (const [x, z] of [[37, 27], [39, 29], [37, 31], [39, 33], [37, 35], [1, 34], [2, 36]]) { P('table_bistrot', x, z); P('chaise_bistrot', x - 1, z, 1); P('chaise_bistrot', x + 1, z, 3); }
+    for (const [x, z] of [[37, 27], [39, 29], [37, 31], [39, 33], [37, 35]]) { P('table_bistrot', x, z); P('chaise_bistrot', x - 1, z, 1); P('chaise_bistrot', x + 1, z, 3); }
     for (const [x, z] of [[20, 27], [24, 27], [16, 31]]) P('malles', x, z, x % 4); P('chariot_bagages', 28, 31, 1); };
   // les locomotives fument doucement (et lâchent un peu de vapeur au ras des cylindres)
   let puffT = 0; G.on('update', dt => { const m = G.map; if (!m || !m._gx || (puffT -= dt) > 0) return; puffT = .55;

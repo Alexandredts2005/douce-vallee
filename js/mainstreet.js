@@ -81,7 +81,7 @@
   G.on('newGame', () => R.reset());
   // ---------- le train ----------
   const TR = G.train = { st: null, slot: -1, planes: [new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0)], blink: 0, chug: 0, bell: 0 };
-  const LEN = 9.6;
+  const LEN = 22, STOPX = t => t.x1 - 1 - LEN / 2; // l'Orient-Express s'arrête la locomotive juste avant le tunnel
   const snd = (type, f0, f1, dur, vol, t0 = 0) => { const A = G.audio; if (!A || !A.ok || vol < .002) return; try { const C = A.ctx, t = C.currentTime + t0, o = C.createOscillator(), g = C.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.linearRampToValueAtTime(f1, t + dur); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + .03); g.gain.setValueAtTime(vol, t + dur * .7); g.gain.exponentialRampToValueAtTime(.0001, t + dur); o.connect(g); g.connect(A.sfxG); o.start(t); o.stop(t + dur + .05); } catch (e) { } };
   const near = k => { const m = TR.m || G.world, t = m.meta.train, p = G.player; return t && G.map === m ? k * G.clamp(1 - Math.hypot(p.x - TR.st.x, p.z - t.z) / 45, 0, 1) : 0; };
   const whistle = k => { snd('triangle', 740, 760, .5, .07 * k); snd('triangle', 932, 950, .5, .055 * k); snd('triangle', 740, 700, .85, .07 * k, .6); snd('triangle', 932, 880, .85, .055 * k, .6); };
@@ -94,21 +94,22 @@
   });
   // le train roule dans le village affiché (le sien, ou celui qu'on visite)
   const trainMap = () => G.map && !G.map.interior && G.map.meta && G.map.meta.train ? G.map : G.world;
-  TR.start = (wait = 0) => { const m = trainMap(), t = m && m.meta.train; if (!t || TR.st) return false; TR.m = m; TR.st = { x: t.x0 - LEN / 2 - 1.5, v: 8, ph: 'in', t: 0, wait }; return true; };
+  TR.start = (wait = 0, exp = false) => { const m = trainMap(), t = m && m.meta.train; if (!t || TR.st) return false; TR.m = m; TR.st = { x: t.x0 - LEN / 2 - 1.5, v: exp ? 9 : 8, ph: exp ? 'out' : 'in', t: 0, wait, exp }; return true; };
   const setSignals = v => { const m = TR.m || G.world; for (const [x, z] of m.meta.signals || []) { const o = m.objAt(x, z); if (o && o.t === 'signal_pn' && (o.v || 0) !== v) { o.v = v; m.refresh(o); } } };
   G.on('update', dt => {
     if (TR.st && TR.m && TR.m !== trainMap() && TR.m !== G.world) { TR.st = null; TR.blinkOn = false; }
     const m = TR.st ? (TR.m || G.world) : trainMap(); if (!m || !TR.mesh) return; const t = m.meta.train; if (!t) { TR.mesh.visible = false; return; }
-    const h = G.clock.min / 60, slot = Math.floor(G.clock.min / 120);
-    if (TR.slot < 0) TR.slot = slot; if (slot !== TR.slot) { TR.slot = slot; if (h >= 6 && h < 23.5) TR.start(); }
+    const h = G.clock.min / 60, slot = Math.floor(G.clock.min / 60);
+    if (TR.slot < 0) TR.slot = slot; if (slot !== TR.slot) { TR.slot = slot; if (h >= 6 && h < 23.5) TR.start(0, slot % 2 === 1); } // un train par heure : un sur deux s'arrête, l'autre passe sans s'arrêter
     const s = TR.st; if (!s) { TR.mesh.visible = false; if (TR.blinkOn) { TR.blinkOn = false; setSignals(0); } return; }
     if (s.wait > 0) { s.wait -= dt; TR.mesh.visible = false; return; }
-    if (s.t === 0 && s.ph === 'in' && !s.whistled) { s.whistled = 1; whistle(near(1)); }
-    if (s.ph === 'in') { const d = t.stop - s.x; s.v = Math.min(9, Math.sqrt(Math.max(0, 2 * 3.2 * d)) + .25); s.x += s.v * dt; if (d <= .04) { s.x = t.stop; s.v = 0; s.ph = 'stop'; s.t = 0; } }
+    if (s.t === 0 && !s.whistled) { s.whistled = 1; whistle(near(1)); }
+    if (s.ph === 'in') { const d = STOPX(t) - s.x; s.v = Math.min(9, Math.sqrt(Math.max(0, 2 * 3.2 * d)) + .25); s.x += s.v * dt; if (d <= .04) { s.x = STOPX(t); s.v = 0; s.ph = 'stop'; s.t = 0; } }
     else if (s.ph === 'stop') { s.t += dt; if (s.t > 6) { s.ph = 'out'; whistle(near(1)); } }
     else { s.v = Math.min(9, s.v + 3 * dt); s.x += s.v * dt; if (s.x - LEN / 2 > t.x1 + 1) { TR.st = null; TR.mesh.visible = false; setSignals(0); TR.blinkOn = false; return; } }
     TR.planes[0].constant = -t.x0; TR.planes[1].constant = t.x1;
     TR.mesh.position.set(s.x, m.baseH(Math.floor(t.x0 + 1), Math.floor(t.z)) + .1, t.z); TR.mesh.visible = G.map === m; TR.glow.color.copy(G.M.glow.color); TR.ol.visible = G.M.outline.visible;
+    if (TR.mesh.visible && (TR.smk = (TR.smk || 0) - dt) < 0) { TR.smk = s.v > .3 ? .25 : .8; const cx = s.x + 10.1; if (cx > t.x0 && cx < t.x1) G.fx.puff(cx, TR.mesh.position.y + 3.0, t.z, s.v > .3 ? 3 : 1, 0xf2f2f2, .9); }
     TR.blink -= dt; if (TR.blink < 0) { TR.blink = .45; TR.blinkOn = true; TR.side = TR.side === 1 ? 2 : 1; setSignals(TR.side); snd('square', 1480, 1480, .1, .045 * near(1)); snd('sine', 2960, 2960, .08, .02 * near(1)); }
     if (s.v > .3) { TR.chug -= dt * s.v; if (TR.chug < 0) { TR.chug = 1.1; snd('sawtooth', 95, 55, .09, .05 * near(1)); } }
     const p = G.player; if (G.map === m && !p.vehicle && Math.abs(p.z - t.z) < .7 && Math.abs(p.x - s.x) < LEN / 2 + .8) { p.z = t.z + 1.25; p.y = m.topAt(p.x, p.z); p.vz = 2; if ((TR.warn = (TR.warn || 0) - dt) < 0) { TR.warn = 3; G.ui.toast('Attention au train ! 🚂'); G.sfx('hurt'); } }

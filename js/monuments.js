@@ -292,9 +292,9 @@
           for (const dz of [-1.8, 1.8]) { b.box(.12, .16, .12, GOLD, x + s * .12, 3.2, z + dz); b.cyl(.03, .03, .3, 6, GOLD, x + s * .22, 3.3, z + dz, 0, 0, s * .9); b.sph(.14, 0xfff1c8, x + s * .36, 3.45, z + dz, 1, 1.1, 1, 1, 12, 10); gx.halos.push([x + s * .36, 3.45, z + dz, 1.4]); } } } }
     // ----- le restaurant « Le Train Bleu » en mezzanine (mur de gauche, au-dessus du hall) -----
     const MY = 5.2, MZ0 = CZ + .6, MZ1 = GH - .6;
-    b.P(PT.pierre); b.box(3.4, .4, MZ1 - MZ0, 0xe2d4b8, 1.7, MY - .2, (MZ0 + MZ1) / 2); b.P(0); b.box(3.4, .02, MZ1 - MZ0, 0x8a1f2c, 1.7, MY + .01, (MZ0 + MZ1) / 2);
-    for (let z = MZ0 + 1.5; z < MZ1; z += 3) b.geo(new THREE.CylinderGeometry(.12, .2, .5, 10), GOLD, b.M(3.2, MY - .6, z));
-    for (let z = MZ0 + .1; z < MZ1; z += .22) { if (z > 29.8 && z < 33.2) continue; b.cyl(.03, .045, .7, 6, GOLD, 3.32, MY + .35, z); } b.box(.12, .08, MZ1 - MZ0, GOLD, 3.32, MY + .74, (MZ0 + MZ1) / 2);
+    b.P(PT.pierre); b.box(4.0, .4, MZ1 - MZ0, 0xe2d4b8, 2.0, MY - .2, (MZ0 + MZ1) / 2); b.P(0); b.box(4.0, .02, MZ1 - MZ0, 0x8a1f2c, 2.0, MY + .01, (MZ0 + MZ1) / 2);
+    for (let z = MZ0 + 1.5; z < MZ1; z += 3) b.geo(new THREE.CylinderGeometry(.12, .2, .5, 10), GOLD, b.M(3.8, MY - .6, z));
+    for (let z = MZ0 + .1; z < MZ1; z += .22) { if (z > 29.9 && z < 33.1) continue; b.cyl(.03, .045, .7, 6, GOLD, 3.92, MY + .35, z); } b.box(.12, .08, 29.95 - MZ0, GOLD, 3.92, MY + .74, (MZ0 + 29.95) / 2); b.box(.12, .08, MZ1 - 33.05, GOLD, 3.92, MY + .74, (33.05 + MZ1) / 2);
     for (let z = MZ0 + 2; z < MZ1 - 1; z += 4) { b.box(.1, 5.2, 3.0, GOLD, .06, MY + 2.9, z); b.box(.06, 4.9, 2.6, 0xffd9a0, .12, MY + 2.8, z, 0, 0, 0, 1);
       b.geo(new THREE.CylinderGeometry(1.5, 1.5, .1, 24, 1, false, -PI / 2, PI), GOLD, b.M(.06, MY + 5.5, z, -PI / 2, PI / 2, 0)); b.geo(new THREE.CylinderGeometry(1.3, 1.3, .06, 24, 1, false, -PI / 2, PI), 0xffe6b8, b.M(.12, MY + 5.35, z, -PI / 2, PI / 2, 0), 1);
       for (const dz of [-.65, 0, .65]) b.box(.03, 4.9, .05, GOLD, .16, MY + 2.8, z + dz); for (const y of [MY + 1.6, MY + 3.4]) b.box(.03, .05, 2.6, GOLD, .16, y, z);
