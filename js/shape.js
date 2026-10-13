@@ -7,7 +7,7 @@
   const S = 8, BODY = 1.15, FLOOR = .04; // sous-cases par case ; hauteur du corps ; en dessous : simple décor au sol
   const cache = new Map();
   function build(d, key) {
-    const i = key.lastIndexOf(':'), geo = G.getGeo(key.slice(0, i), +key.slice(i + 1)), fw = d.fp[0], fd = d.fp[1], W = fw * S, D = fd * S, N = W * D;
+    const i = key.lastIndexOf(':'), geo = G.getGeo(key.slice(0, i), +key.slice(i + 1)), fw = d.fp[0], fd = d.fp[1], S = fw * fd <= 4 ? 16 : 8, W = fw * S, D = fd * S, N = W * D; // petits objets : 16 × 16 par case (6 cm)
     const top = new Float32Array(N).fill(-1), side = new Float32Array(N).fill(-1), ups = new Array(N), downs = new Array(N);
     const pos = geo.attributes.position, idx = geo.index, n = idx ? idx.count : pos.count, V = k => idx ? idx.getX(k) : k, hx = fw / 2, hz = fd / 2, cap = d.h;
     const each = (ax, az, bx, bz, cx, cz, fn, edges) => {
@@ -18,8 +18,11 @@
         const w0 = (bx - px) * (cz - pz) - (bz - pz) * (cx - px), w1 = (cx - px) * (az - pz) - (cz - pz) * (ax - px), w2 = (ax - px) * (bz - pz) - (az - pz) * (bx - px);
         if ((w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0)) fn(qz * W + qx); }
     };
+    const gm = new Uint8Array(Math.ceil(n / 3)); for (const gr of geo.groups) for (let k = Math.floor(gr.start / 3); k < Math.min(gm.length, Math.ceil((gr.start + gr.count) / 3)); k++) gm[k] = gr.materialIndex;
     for (let t = 0; t + 2 < n; t += 3) {
-      const a = V(t), b = V(t + 1), c = V(t + 2), ax3 = pos.getX(a), ay = pos.getY(a), az3 = pos.getZ(a), bx3 = pos.getX(b), by = pos.getY(b), bz3 = pos.getZ(b), cx3 = pos.getX(c), cy = pos.getY(c), cz3 = pos.getZ(c);
+      const a = V(t), b = V(t + 1), c = V(t + 2); let ax3 = pos.getX(a), ay = pos.getY(a), az3 = pos.getZ(a), bx3 = pos.getX(b), by = pos.getY(b), bz3 = pos.getZ(b), cx3 = pos.getX(c), cy = pos.getY(c), cz3 = pos.getZ(c);
+      if (gm[t / 3] === 5) { const k = .5, mx = (ax3 + bx3 + cx3) / 3, my = (ay + by + cy) / 3, mz = (az3 + bz3 + cz3) / 3; // carte de feuillage : seul le milieu est plein (les coins sont transparents)
+        ax3 = mx + (ax3 - mx) * k; ay = my + (ay - my) * k; az3 = mz + (az3 - mz) * k; bx3 = mx + (bx3 - mx) * k; by = my + (by - my) * k; bz3 = mz + (bz3 - mz) * k; cx3 = mx + (cx3 - mx) * k; cy = my + (cy - my) * k; cz3 = mz + (cz3 - mz) * k; }
       const ymin = Math.min(ay, by, cy), ymax = Math.max(ay, by, cy); if (ymax <= FLOOR) continue;
       const ux = bx3 - ax3, uy = by - ay, uz = bz3 - az3, vx = cx3 - ax3, vy = cy - ay, vz = cz3 - az3, nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) || 1;
       const ax = (ax3 + hx) * S, az = (az3 + hz) * S, bx = (bx3 + hx) * S, bz = (bz3 + hz) * S, cx = (cx3 + hx) * S, cz = (cz3 + hz) * S, yt = Math.min(ymax, cap);
@@ -34,14 +37,14 @@
       if (Dn) for (const yb of Dn) { if (yb >= BODY) continue; let yu = Infinity; if (U) for (const y of U) if (y > yb + .002 && y < yu) yu = y; const m = yu === Infinity || yu >= BODY ? top[k] : yu; if (m > h) h = m; } // un volume posé : plein jusqu'à son dessus
       H[k] = h; F[k] = U && U.some(y => Math.abs(y - h) < .03) ? 1 : 0;
     }
-    const mk = { W, D, H, F, hx, hz }; cache.set(key, mk); return mk;
+    const mk = { W, D, H, F, hx, hz, S }; cache.set(key, mk); return mk;
   }
   G.shapeMask = (d, key) => cache.get(key) || build(d, key);
   // hauteur du dessus de l'objet en (x, z), ou -1 si l'endroit est libre
   G.shapeTop = (o, d, x, z) => {
     const key = o._k || G.objKey(o), mk = cache.get(key) || build(d, key), [w, dd] = G.fpDims(d, o.r), dx = x - (o.x + w / 2), dz = z - (o.z + dd / 2);
     const r = o.r & 3, lx = r === 0 ? dx : r === 1 ? -dz : r === 2 ? -dx : dz, lz = r === 0 ? dz : r === 1 ? dx : r === 2 ? -dz : -dx;
-    const qx = Math.floor((lx + mk.hx) * S), qz = Math.floor((lz + mk.hz) * S); G.shapeTop.flat = 1; if (qx < 0 || qz < 0 || qx >= mk.W || qz >= mk.D) return -1;
+    const qx = Math.floor((lx + mk.hx) * mk.S), qz = Math.floor((lz + mk.hz) * mk.S); G.shapeTop.flat = 1; if (qx < 0 || qz < 0 || qx >= mk.W || qz >= mk.D) return -1;
     G.shapeTop.flat = mk.F[qz * mk.W + qx]; return mk.H[qz * mk.W + qx];
   };
   // préparation tranquille des cartes des objets proches, pour éviter tout à-coup

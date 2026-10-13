@@ -1,7 +1,7 @@
 'use strict';
 // ===== Joueur : marche, super saut chargé (2× sa taille), nage, collisions, déblocage, émotes, animations =====
 (function () {
-  const R = .27, GRAV = 26, WALK = 3.7, RUN = 6.4, SWIM = 2.4, SWIMR = 3.5, HOP = .45, MAXJ = 2.0, CHARGE_T = .75;
+  const R = .15, GRAV = 26, WALK = 3.7, RUN = 6.4, SWIM = 2.4, SWIMR = 3.5, HOP = .45, MAXJ = 2.0, CHARGE_T = .75;
   let PTS9 = null, PTS5 = [[0, 0]];
   // ---------- inventaire & rangement partagé (maison + casiers de la gare) ----------
   const stackOps = slots => ({
