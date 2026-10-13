@@ -54,14 +54,16 @@
     const setT = (x, z, L, s) => { if (!map.inb(x, z)) return; const i = I(x, z), o = map.objAt(x, z); if (o && retro) map.removeObj(o); lvl[i] = L; water[i] = 0; ramp[i] = 0; if (s != null) surf[i] = s; if (retro) map.markDirty(x, z); };
     for (let x = ox; x < ox + 16; x++) setT(x, oz, 1, 1);
     for (const x0 of [ox, ox + 14]) for (let x = x0; x < x0 + 2; x++) for (let z = oz; z <= oz + 2; z++) setT(x, z, 2, 1);
-    for (let z = 2; z <= oz; z++) for (const x of [ox + 11, ox + 12]) setT(x, z, 0, 4);
+    // falaise au nord de la gare (au bord de la carte, c'est la bordure ; plus loin dans un grand monde, on la crée)
+    if (oz - 4 >= 0 && oz > G.BORDER) for (let z = oz - 4; z < oz; z++) for (let x = ox - 1; x <= ox + 16; x++) if (lvl[I(x, z)] < 3 || water[I(x, z)]) setT(x, z, 3, 1);
+    for (let z = oz - 2; z <= oz; z++) for (const x of [ox + 11, ox + 12]) setT(x, z, 0, 4);
     for (let z = oz + 2; z <= oz + 5; z++) for (const x of [ox + 11, ox + 12]) { const o = map.objAt(x, z); if (o && !G.OBJ[o.t].walk && o.t !== 'gare') map.removeObj(o); if (!map.objAt(x, z)) { surf[I(x, z)] = 11; if (retro) map.markDirty(x, z); } }
     const add = (t, x, z, r = 0, ex) => map.canPlace(t, x, z, r) ? map.addObj(t, x, z, r, ex) : null;
-    for (const x of [ox + 11, ox + 12]) { const o = map.objAt(x, 1); if (o) map.removeObj(o); }
-    map.addObj('tunnel', ox + 1, oz, 1, { v: 32 }); map.addObj('tunnel', ox + 14, oz, 3, { v: 32 }); map.addObj('tunnel2', ox + 11, 1, 0, { v: 23 });
+    for (const x of [ox + 11, ox + 12]) { const o = map.objAt(x, oz - 3); if (o) map.removeObj(o); }
+    map.addObj('tunnel', ox + 1, oz, 1, { v: 32 }); map.addObj('tunnel', ox + 14, oz, 3, { v: 32 }); map.addObj('tunnel2', ox + 11, oz - 3, 0, { v: 23 });
     for (let x = ox + 2; x < ox + 14; x++) { if (!map.objAt(x, oz + 1)) add('rails', x, oz + 1, 1); if (!map.objAt(x, oz + 2)) { surf[I(x, oz + 2)] = 11; if (retro) map.markDirty(x, oz + 2); } }
     add('signal_pn', ox + 10, oz + 2); add('signal_pn', ox + 13, oz + 2);
-    map.meta.rueGate = { x0: ox + 11, x1: ox + 13, z: 3.3, sx: ox + 12, sz: 4.4 };
+    map.meta.rueGate = { x0: ox + 11, x1: ox + 13, z: oz - .7, sx: ox + 12, sz: oz + .4 };
     const g = [...map.list].find(o => o.t === 'gare'); map.meta.train = { x0: ox + 2, x1: ox + 14, z: oz + 1.5, stop: g ? g.x + 3 : ox + 6, y: 0 };
     map.meta.signals = [[ox + 10, oz + 2], [ox + 13, oz + 2]];
     if (!retro) {
@@ -75,7 +77,7 @@
     }
   }
   G.STRUCT.gare = c => { station(c.map, c.ox, c.oz, false); c.targets.push([c.ox + 6, c.oz + 6, 4]); };
-  const labelGate = m => { const g = m.meta.rueGate; if (g && !m._gateLbl) { m._gateLbl = G.mapLabel(m, '🏬 Rue commerçante', g.sx, 3.25, 2.25, 1.1); } };
+  const labelGate = m => { const g = m.meta.rueGate; if (g && !m._gateLbl) { m._gateLbl = G.mapLabel(m, '🏬 Rue commerçante', g.sx, 3.25, g.z - 1.05, 1.1); } };
   G.on('worldgen', map => labelGate(map));
   G.on('load', () => { const m = G.world; if (m.meta.gare && !m.meta.rueGate) { const g = [...m.list].find(o => o.t === 'gare'); if (g) { station(m, g.x - 5, g.z - 3, true); m.flush(); } } labelGate(m); R.reset(); const s = loadRue; loadRue = null; if (s) R.go(s.x, s.z, s.yaw, true); });
   G.on('newGame', () => R.reset());
@@ -161,7 +163,7 @@
   };
   G.on('move', (p, m) => {
     if (G.ui.fading || p.vehicle || G.state !== 'play') return;
-    if (m === G.world || (G.net && G.net.visit && m === G.net.visit.map)) { const g = m.meta.rueGate; if (g && p.z < g.z && p.x >= g.x0 && p.x < g.x1) R.go(); }
+    if (m === G.world || (G.net && G.net.visit && m === G.net.visit.map)) { const g = m.meta.rueGate; if (g && p.z < g.z && p.z > g.z - 3 && p.y < 2.5 && p.x >= g.x0 && p.x < g.x1) R.go(); }
     else if (m === G.rueMap && p.z > m.meta.exitZ && Math.abs(p.x - (m.meta.exitX != null ? m.meta.exitX : RX + 1)) < 1.4) R.back();
   });
   const oex = G.act.exitHouse; G.act.exitHouse = () => {

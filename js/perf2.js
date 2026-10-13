@@ -21,9 +21,10 @@
     const cu = G.U.curve.value, cc = G.U.cc.value, cf = G.U.cf.value, cp = cam.position, sun = G.lights && G.lights.sun;
     let ox = 0, oz = 0; if (sun && sun.castShadow && sun.intensity > .05) { SD.copy(sun.position).sub(sun.target.position).normalize(); const h = Math.hypot(SD.x, SD.z) || 1, L = Math.min(24, 9 * h / Math.max(.15, SD.y)); ox = -SD.x / h * L; oz = -SD.z / h * L; }
     const drop = (x, z) => { const dx = x - cc.x, dz = z - cc.z, d = dx * cf.x + dz * cf.y, l = dx * cf.y - dz * cf.x; return cu * (d * d + .3 * l * l); };
-    let changed = false, vis = 0;
+    let changed = false, vis = 0; const far = m.lazyT && m.lazyT() ? viewR() : 1e9, p = G.player;
     for (let cz = 0; cz < ch; cz++) for (let cx = 0; cx < cw; cx++) {
       const k = cz * cw + cx, x0 = cx * CELL - 3, x1 = cx * CELL + CELL + 3, z0 = cz * CELL - 3, z1 = cz * CELL + CELL + 3; let y0 = Y[k * 2], y1 = Y[k * 2 + 1];
+      if (far < 1e9 && Math.hypot(cx * CELL + CELL / 2 - p.x, cz * CELL + CELL / 2 - p.z) > far) { if (V[k]) { V[k] = 0; changed = true; } continue; }
       if (cu) { const dmax = Math.max(drop(x0, z0), drop(x1, z0), drop(x0, z1), drop(x1, z1)), dmin = Math.max(0, drop(Math.min(x1, Math.max(x0, cc.x)), Math.min(z1, Math.max(z0, cc.z))) - .5); y0 -= dmax; y1 -= dmin; }
       BX.min.set(x0 + Math.min(0, ox), y0, z0 + Math.min(0, oz)); BX.max.set(x1 + Math.max(0, ox), y1, z1 + Math.max(0, oz));
       let v = FR.intersectsBox(BX);
@@ -36,8 +37,13 @@
       for (let cz = kz * R; cz < Math.min(ch, kz * R + R) && !v; cz++) for (let cx = kx * R; cx < Math.min(cw, kx * R + R); cx++) if (V[cz * cw + cx]) { v = true; break; }
       g.visible = v; } }
   function showAll(m) { if (m.cullV) { m.cullV = null; m.cullVer = (m.cullVer || 0) + 1; } for (const g of m.chunks) if (g) g.visible = true; m.objr.cull(null, m.cullVer || 0); }
+  // très grande carte : terrain construit autour du joueur (tout de suite à l'arrivée, puis quelques morceaux par image)
+  const viewR = () => G.U.curve.value > .003 ? 210 : 330;
+  function lazyTerrain(m) { if (!m.lazyT || !m.lazyT()) return; const p = G.player, R = viewR() + 12, cx = Math.floor(p.x / 24), cz = Math.floor(p.z / 24), hole = cx >= 0 && cz >= 0 && cx < m.cw && cz < m.chh && !m.chunks[cz * m.cw + cx];
+    if (hole) m.ensureChunks(p.x, p.z, 110, 1e9, R + 72); m.ensureChunks(p.x, p.z, R, hole ? 40 : 5, R + 72); }
+  G.lazyTerrain = lazyTerrain;
   G.on('frame', () => {
-    const m = G.map; if (!m || !G.camera) return; const t0 = performance.now();
+    const m = G.map; if (!m || !G.camera) return; const t0 = performance.now(); lazyTerrain(m);
     if (!C.on || m.interior || G.state === 'editor') { showAll(m); return; }
     const V = computeV(m); m.objr.cull(V, m.cullVer); applyChunks(m, V);
     // habitants hors champ : ni dessinés, ni ombrés

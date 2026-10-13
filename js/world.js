@@ -4,6 +4,7 @@
   const T = G.TIER, CH = 24, WS = -.32, BED = -.9, SEABED = -1.35;
   const tmp4 = [0, 0, 0, 0], nb4 = [0, 0, 0, 0], M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S1 = new THREE.Vector3(1, 1, 1), SV = new THREE.Vector3(), YA = new THREE.Vector3(0, 1, 0);
   // ---------- tampon de géométrie ----------
+  function FREE() { this.array = null; } // une fois envoyé à la carte graphique, le tableau n'est plus utile
   class Buf {
     constructor() { this.p = []; this.c = []; this.u = []; }
     tri(a, b, c, ca, cb, cc, ua, ub, uc) {
@@ -45,10 +46,13 @@
       const i = k.lastIndexOf(':'), geo = G.getGeo(k.slice(0, i), +k.slice(i + 1));
       const mesh = new THREE.InstancedMesh(geo, G.MATS, cap); mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = geo.boundingSphere.radius > .45; mesh.receiveShadow = true; mesh.visible = false;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(mesh); const s = { k, mesh, cap, n: 0, vis: 0, lvis: 0, items: [], dirty: true }; this.outline(s);
-      if (G.MODELS[k.slice(0, i) + '_lod']) { s.lg = G.getGeo(k.slice(0, i) + '_lod', +k.slice(i + 1)); this.lowMesh(s); } return s; // version simplifiée pour les objets lointains
+      // les petits objets (fleurs, champignons, cailloux, buissons) ne sont plus dessinés quand ils sont trop loin pour être vus
+      const rad = geo.boundingSphere.radius; s.lim = this.map.interior ? Infinity : rad < .9 ? 72 * 72 : rad < 2 ? 130 * 130 : Infinity;
+      if (G.MODELS[k.slice(0, i) + '_lod']) { s.lg = G.getGeo(k.slice(0, i) + '_lod', +k.slice(i + 1)); if (G.MODELS[k.slice(0, i) + '_lod2']) s.lg2 = G.getGeo(k.slice(0, i) + '_lod2', +k.slice(i + 1)); this.lowMesh(s); } return s; // version simplifiée pour les objets lointains
     }
-    lowMesh(s) { if (s.low) { this.group.remove(s.low); s.low.dispose(); } const m = new THREE.InstancedMesh(s.lg, G.MATS, s.cap); m.count = 0; m.frustumCulled = false; m.castShadow = s.mesh.castShadow; m.receiveShadow = true; m.visible = false;
-      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(m); s.low = m; s.lvis = 0;
+    lowMesh(s) { const mk = (old, g) => { if (old) { this.group.remove(old); old.dispose(); } const m = new THREE.InstancedMesh(g, G.MATS, s.cap); m.count = 0; m.frustumCulled = false; m.castShadow = false; m.receiveShadow = true; m.visible = false; // au loin : hors de la zone des ombres
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(m); return m; };
+      s.low = mk(s.low, s.lg); s.lvis = 0; if (s.lg2) { s.low2 = mk(s.low2, s.lg2); s.lvis2 = 0; }
     }
     outline(s) {
       if (s.om) { this.group.remove(s.om); s.om = null; } const geo = s.mesh.geometry; if (geo.boundingSphere.radius < .36) return;
@@ -87,13 +91,15 @@
     refresh(o) { const k = G.objKey(o); if (k !== o._k) { this.remove(o); this.add(o); } else this.write(o, o._anim || null); }
     // recopie les objets visibles en tête du tampon (V : visibilité des cases, ou null = tout)
     cull(V, ver) {
-      const pl = G.player, px = pl ? pl.x : 0, pz = pl ? pl.z : 0, pk = Math.floor(px / CELL) * 4096 + Math.floor(pz / CELL), LR = (G.LOD_DIST || 75) ** 2, cw = this.cw;
-      const far = c => { const dx = (c % cw) * CELL + CELL / 2 - px, dz = Math.floor(c / cw) * CELL + CELL / 2 - pz; return dx * dx + dz * dz > LR; };
+      const pl = G.player, px = pl ? pl.x : 0, pz = pl ? pl.z : 0, pk = Math.floor(px / CELL) * 4096 + Math.floor(pz / CELL), vast = this.map.lazyT(), LR = (vast ? 42 : G.LOD_DIST || 75) ** 2, LR2 = vast ? 130 * 130 : Infinity, cw = this.cw;
+      const d2 = c => { const dx = (c % cw) * CELL + CELL / 2 - px, dz = Math.floor(c / cw) * CELL + CELL / 2 - pz; return dx * dx + dz * dz; };
       const all = ver !== this.ver || V !== this.V || pk !== this.pk; if (!all && !this.dirty) return; this.ver = ver; this.V = V; this.pk = pk; this.dirty = false;
       for (const k in this.sets) { const s = this.sets[k]; if (!all && !s.dirty) continue; s.dirty = false;
-        const im = s.mesh.instanceMatrix, arr = im.array, low = s.low, la = low && low.instanceMatrix.array; let n = 0, nl = 0;
-        for (let i = 0; i < s.n; i++) { const o = s.items[i]; if (!V || o._c < 0 || V[o._c]) { if (low && o._c >= 0 && far(o._c)) { la.set(o._m, nl++ * 16); o._vi = -2; } else { arr.set(o._m, n * 16); o._vi = n++; } } else o._vi = -1; }
-        if (low && (nl || s.lvis)) { s.lvis = nl; low.count = nl; low.visible = nl > 0; low.instanceMatrix.updateRange.offset = 0; low.instanceMatrix.updateRange.count = nl * 16; low.instanceMatrix.needsUpdate = true; }
+        const im = s.mesh.instanceMatrix, arr = im.array, low = s.low, la = low && low.instanceMatrix.array, low2 = s.low2, la2 = low2 && low2.instanceMatrix.array; let n = 0, nl = 0, nl2 = 0;
+        const lim = V ? s.lim : Infinity; for (let i = 0; i < s.n; i++) { const o = s.items[i], dd = o._c >= 0 && (low || lim !== Infinity) ? d2(o._c) : 0; if ((!V || o._c < 0 || V[o._c]) && dd <= lim) {
+          if (low2 && dd > LR2) { la2.set(o._m, nl2++ * 16); o._vi = -3; } else if (low && dd > LR) { la.set(o._m, nl++ * 16); o._vi = -2; } else { arr.set(o._m, n * 16); o._vi = n++; } } else o._vi = -1; }
+        const upd = (m, c, was) => { if (!m || !(c || was)) return; m.count = c; m.visible = c > 0; m.instanceMatrix.updateRange.offset = 0; m.instanceMatrix.updateRange.count = c * 16; m.instanceMatrix.needsUpdate = true; };
+        upd(low, nl, s.lvis); s.lvis = nl; upd(low2, nl2, s.lvis2); s.lvis2 = nl2;
         if (!n && !s.vis) continue; s.vis = n; s.mesh.count = n; s.mesh.visible = n > 0; if (s.om) { s.om.count = n; s.om.visible = this.olOn && n > 0; }
         im.updateRange.offset = 0; im.updateRange.count = n * 16; im.needsUpdate = true; }
     }
@@ -175,8 +181,19 @@
     refresh(o) { this.objr.refresh(o); }
     center(o) { const [w, dd] = G.fpDims(G.OBJ[o.t], o.r); return [o.x + w / 2, o.z + dd / 2]; }
     markDirty(tx, tz) { this.tRev = (this.tRev || 0) + 1; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const cx = Math.floor((tx + dx) / CH), cz = Math.floor((tz + dz) / CH); if (cx >= 0 && cz >= 0 && cx < this.cw && cz < this.chh) this.dirty.add(cz * this.cw + cx); } this.rev++; }
-    flush() { this.objr.cull(this.cullV || null, this.cullVer || 0); if (!this.dirty.size) return; for (const k of this.dirty) this.buildChunk(k % this.cw, Math.floor(k / this.cw)); this.dirty.clear(); }
-    buildAll() { for (let cz = 0; cz < this.chh; cz++) for (let cx = 0; cx < this.cw; cx++) this.buildChunk(cx, cz); }
+    flush() { this.objr.cull(this.cullV || null, this.cullVer || 0); if (!this.dirty.size) return; const lz = this.lazyT(); for (const k of this.dirty) if (!lz || this.chunks[k]) this.buildChunk(k % this.cw, Math.floor(k / this.cw)); this.dirty.clear(); }
+    // très grande carte : le terrain n'est construit qu'autour du joueur (ensureChunks), les morceaux lointains sont libérés
+    lazyT() { return !this.interior && this.kind === 'world' && this.W * this.H > 90000; }
+    buildAll() { const lz = this.lazyT(); for (let cz = 0; cz < this.chh; cz++) for (let cx = 0; cx < this.cw; cx++) if (!lz || this.chunks[cz * this.cw + cx]) this.buildChunk(cx, cz); }
+    dropChunk(k) { const g = this.chunks[k]; if (!g) return; this.terrain.remove(g); g.traverse(c => c.geometry && c.geometry.dispose()); this.chunks[k] = null; for (const [kk, v] of this.falls) if (v.c === k) this.falls.delete(kk); }
+    ensureChunks(x, z, R, ms, keep = R + 72) {
+      if (!this.lazyT()) return 0; const t0 = performance.now(), px = x / CH, pz = z / CH, rc = R / CH, out = keep / CH; let built = 0;
+      for (let k = 0; k < this.chunks.length; k++) if (this.chunks[k] && Math.hypot(k % this.cw + .5 - px, Math.floor(k / this.cw) + .5 - pz) > out) this.dropChunk(k);
+      const need = []; for (let cz = Math.max(0, Math.floor(pz - rc)); cz <= Math.min(this.chh - 1, Math.floor(pz + rc)); cz++) for (let cx = Math.max(0, Math.floor(px - rc)); cx <= Math.min(this.cw - 1, Math.floor(px + rc)); cx++) {
+        if (this.chunks[cz * this.cw + cx]) continue; const d = Math.hypot(cx + .5 - px, cz + .5 - pz); if (d <= rc + .75) need.push([d, cx, cz]); }
+      need.sort((a, b) => a[0] - b[0]); for (const [, cx, cz] of need) { this.buildChunk(cx, cz); built++; if (performance.now() - t0 > ms) break; }
+      return need.length - built;
+    }
     buildChunk(cx, cz) {
       const key = cz * this.cw + cx, old = this.chunks[key];
       if (old) { this.terrain.remove(old); old.traverse(c => c.geometry && c.geometry.dispose()); }
@@ -249,7 +266,7 @@
                 const uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; walls.quad([tx + q[0], bed, tz + q[1]], [tx + p[0], bed, tz + p[1]], [tx + p[0], top, tz + p[1]], [tx + q[0], top, tz + q[1]], [.62, .62, .62], [.62, .62, .62], [1, 1, 1], [1, 1, 1], [uB, bed / T], [uA, bed / T], [uA, top / T], [uB, top / T]); } } }
         }
       }
-      const g = new THREE.Group(); const add = (buf, mat, shadow) => { const geo = buf.geo(); if (!geo) return; const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = shadow; m.frustumCulled = false; g.add(m); };
+      const lz = this.lazyT(), g = new THREE.Group(); const add = (buf, mat, shadow) => { const geo = buf.geo(); if (!geo) return; if (lz) for (const k in geo.attributes) geo.attributes[k].onUpload(FREE); const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = shadow; m.frustumCulled = false; g.add(m); };
       add(tops, G.M.ground, true); add(walls, G.M.cliff, true); add(wat, G.M.water, false); add(fal, G.M.fall, false);
       this.chunks[key] = g; this.terrain.add(g);
     }

@@ -119,7 +119,9 @@
     }
     c.putImageData(im, 0, 0); return mmBase;
   };
-  U.acreName = (x, z) => { const ax = Math.floor((x - G.BORDER) / G.ACRE), az = Math.floor((z - G.BORDER) / G.ACRE); if (ax < 0 || az < 0 || ax >= G.AC || az >= G.AR) return az >= G.AR ? 'Mer' : 'Lisière'; return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[ax] + '-' + (az + 1); };
+  const ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; U.colName = a => a < 26 ? ABC[a] : ABC[Math.floor(a / 26) - 1] + ABC[a % 26];
+  U.acreName = (x, z) => { const L = G.world && G.world.meta.layout, AC = L ? L[0].length : G.AC, AR = L ? L.length : G.AR, ax = Math.floor((x - G.BORDER) / G.ACRE), az = Math.floor((z - G.BORDER) / G.ACRE);
+    if (ax < 0 || az < 0 || ax >= AC || az >= AR) return az >= AR ? 'Mer' : 'Lisière'; return U.colName(ax) + '-' + (az + 1); };
   function drawMinimap() {
     const cv = $('minimap'), c = cv.getContext('2d'), m = G.map, p = G.player, S = cv.width;
     if (m.rev !== U.mmRev && (U.mmT -= 1) < 0) { U.drawMapBase(m); U.mmRev = m.rev; U.mmT = 30; }

@@ -126,8 +126,13 @@
       }
     }
     settle();
-    // 5. routes (A*) depuis la place
-    if (plaza) for (const [tx, tz, s] of targets) { const path = astar(map, plaza[0], plaza[1], tx, tz); if (path) paveRoad(map, path, s, s === 4 ? 2 : 1); }
+    // 5. routes (A*) depuis la place ; sur une très grande carte, chaque lieu se relie au lieu déjà relié le plus proche
+    const big = W * H > 90000, area = Math.max(1, W * H / 39600);
+    if (plaza && !big) for (const [tx, tz, s] of targets) { const path = astar(map, plaza[0], plaza[1], tx, tz); if (path) paveRoad(map, path, s, s === 4 ? 2 : 1); }
+    if (plaza && big) { const done = [plaza], dd = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]); targets.sort((a, b) => dd(a, plaza) - dd(b, plaza));
+      for (const t of targets) { let q = plaza; for (const p of done) if (dd(t, p) < dd(t, q)) q = p; let path = null;
+        for (const mg of [14, 40]) { path = astar(map, q[0], q[1], t[0], t[1], [Math.min(q[0], t[0]) - mg, Math.min(q[1], t[1]) - mg, Math.max(q[0], t[0]) + mg + 1, Math.max(q[1], t[1]) + mg + 1]); if (path) break; }
+        if (path) { paveRoad(map, path, t[2], t[2] === 4 ? 2 : 1); done.push([t[0], t[1]]); } } }
     // 6. pentes naturelles
     const cand = [];
     for (let z = B; z < seaZ; z++) for (let x = B; x < W - B; x++) {
@@ -137,7 +142,7 @@
     }
     const placed = [];
     for (let k = cand.length - 1; k > 0; k--) { const j = Math.floor(r() * (k + 1)); [cand[k], cand[j]] = [cand[j], cand[k]]; }
-    for (const [x, z, dx, dz] of cand) { if (placed.length > 22) break; if (placed.some(([px, pz]) => Math.abs(px - x) + Math.abs(pz - z) < 12)) continue; const i = I(x, z), bk = I(x - dx, z - dz); if (ramp[i] || ramp[bk] || map.occ[i] || map.occ[bk]) continue; ramp[i] = dirCode(dx, dz) * 4 + 1; ramp[bk] = dirCode(dx, dz) * 4 + 2; surf[i] = surf[bk] = 2; placed.push([x, z]); }
+    for (const [x, z, dx, dz] of cand) { if (placed.length > 22 * area) break; if (placed.some(([px, pz]) => Math.abs(px - x) + Math.abs(pz - z) < 12)) continue; const i = I(x, z), bk = I(x - dx, z - dz); if (ramp[i] || ramp[bk] || map.occ[i] || map.occ[bk]) continue; ramp[i] = dirCode(dx, dz) * 4 + 1; ramp[bk] = dirCode(dx, dz) * 4 + 2; surf[i] = surf[bk] = 2; placed.push([x, z]); }
     // 7. décor naturel
     const free = (x, z, gap = 1) => { if (!map.inb(x, z) || x < 1 || z < 1 || x >= W - 1) return false; const i = I(x, z); if (water[i] || ramp[i] || map.occ[i] || G.SURF[surf[i]].path) return false;
       for (let dz = -gap; dz <= gap; dz++) for (let dx = -gap; dx <= gap; dx++) { const o = map.objAt(x + dx, z + dz); if (o && G.OBJ[o.t].chop >= 3) return false; } return true; };
@@ -161,26 +166,29 @@
       const extras = [['mauvaise_herbe', d.beach ? 0 : 3], ['buisson', id === 'foret' ? 3 : 1], ['buisson_baies', id === 'foret' || id === 'verger' ? 2 : 0], ['hortensia', id === 'jardin' || id === 'etang' ? 3 : 0], ['rocher', d.mountain || d.hill || id === 'plateau' ? 3 : d.rocky ? 4 : r() < .4 ? 1 : 0], ['champignon', id === 'foret' ? 4 : 0], ['coquillage', d.beach ? 5 : 0], ['gros_rocher', d.mountain && r() < .6 ? 1 : 0]];
       for (const [t, n] of extras) for (let k = 0; k < n; k++) { for (let tries = 0; tries < 12; tries++) { const [x, z] = rnd(); if (t === 'coquillage' && surf[I(x, z)] !== 5) continue; if (free(x, z, 0) && map.canPlace(t, x, z)) { map.addObj(t, x, z); break; } } }
     }
-    for (let k = 0; k < 5; k++) for (let tries = 0; tries < 30; tries++) { const x = B + Math.floor(r() * (W - 2 * B)), z = B + Math.floor(r() * (AR * A - 8)); if (surf[I(x, z)] <= 1 && free(x, z, 0)) { map.addObj('fissure', x, z); break; } }
+    for (let k = 0; k < 5 * area; k++) for (let tries = 0; tries < 30; tries++) { const x = B + Math.floor(r() * (W - 2 * B)), z = B + Math.floor(r() * (AR * A - 8)); if (surf[I(x, z)] <= 1 && free(x, z, 0)) { map.addObj('fissure', x, z); break; } }
     meta.spawn = meta.plaza || { x: W / 2, z: H / 2 };
     meta.seaZ = seaZ; meta.layout = layout; meta.seed = seed;
     G.emit('worldgen', map, { layout, seed, I, r });
     return map;
   };
 
-  function astar(map, sx, sz, ex, ez) {
-    const W = map.W, N = W * map.H, g = new Float32Array(N).fill(1e9), from = new Int32Array(N).fill(-1), done = new Uint8Array(N), heap = [];
+  let AS = null; // tampons réutilisés d'une recherche à l'autre (seules les cases touchées sont remises à zéro)
+  function astar(map, sx, sz, ex, ez, box) {
+    const W = map.W, N = W * map.H; if (!AS || AS.N !== N) AS = { N, g: new Float32Array(N).fill(1e9), from: new Int32Array(N).fill(-1), done: new Uint8Array(N), tch: [] };
+    const { g, from, done, tch } = AS, heap = []; for (const i of tch) { g[i] = 1e9; from[i] = -1; done[i] = 0; } tch.length = 0;
+    const bx0 = Math.max(G.BORDER, box ? box[0] : 0), bz0 = Math.max(G.BORDER, box ? box[1] : 0), bx1 = Math.min(W - G.BORDER, box ? box[2] : W), bz1 = Math.min(map.H, box ? box[3] : map.H);
     const push = (f, i) => { heap.push([f, i]); let k = heap.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
     const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (; ;) { const l = 2 * k + 1, rr = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (rr < heap.length && heap[rr][0] < heap[m][0]) m = rr; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
-    const s = sz * W + sx, e = ez * W + ex; g[s] = 0; push(0, s);
+    const s = sz * W + sx, e = ez * W + ex; g[s] = 0; tch.push(s); push(0, s);
     while (heap.length) {
       const [, i] = pop(); if (done[i]) continue; done[i] = 1; if (i === e) break;
       const x = i % W, z = (i / W) | 0;
       for (const [dx, dz] of DIRS) {
-        const nx = x + dx, nz = z + dz; if (nx < G.BORDER || nz < G.BORDER || nx >= W - G.BORDER || nz >= map.H) continue; const j = nz * W + nx;
+        const nx = x + dx, nz = z + dz; if (nx < bx0 || nz < bz0 || nx >= bx1 || nz >= bz1) continue; const j = nz * W + nx;
         if (map.occ[j] && j !== e) continue; const dl = Math.abs(map.lvl[j] - map.lvl[i]); if (dl > 1 || (dl && (map.water[i] || map.water[j]))) continue; if (map.water[j] === 2) continue;
         let c = G.SURF[map.surf[j]].path ? .35 : 1; if (map.water[j]) c += 7; if (dl) c += 14; if (map.ramp[j] || map.ramp[i]) c += dl ? 40 : 2;
-        const ng = g[i] + c; if (ng < g[j]) { g[j] = ng; from[j] = i; push(ng + (Math.abs(nx - ex) + Math.abs(nz - ez)) * .35, j); }
+        const ng = g[i] + c; if (ng < g[j]) { if (g[j] === 1e9) tch.push(j); g[j] = ng; from[j] = i; push(ng + (Math.abs(nx - ex) + Math.abs(nz - ez)) * .35, j); }
       }
     }
     if (from[e] < 0 && s !== e) return null; const path = []; for (let k = e; k >= 0; k = from[k]) { path.push(k); if (k === s) break; } return path.reverse();

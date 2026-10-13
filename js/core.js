@@ -245,10 +245,58 @@ G.bindPointer = canvas => {
   canvas.addEventListener('wheel', e => { e.preventDefault(); if (e.ctrlKey || e.shiftKey) m.cwheel += Math.sign(e.deltaY); else m.wheel += e.deltaY; }, { passive: false });
 };
 
-// ---------- Stockage local sûr ----------
+// ---------- Compression rapide (LZ4 sur l'UTF-8, rangé 15 bits par caractère : jamais de demi-caractère Unicode) ----------
+G.lz = (() => {
+  const MK = '\u0001DV1:';
+  function comp(src) {
+    const n = src.length, out = new Uint8Array(n + (n / 255 | 0) + 16), HT = new Int32Array(1 << 16).fill(-1), lim = n - 12;
+    const h = i => Math.imul(src[i] | src[i + 1] << 8 | src[i + 2] << 16 | src[i + 3] << 24, -1640531535) >>> 16;
+    let op = 0, ip = 0, anchor = 0;
+    const len = v => { while (v >= 255) { out[op++] = 255; v -= 255; } out[op++] = v; };
+    while (ip < lim) {
+      const k = h(ip), ref = HT[k]; HT[k] = ip;
+      if (ref < 0 || ip - ref > 65535 || src[ref] !== src[ip] || src[ref + 1] !== src[ip + 1] || src[ref + 2] !== src[ip + 2] || src[ref + 3] !== src[ip + 3]) { ip++; continue; }
+      let ml = 4; while (ip + ml < n - 5 && src[ref + ml] === src[ip + ml]) ml++;
+      const ll = ip - anchor, tok = op++; if (ll >= 15) len(ll - 15);
+      out.set(src.subarray(anchor, ip), op); op += ll;
+      const off = ip - ref; out[op++] = off & 255; out[op++] = off >> 8;
+      if (ml - 4 >= 15) len(ml - 19);
+      out[tok] = (ll >= 15 ? 15 : ll) << 4 | (ml - 4 >= 15 ? 15 : ml - 4);
+      ip += ml; anchor = ip; if (ip < lim) HT[h(ip - 2)] = ip - 2;
+    }
+    const ll = n - anchor; out[op++] = (ll >= 15 ? 15 : ll) << 4; if (ll >= 15) len(ll - 15); out.set(src.subarray(anchor, n), op); op += ll;
+    return out.subarray(0, op);
+  }
+  function decomp(src, n0) {
+    const out = new Uint8Array(n0), n = src.length; let ip = 0, op = 0;
+    while (ip < n) {
+      const t = src[ip++]; let ll = t >> 4, b;
+      if (ll === 15) do { b = src[ip++]; ll += b; } while (b === 255);
+      out.set(src.subarray(ip, ip + ll), op); ip += ll; op += ll; if (ip >= n) break;
+      const off = src[ip] | src[ip + 1] << 8; ip += 2; let ml = t & 15;
+      if (ml === 15) do { b = src[ip++]; ml += b; } while (b === 255);
+      ml += 4; let r = op - off; for (let k = 0; k < ml; k++) out[op++] = out[r++];
+    }
+    return out;
+  }
+  function enc(str) {
+    const raw = new TextEncoder().encode(str), c = comp(raw), nb = c.length, codes = new Uint16Array(Math.ceil(nb * 8 / 15) + 1); let acc = 0, bits = 0, o = 0;
+    for (let i = 0; i < nb; i++) { acc = (acc << 8) | c[i]; bits += 8; if (bits >= 15) { bits -= 15; codes[o++] = ((acc >>> bits) & 0x7fff) + 32; } acc &= (1 << bits) - 1; }
+    if (bits > 0) codes[o++] = ((acc << (15 - bits)) & 0x7fff) + 32;
+    let s = MK + raw.length + ':' + nb + ':'; for (let i = 0; i < o; i += 8192) s += String.fromCharCode.apply(null, codes.subarray(i, Math.min(o, i + 8192)));
+    return s;
+  }
+  function dec(s) {
+    const a = s.indexOf(':', MK.length), b = s.indexOf(':', a + 1), n0 = +s.slice(MK.length, a), nb = +s.slice(a + 1, b), c = new Uint8Array(nb); let acc = 0, bits = 0, o = 0;
+    for (let i = b + 1; i < s.length && o < nb; i++) { acc = (acc << 15) | (s.charCodeAt(i) - 32); bits += 15; while (bits >= 8 && o < nb) { bits -= 8; c[o++] = (acc >>> bits) & 255; } acc &= (1 << bits) - 1; }
+    return new TextDecoder().decode(decomp(c, n0));
+  }
+  return { enc, dec, is: s => typeof s === 'string' && s.startsWith(MK) };
+})();
+// ---------- Stockage local sûr (les grosses données, comme la sauvegarde du monde, sont compressées) ----------
 G.store = {
-  get(k, d = null) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  get(k, d = null) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(G.lz.is(v) ? G.lz.dec(v) : v); } catch (e) { return d; } },
+  set(k, v) { try { let s = JSON.stringify(v); if (s.length > 20000) s = G.lz.enc(s); localStorage.setItem(k, s); return true; } catch (e) { return false; } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { } }
 };
 G.b64 = {

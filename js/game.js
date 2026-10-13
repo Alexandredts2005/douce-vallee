@@ -84,7 +84,7 @@
     if (G.map && G.map !== m) { G.map.group.visible = false; G.feat.clearFish(); }
     if (!m.group.parent) scene.add(m.group); m.group.visible = true; const outdoorChange = !m.interior && seaG && seaG.userData.map !== m; G.map = m;
     const inside = m.interior; sky.visible = stars.visible = sunM.visible = moonM.visible = !inside; if (outdoorChange) makeSea(m); seaG && (seaG.visible = !inside); clouds.forEach(c => c.visible = !inside);
-    scene.background = inside ? new THREE.Color(0x24170f) : null; scene.fog.near = inside ? 200 : 110; scene.fog.far = inside ? 400 : 420;
+    scene.background = inside ? new THREE.Color(0x24170f) : null; const vast = !inside && m.lazyT(); scene.fog.near = inside ? 200 : vast ? 100 : 110; scene.fog.far = inside ? 400 : vast ? 330 : 420;
     G.audio.setInside(inside); roomLight.intensity = inside ? .3 : 0; if (inside) roomLight.position.set(m.W / 2, 2.7, m.H / 2);
     G.player.teleport(x, z, yaw); G.cam.cx = 0; if (!G.mouseMode()) G.cam.yaw = G.cam.tyaw = 0; else G.cam.tyaw = G.cam.yaw = (yaw || 0) + Math.PI; G.ui.mmRev = -1; lampT = 0;
     if (inside) G.ui.toast(m.meta.title || 'Maison');
@@ -169,10 +169,10 @@
       if ((d.fruit || d.pickFruit) && o.f === 0) { o.f = 3; m.refresh(o); }
       if (o.t === 'pousse') { o.g = (o.g || 0) + 1 + (o.wt === G.clock.day - 1 ? 1 : 0); if (o.g >= 2) { const { x, z } = o; m.removeObj(o); m.addObj(o.ft || 'chene', x, z, 0, { f: 3 }); } } }
     m.meta.respawn = (m.meta.respawn || []).filter(e => { if (e.day > G.clock.day) return true; if (m.canPlace(e.t, e.x, e.z)) m.addObj(e.t, e.x, e.z); return false; });
-    const rnd = () => [G.BORDER + Math.floor(r() * (m.W - 2 * G.BORDER)), G.BORDER + Math.floor(r() * (G.AR * G.ACRE))];
-    for (let k = 0; k < 3; k++) for (let t = 0; t < 20; t++) { const [x, z] = rnd(); const i = m.idx(x, z); if (m.surf[i] <= 1 && m.canPlace('fissure', x, z)) { m.addObj('fissure', x, z); break; } }
-    for (let k = 0; k < 4; k++) for (let t = 0; t < 20; t++) { const [x, z] = rnd(); const i = m.idx(x, z); if (m.surf[i] === 5 && m.canPlace('coquillage', x, z)) { m.addObj('coquillage', x, z); break; } }
-    for (let k = 0; k < 3; k++) for (let t = 0; t < 20; t++) { const [x, z] = rnd(); const i = m.idx(x, z); if (m.surf[i] === 0 && m.canPlace('mauvaise_herbe', x, z)) { m.addObj('mauvaise_herbe', x, z); break; } }
+    const AR = m.meta.layout ? m.meta.layout.length : G.AR, sc = Math.max(1, Math.round(m.W * m.H / 39600)), rnd = () => [G.BORDER + Math.floor(r() * (m.W - 2 * G.BORDER)), G.BORDER + Math.floor(r() * (AR * G.ACRE))];
+    for (let k = 0; k < 3 * sc; k++) for (let t = 0; t < 20; t++) { const [x, z] = rnd(); const i = m.idx(x, z); if (m.surf[i] <= 1 && m.canPlace('fissure', x, z)) { m.addObj('fissure', x, z); break; } }
+    for (let k = 0; k < 4 * sc; k++) for (let t = 0; t < 20; t++) { const [x, z] = rnd(); const i = m.idx(x, z); if (m.surf[i] === 5 && m.canPlace('coquillage', x, z)) { m.addObj('coquillage', x, z); break; } }
+    for (let k = 0; k < 3 * sc; k++) for (let t = 0; t < 20; t++) { const [x, z] = rnd(); const i = m.idx(x, z); if (m.surf[i] === 0 && m.canPlace('mauvaise_herbe', x, z)) { m.addObj('mauvaise_herbe', x, z); break; } }
     G.emit('newDay', G.clock.day);
   };
   // ---------- survie : faim et santé ----------
@@ -189,7 +189,7 @@
   G.startNew = o => loading('Plantation des arbres…', () => {
     G.mode = o.mode; G.playerName = o.name; G.villageName = o.village; G.startDate = Date.now(); G.clock = { min: 8 * 60, day: 1 }; G.coins = o.mode === 'survie' ? 300 : 5000; G.sel = 0; G.placeRot = 0;
     const layout = o.map === 'random' ? G.randomLayout(o.seed) : o.map === 'custom' && G.editorLayout ? G.editorLayout : G.DEFAULT_LAYOUT;
-    setWorld(G.genWorld(layout, o.seed));
+    setWorld(G.genWorld(G.bigLayout ? G.bigLayout(layout, o.seed) : layout, o.seed));
     G.inv.slots = new Array(30).fill(null); G.inv.hot = new Array(10).fill(null);
     if (o.mode === 'survie') START.survie.forEach(([id, n], i) => G.inv.slots[i] = { id, n }); else START.creatif.forEach((id, i) => G.inv.hot[i] = id);
     G.dex = { caught: {}, donated: {} }; G.storage = new Array(120).fill(null); G.flags = {}; G.mini.best = {}; if (G.island) { scene.remove(G.island.group); G.island = null; }

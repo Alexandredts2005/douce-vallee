@@ -297,7 +297,7 @@
     let m; try { m = G.GMap.deserialize(w); } catch (e) { return { err: 'Ce village est illisible.' }; }
     G.ui.closePanel && G.ui.modal === 'panel' && G.ui.closePanel();
     m.id = 'world'; m.kind = 'world'; m.visit = true; G.scene.add(m.group); m.buildAll(); m.group.visible = false;
-    if (m.meta.rueGate && G.mapLabel) G.mapLabel(m, '🏬 Rue commerçante', m.meta.rueGate.sx, 3.25, 2.25, 1.1);
+    if (m.meta.rueGate && G.mapLabel) G.mapLabel(m, '🏬 Rue commerçante', m.meta.rueGate.sx, 3.25, m.meta.rueGate.z - 1.05, 1.1);
     const old = NET.visit; if (old) cleanupVisit(old); seen.clear();
     NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses };
     G.ents.spawnVillagers(m); trainSfx();

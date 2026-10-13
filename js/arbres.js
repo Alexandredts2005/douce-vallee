@@ -133,6 +133,17 @@
     if (v < 10) [[.05, -.24, .2], [.2, -.3, -.08], [-.16, -.28, -.1], [-.02, -.36, .02]].forEach(q => { b.sph(.15, 0x5e4126, tx + q[0], ty + q[1], q[2], 1, 1.08, 1, 0, 12, 9); b.sph(.03, 0x2e2015, tx + q[0] * 1.6, ty + q[1] - .02, q[2] * 1.6, 1, 1, 1, 0, 6, 4); });
     return b.done(); };
   for (const k in T) both(k, T[k]);
+  // très loin (grand monde) : une silhouette toute simple, tronc + houppier aux couleurs moyennes de l'arbre (une centaine de triangles)
+  const far = (name, cone) => v => { const g = G.getGeo(name + '_lod', v), P = g.attributes.position.array, C = g.attributes.color.array, n = P.length / 3, H = g.boundingBox.max.y, cut = H * .28;
+    const f = [0, 0, 0, 0], t = [0, 0, 0, 0]; let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, y0 = 1e9;
+    for (let i = 0; i < n; i++) { const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], a = y > cut ? f : t; a[0] += C[i * 3]; a[1] += C[i * 3 + 1]; a[2] += C[i * 3 + 2]; a[3]++;
+      if (y > cut) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); y0 = Math.min(y0, y); } }
+    if (y0 > H) y0 = cut; const col = a => new THREE.Color(a[0] / Math.max(1, a[3]), a[1] / Math.max(1, a[3]), a[2] / Math.max(1, a[3])), b = G.mb(5), rx = Math.max(.3, (x1 - x0) / 2), rz = Math.max(.3, (z1 - z0) / 2), cx = (x0 + x1) / 2 || 0, cz = (z0 + z1) / 2 || 0;
+    b.geo(new THREE.CylinderGeometry(.09, .14, y0 + .3, 5, 1, true), t[3] ? col(t) : 0x6b4a32, b.M(0, (y0 + .3) / 2, 0));
+    if (cone) b.geo(new THREE.ConeGeometry(Math.max(rx, rz), H - y0, 7, 1), col(f), b.M(cx, (y0 + H) / 2, cz));
+    else b.geo(new THREE.IcosahedronGeometry(1, 1), col(f), b.M(cx, (y0 + H) / 2, cz, 0, 0, 0, rx * .92, (H - y0) / 2, rz * .92));
+    return b.done(); };
+  for (const k in T) MD[k + '_lod2'] = far(k, /pine/.test(k));
   // outils partagés (plantes de la gare, etc.)
   G.TREEKIT = { vnoise, fbm, raw, paint, bark, trunk, limb, foliage, lo };
 

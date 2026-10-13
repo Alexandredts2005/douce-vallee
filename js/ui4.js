@@ -8,7 +8,7 @@
   let pv = null;
   function preview(look) {
     if (!pv) { const c = document.createElement('canvas'); c.width = 280; c.height = 340; c.style.cssText = 'width:100%;max-width:280px;height:auto;aspect-ratio:28/34;border-radius:22px;background:linear-gradient(#bfe7f7,#e8f6d8);display:block;cursor:grab';
-      const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, alpha: true }); r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(280, 340, false);
+      const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, alpha: true, powerPreference: 'high-performance' }); r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(280, 340, false);
       const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0xc8b89a, .75)); const d = new THREE.DirectionalLight(0xffffff, .8); d.position.set(2, 4, 3); sc.add(d);
       const cam = new THREE.PerspectiveCamera(30, 280 / 340, .1, 50); cam.position.set(0, .95, 3.6); cam.lookAt(0, .7, 0);
       const disc = new THREE.Mesh(new THREE.CylinderGeometry(.55, .55, .04, 24), new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: G.TEX.toon })); disc.position.y = -.02; sc.add(disc);

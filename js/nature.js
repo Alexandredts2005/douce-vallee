@@ -140,10 +140,12 @@ void main() {
   G.on('init', scene => { buildClouds(scene); if (G.M.cloud) G.M.cloud.visible = false; });
   G.on('frame', dt => {
     if (!CL.mesh) return; const m = G.map, inside = !!(m && m.interior), si = G.skyInfo, L = G.lights; CL.mesh.visible = !inside && G.settings.quality !== 'low'; if (!CL.mesh.visible || !si || !L) return;
-    const u = CL.mesh.material.uniforms, W = (G.world && G.world.W || 200) + 260, H = (G.world && G.world.H || 120) + 220, cam = G.camera.position, n = si.n || 0, wind = G.weather && G.weather.wind != null ? G.weather.wind : 1;
+    // très grand monde : les nuages suivent la caméra dans une fenêtre qui se répète (même densité que sur l'ancienne carte)
+    const vast = G.world && G.world.W * G.world.H > 90000, u = CL.mesh.material.uniforms, W = vast ? 620 : (G.world && G.world.W || 200) + 260, H = vast ? 330 : (G.world && G.world.H || 120) + 220, cam = G.camera.position, n = si.n || 0, wind = G.weather && G.weather.wind != null ? G.weather.wind : 1;
     u.uSunCol.value.copy(L.sun.color).multiplyScalar(.75 + .25 * Math.min(1, L.sun.intensity)); u.uTop.value.copy(si.top); u.uHor.value.copy(si.hor); u.uNight.value = n; u.uFade.value = G.weather && G.weather.cover != null ? .55 + .45 * G.weather.cover : 1;
     const toSun = V3.copy(L.sun.position).sub(L.sun.target.position).normalize(); let k = 0;
-    for (const cl of CL.clouds) { cl.x = (cl.x + dt * cl.s * .0012 * wind) % 1; const cx = -130 + cl.x * W, cz = -110 + cl.z * H;
+    for (const cl of CL.clouds) { cl.x = (cl.x + dt * cl.s * .0012 * wind) % 1; let cx = -130 + cl.x * W, cz = -110 + cl.z * H;
+      if (vast) { cx = cam.x - W / 2 + (((cl.x * W - cam.x + W / 2) % W) + W) % W; cz = cam.z - H / 2 + (((cl.z * H - cam.z + H / 2) % H) + H) % H; }
       for (const pf of cl.puffs) { const x = cx + pf.ox, y = cl.y + pf.oy, z = cz + pf.oz; CL.iPos[k * 3] = x; CL.iPos[k * 3 + 1] = y; CL.iPos[k * 3 + 2] = z; const len = Math.hypot(pf.ox, pf.oy, pf.oz) || 1;
         CL.iDat[k * 4] = pf.size; CL.iDat[k * 4 + 1] = pf.up; CL.iDat[k * 4 + 2] = (pf.ox * toSun.x + pf.oy * toSun.y + pf.oz * toSun.z) / len; CL.iDat[k * 4 + 3] = pf.seed; CL.tmp[k] = (x - cam.x) ** 2 + (y - cam.y) ** 2 + (z - cam.z) ** 2; k++; } }
     // de l'arrière vers l'avant (transparence correcte)
