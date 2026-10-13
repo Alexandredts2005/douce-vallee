@@ -238,7 +238,7 @@
       G.input.poll(); G.ui.keys(); G.ui.keys2();
       if (document.pointerLockElement && (G.ui.modal || G.state !== 'play')) document.exitPointerLock();
       G.U.cloudOff.value.set(wt * .0045, wt * .0018);
-      if (G.state === 'play') { updClock(dt); G.player.update(dt); G.act.update(dt); G.ents.update(dt); survival(dt); G.emit('update', dt); autoT += dt; if (autoT > 120) { autoT = 0; G.saveGame(true); } }
+      if (G.state === 'play') { updClock(dt); G.player.update(dt); G.act.update(dt); G.ents.update(dt); survival(dt); G.emit('update', dt); autoT += dt; if (autoT > 120) { autoT = 0; if (G.settings.autosave !== false && !(G.move && G.move.c)) G.saveGame(true); } }
       else if (G.state === 'title') { G.clock.min = (G.clock.min + dt * .6) % 1440; G.ents.update(dt); }
       G.ui.update(dt); if (G.map) G.map.flush();
       updCamera(dt); updSky(); updLamps(dt, G.night());
