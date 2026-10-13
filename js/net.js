@@ -100,8 +100,20 @@
     const p = G.player, m = G.map, s = G.session; if (!p || !m || G.state === 'title' || G.state === 'loading' || !s || !NET.curRoom) return OFF;
     const hs = Math.hypot(p.vx, p.vz), a = p.swim ? 3 : p.vehicle ? 8 : !p.onGround ? 4 : p.sit ? 5 : p.fish ? 6 : p.emote ? 7 : hs > 4.6 ? 2 : hs > .3 ? 1 : 0;
     return { v: 2, idle: null, pid: NET.ses, n: clean(G.playerName, 16), vil: clean(G.villageName, 24), home: NET.me(), vis: NET.visit ? 1 : null, at: NET.nroom ? null : NET.curRoom, m: mapKey(m), x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100, y: Math.round(p.y * 100) / 100, r: Math.round(p.yaw * 100) / 100, a, lk: NET.lk || (NET.lk = packLook(p.look)),
-      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: (!NET.visit || NET.iAmAdmin()) && NET.ops.length ? { ses: NET.ses, l: NET.ops } : null, adm: !NET.visit && admins().size ? [...admins()].slice(0, 20) : null, ed: !NET.visit && NET.editOpen() ? 1 : null };
+      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: (!NET.visit || NET.iAmAdmin()) && NET.ops.length ? { ses: NET.ses, l: NET.ops } : null, adm: !NET.visit && admins().size ? [...admins()].slice(0, 20) : null, ed: !NET.visit && NET.editOpen() ? 1 : null,
+      vh: vehState(p), pq: p.vehicle ? [r3(p.root.quaternion.x), r3(p.root.quaternion.y), r3(p.root.quaternion.z), r3(p.root.quaternion.w)] : null,
+      ck: NET.visit ? null : Math.floor(G.clock.min), dy: NET.visit ? null : G.clock.day, vg: NET.visit ? null : villagersState() };
   }
+  // ---------- ce qui est partagé en plus : le véhicule (avion, moto, bateau, montgolfière), l'heure de l'hôte, ses habitants ----------
+  const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, VP = new THREE.Vector3(), VQ = new THREE.Quaternion();
+  function vehState(p) { const v = p.vehicle; if (!v || !v.mesh) return null; const o = v.o && G.OBJ[v.o.t];
+    const g = v.plane2 ? ['avion', 0] : v.moto ? ['moto', v.v || 0] : v.boat2 || v.boat ? ['boat', v.v || 0] : o ? [o.model, o.v || 0] : null; if (!g) return null;
+    const ms = v.mesh; ms.updateMatrixWorld(); ms.getWorldPosition(VP); ms.getWorldQuaternion(VQ);
+    return { g: g[0], v: g[1], p: [r2(VP.x), r2(VP.y), r2(VP.z)], q: [r3(VQ.x), r3(VQ.y), r3(VQ.z), r3(VQ.w)], s: r2(ms.scale.x) }; }
+  let vgT = 0, vgC = null;
+  function villagersState() { const now = performance.now(); if (now - vgT < 250) return vgC; vgT = now; const out = [];
+    for (const e of G.ents.villagers) if (e.map === G.world && !e.fixed && e.home && e.home.vi != null) out.push([e.home.vi, r2(e.x), r2(e.z), r2(e.yaw), e.mv ? 1 : 0]);
+    return vgC = out.length ? out : null; }
   function sendPresence(force) {
     const pr = myPresence(), s = JSON.stringify(pr), now = Date.now(); if (!force && s === NET.lastPres && now - (NET.sentAt || 0) < 8000) return; NET.lastPres = s; NET.sentAt = now;
     if (NET.mode === 'claude') { const r = NET.nroom || (NET.curRoom ? NET.room : null); if (r) r.presence(pr).catch(() => { }); }
@@ -155,17 +167,20 @@
   };
   // ---------- les modifications de l'hôte (et de ses amis « admin ») suivent en direct ----------
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj, seen = new Map();
-  const rec = op => { NET.seq++; op.s = NET.seq; NET.ops.push(op); if (NET.ops.length > 32) NET.ops.shift(); };
-  const tracked = m => (m === G.world && !NET.visit) || !!(NET.visit && m === NET.visit.map && NET.iAmAdmin());
-  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined }); return o; };
-  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'r', t: o.t, x: o.x, z: o.z }); };
-  const omd = GP.markDirty; GP.markDirty = function (tx, tz) { omd.call(this, tx, tz); if (G.state === 'play' && !NET.applying && NET.online() && this.inb(tx, tz) && tracked(this)) { const i = this.idx(tx, tz), op = { k: 't', x: tx, z: tz, l: this.lvl[i], w: this.water[i], p: this.ramp[i], f: this.surf[i] }, last = NET.ops[NET.ops.length - 1];
+  const rec = op => { NET.seq++; op.s = NET.seq; NET.ops.push(op); if (NET.ops.length > 64) NET.ops.shift(); };
+  // suivis : le village et ses intérieurs chez soi ; le village visité et ses intérieurs pour un ami « admin »
+  const tracked = m => !NET.visit ? (m === G.world || !!(m.interior && G.interiors[m.id] === m)) : !!(NET.iAmAdmin() && (m === NET.visit.map || (m.isVisit && NET.visit.interiors[m.id] === m)));
+  const mk = m => mapKey(m) === 'world' ? undefined : m.id;
+  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, m: mk(this) }); return o; };
+  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'r', t: o.t, x: o.x, z: o.z, m: mk(this) }); };
+  const omd = GP.markDirty; GP.markDirty = function (tx, tz) { omd.call(this, tx, tz); if (G.state === 'play' && !NET.applying && NET.online() && !this.interior && this.inb(tx, tz) && tracked(this)) { const i = this.idx(tx, tz), op = { k: 't', x: tx, z: tz, l: this.lvl[i], w: this.water[i], p: this.ramp[i], f: this.surf[i] }, last = NET.ops[NET.ops.length - 1];
     if (!(last && last.k === 't' && last.x === tx && last.z === tz && last.l === op.l && last.w === op.w && last.p === op.p && last.f === op.f)) rec(op); } };
-  function applyOps(pr, m, key) {
+  function applyOps(pr, base, key) { const m = base;
     if (!m || !pr.ops || !Array.isArray(pr.ops.l)) return; const sk = key + ':' + pr.ops.ses; let last = seen.get(sk);
     if (last === undefined) last = NET.visit && m === NET.visit.map && isHost(pr) && pr.ops.ses === NET.visit.ses ? NET.visit.seq : 0;
     NET.applying = true;
-    try { for (const op of pr.ops.l) { if (!op || typeof op.s !== 'number' || op.s <= last || !m.inb(op.x | 0, op.z | 0)) continue;
+    const ints = m === G.world ? G.interiors : NET.visit && m === NET.visit.map ? NET.visit.interiors : {};
+    try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; const op = op0, m = op.m ? ints[op.m] : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
       if (op.k === 't') { last = op.s; if (m.interior || op.x < 2 || op.z < 2 || op.x >= m.W - 2 || op.z >= m.H - 2) continue; const i = m.idx(op.x | 0, op.z | 0); m.lvl[i] = Math.max(0, Math.min(4, op.l | 0)); m.water[i] = Math.max(0, Math.min(2, op.w | 0)); m.ramp[i] = Math.max(0, Math.min(255, op.p | 0)); if (G.SURF[op.f | 0]) m.surf[i] = op.f | 0; m.markDirty(op.x | 0, op.z | 0); continue; }
       if (!G.OBJ[op.t]) continue; last = op.s;
       if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
@@ -205,7 +220,13 @@
     if (pr.say && pr.say.t !== a.sayT && typeof pr.say.txt === 'string') { a.sayT = pr.say.t; NET.bubble(a.C.root, clean(pr.say.txt, 90)); chatLog(label, clean(pr.say.txt, 90)); G.sfx('pop', .6); }
     return a;
   }
-  function dropAvatar(id) { const a = NET.av.get(id); if (!a) return; if (a.C) G.scene.remove(a.C.root); if (a.blob) G.scene.remove(a.blob); NET.av.delete(id); }
+  function dropAvatar(id) { const a = NET.av.get(id); if (!a) return; if (a.C) G.scene.remove(a.C.root); if (a.blob) G.scene.remove(a.blob); if (a.veh) G.scene.remove(a.veh); NET.av.delete(id); }
+  // le véhicule d'un autre joueur, à la même place, même inclinaison
+  function vehicleOf(a, pr, dt) { const vh = pr.vh;
+    if (!vh || !vh.g || !G.MODELS[vh.g] || !Array.isArray(vh.p) || !Array.isArray(vh.q)) { if (a.veh) a.veh.visible = false; return; }
+    const key = vh.g + ':' + (vh.v | 0); if (!a.veh || a.vehKey !== key) { if (a.veh) G.scene.remove(a.veh); try { a.veh = new THREE.Mesh(G.getGeo(vh.g, vh.v | 0), G.MATS); } catch (e) { a.veh = null; return; } a.veh.castShadow = true; a.veh.frustumCulled = false; G.scene.add(a.veh); a.vehKey = key; a.veh.position.set(vh.p[0], vh.p[1], vh.p[2]); }
+    const P = a.veh.position, d = Math.hypot(vh.p[0] - P.x, vh.p[2] - P.z), k = d > 8 ? 1 : Math.min(1, dt * 12); P.x += (vh.p[0] - P.x) * k; P.y += (vh.p[1] - P.y) * k; P.z += (vh.p[2] - P.z) * k;
+    a.veh.quaternion.slerp(VQ.set(vh.q[0], vh.q[1], vh.q[2], vh.q[3]).normalize(), Math.min(1, dt * 12)); a.veh.scale.setScalar(vh.s || 1); a.veh.visible = true; }
   const isHost = pr => !!(NET.visit && pr && pr.home === ids(NET.visit.code).id && !pr.vis);
   function onPeers() {
     for (const id of [...NET.av.keys()]) if (!NET.peers.has(id)) dropAvatar(id);
@@ -223,13 +244,16 @@
     if (NET.mode === 'server' && (NET.expT = (NET.expT || 0) + 1) % 60 === 0) { let gone = false; for (const [id, q] of NET.peers) if (q.t && now - q.t > 70000) { NET.peers.delete(id); gone = true; } if (gone) onPeers(); }
     for (const p of NET.peers.values()) { const pr = p.pr; let a = NET.av.get(p.id);
       const self = !pr.vis && pr.home && pr.home === NET.me() && !NET.visit, here = !self && play && live(pr) && pr.m === mk && typeof pr.x === 'number' && typeof pr.z === 'number';
-      if (!here) { if (a) { a.C && (a.C.root.visible = false); a.blob.visible = false; } continue; }
-      a = avatar(p.id, pr); const C = a.C, k = Math.min(1, dt * 9), tx = pr.x, tz = pr.z, d = Math.hypot(tx - a.x, tz - a.z);
+      if (!here) { if (a) { a.C && (a.C.root.visible = false); a.blob.visible = false; if (a.veh) a.veh.visible = false; } continue; }
+      a = avatar(p.id, pr); const C = a.C, k = Math.min(1, dt * (pr.vh ? 12 : 9)), tx = pr.x, tz = pr.z, d = Math.hypot(tx - a.x, tz - a.z);
       if (d > 8) { a.x = tx; a.z = tz; } else { a.x += (tx - a.x) * k; a.z += (tz - a.z) * k; } a.y += ((typeof pr.y === 'number' ? pr.y : G.map.topAt(a.x, a.z)) - a.y) * Math.min(1, dt * 12); a.r = G.angLerp(a.r, pr.r || 0, Math.min(1, dt * 10));
-      C.root.visible = true; C.root.position.set(a.x, a.y, a.z); C.root.rotation.y = a.r; a.blob.visible = pr.a !== 3; a.blob.position.set(a.x, G.map.topAt(a.x, a.z) + .03, a.z); a.blob.scale.set(.75, 1, .75);
+      C.root.visible = true; C.root.position.set(a.x, a.y, a.z);
+      if (Array.isArray(pr.pq)) { C.root.quaternion.slerp(VQ.set(pr.pq[0], pr.pq[1], pr.pq[2], pr.pq[3]).normalize(), Math.min(1, dt * 12)); } else C.root.rotation.set(0, a.r, 0);
+      vehicleOf(a, pr, dt);
+      a.blob.visible = pr.a !== 3 && !pr.vh; a.blob.position.set(a.x, G.map.topAt(a.x, a.z) + .03, a.z); a.blob.scale.set(.75, 1, .75);
       const moving = pr.a === 1 || pr.a === 2, t = now / 1000; let lL = 0, lR = 0, aL = 0, aR = 0, bob = 0, lean = 0;
       if (moving) { a.walkT += dt * (pr.a === 2 ? 12 : 8); const s = Math.sin(a.walkT), amp = pr.a === 2 ? .95 : .7; lL = s * amp; lR = -s * amp; aL = -s * amp * .85; aR = s * amp * .85; bob = Math.abs(Math.cos(a.walkT)) * .05; lean = pr.a === 2 ? .18 : .05; }
-      else if (pr.a === 4) { lL = -.6; lR = .3; aL = aR = -2.4; } else if (pr.a === 5) { lL = lR = -1.45; bob = -.3; } else if (pr.a === 3) { const s = Math.sin(t * 6); aL = -1.4 + s * .9; aR = -1.4 - s * .9; bob = -.05; lean = .55; }
+      else if (pr.a === 4) { lL = -.6; lR = .3; aL = aR = -2.4; } else if (pr.a === 5 || pr.a === 8) { lL = lR = -1.45; bob = -.3; if (pr.a === 8) aL = aR = -1.1; } else if (pr.a === 3) { const s = Math.sin(t * 6); aL = -1.4 + s * .9; aR = -1.4 - s * .9; bob = -.05; lean = .55; }
       else if (pr.a === 7) { const e = pr.em; if (e === 'salut') { aR = -2.6 + Math.sin(t * 14) * .25; } else if (e === 'danse') { const s = Math.sin(t * 9); aL = -2.4 + s * .5; aR = -2.4 - s * .5; bob = Math.abs(s) * .08; } else if (e === 'bravo') { aL = aR = -1.4; } else if (e === 'assis' || e === 'dodo') { lL = lR = -1.5; bob = -.3; } else if (e === 'rire') bob = Math.abs(Math.sin(t * 18)) * .04; }
       else bob = Math.sin(t * 2.2 + a.x) * .012;
       C.legL.rotation.x = lL; C.legR.rotation.x = lR; C.armL.rotation.x = aL; C.armR.rotation.x = aR; C.body.position.y = bob; C.body.rotation.x = lean;
@@ -241,7 +265,12 @@
     if (!NET.online()) return;
     const want = G.session && townCode() ? ids(townCode()).room : null; if (want !== NET.curRoom && !NET.roomBusy) switchRoom(want);
     NET.presT -= dt; if (NET.presT < 0) { NET.presT = .085; sendPresence(); }
-    if (G.state === 'play' && !NET.visit && G.session && (NET.pubT -= dt) < 0) { NET.pubT = 20; if (G.world.rev !== NET.pubRev || NET.pubClosed !== NET.closed()) NET.publish(); }
+    // en visite : même heure que l'hôte, ses habitants aux mêmes endroits
+    if (NET.visit) { let hp = null; for (const q of NET.peers.values()) if (isHost(q.pr) && live(q.pr)) { hp = q.pr; break; }
+      if (hp) { if (typeof hp.ck === 'number' && Math.abs(hp.ck - G.clock.min) > 2) { G.clock.min = hp.ck; if (hp.dy) G.clock.day = hp.dy; }
+        if (Array.isArray(hp.vg)) { const byVi = new Map(); for (const e of hp.vg) if (Array.isArray(e)) byVi.set(e[0], e);
+          for (const e of G.ents.villagers) if (e.map === NET.visit.map && !e.fixed && e.home) { const q = byVi.get(e.home.vi); e.net = q ? { x: +q[1], z: +q[2], r: +q[3], mv: !!q[4] } : null; } } } }
+    if (G.state === 'play' && !NET.visit && G.session && (NET.pubT -= dt) < 0) { NET.pubT = NET.peers.size ? 8 : 20; if (G.world.rev !== NET.pubRev || NET.pubClosed !== NET.closed()) NET.publish(); }
   });
   // à l'écran titre, on quitte la salle du village
   G.on('frame', () => { if (NET.online() && G.state === 'title' && NET.curRoom && !NET.roomBusy) { sendPresence(true); switchRoom(null); } });
@@ -300,19 +329,19 @@
     m.id = 'world'; m.kind = 'world'; m.visit = true; G.scene.add(m.group); m.buildAll(); m.group.visible = false;
     if (m.meta.rueGate && G.mapLabel) G.mapLabel(m, '🏬 Rue commerçante', m.meta.rueGate.sx, (m.meta.rueGate.y || 0) + (m.meta.rueGate.big ? 9.4 : 3.25), m.meta.rueGate.z - 1.05, m.meta.rueGate.big ? 1.7 : 1.1);
     const old = NET.visit; if (old) cleanupVisit(old); seen.clear();
-    NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses };
+    NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses, myClock: { min: G.clock.min, day: G.clock.day } };
     G.ents.spawnVillagers(m); trainSfx();
     G.ui.fade(() => { const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start(0); G.ui.toast('🚂 Bienvenue à ' + NET.visit.vil + ' ! Rentre quand tu veux avec 🏠 ou par la gare.'); sendPresence(true); }, 1.6);
     return {};
   };
   function cleanupVisit(v) { for (const im of [v.map, ...Object.values(v.interiors)]) { G.scene.remove(im.group); for (const a of G.ents.villagers.slice()) if (a.map === im) { G.scene.remove(a.root); G.scene.remove(a.blob); G.ents.villagers.splice(G.ents.villagers.indexOf(a), 1); } } }
-  function leaveVisit(silent) { const v = NET.visit; if (!v) return; cleanupVisit(v); NET.visit = null; if (!silent) sendPresence(true); }
+  function leaveVisit(silent) { const v = NET.visit; if (!v) return; cleanupVisit(v); NET.visit = null; if (v.myClock) { G.clock.min = v.myClock.min; G.clock.day = v.myClock.day; } if (!silent) sendPresence(true); }
   NET.goHome = () => { if (!NET.visit) return; trainSfx(); G.ui.fade(() => { const g = G.world.meta.gare || G.world.meta.spawn; G.enterMap(G.world, g.x, (g.z || 0) + .4, 0); leaveVisit(); G.train && G.train.start(0); G.ui.toast('🏠 De retour à ' + G.villageName + ' !'); }, 1.6); };
   function trainSfx() { const A = G.audio; if (!A || !A.ok) return; try { const C = A.ctx, t = C.currentTime; for (let i = 0; i < 2; i++) for (const f of [740, 932]) { const o = C.createOscillator(), g = C.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.0001, t + i * .6); g.gain.linearRampToValueAtTime(.05, t + i * .6 + .04); g.gain.exponentialRampToValueAtTime(.0001, t + i * .6 + .5); o.connect(g); g.connect(A.sfxG); o.start(t + i * .6); o.stop(t + i * .6 + .6); } } catch (e) { } }
   // entrer dans les maisons du village visité (maisons des habitants publiées, boutiques générées)
   const oenter = G.act.enterHouse; G.act.enterHouse = o => {
     const v = NET.visit, cur = G.map; if (!v || !cur.visit) return oenter(o); const d = G.OBJ[o.t], h = G.clock.min / 60; if (d.enter === 'habitant' && (h >= 22 || h < 6)) return G.ui.toast('Chut… tout le monde dort.');
-    const key = o.iid || ('b' + o.x + '_' + o.z); let im = v.interiors[key];
+    const key = o.iid || ('b' + o.t + '_' + o.x + '_' + o.z); let im = v.interiors[key];
     if (!im) { const src = o.iid && v.homes[o.iid]; try { if (src) { im = G.GMap.deserialize(src); G.buildShell(im); im.buildAll(); G.ents.spawnVillagers(im); } else im = G.makeInterior(d.enter, key, {}); } catch (e) { return G.ui.toast('Cette porte est fermée.'); }
       im.isVisit = true; G.scene.add(im.group); im.group.visible = false; v.interiors[key] = im; }
     const [cx, cz] = cur.center(o), F = G.FR[o.r]; im.meta.door = { x: cx + F[0] * (d.fp[1] / 2 + .7), z: cz + F[1] * (d.fp[1] / 2 + .7), yaw: o.r * Math.PI / 2 }; im.meta.title = (o.iid && v.homes[o.iid] ? 'Chez un habitant de ' + v.vil : d.n); im.meta.fromId = 'world';

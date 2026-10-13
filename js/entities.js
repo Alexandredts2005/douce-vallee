@@ -116,12 +116,15 @@
     v.visible = !night && G.map === m; v.root.visible = v.blob.visible = v.visible; if (!v.visible) { if (night) { v.x = v.home.x; v.z = v.home.z + .4; } return; }
     let hs = 0;
     if (v.talking) { const t = Math.atan2(p.x - v.x, p.z - v.z); v.yaw = G.angLerp(v.yaw, t, Math.min(1, 8 * dt)); }
+    else if (v.net) { // village d'un ami : l'habitant suit exactement ce qu'il fait chez son hôte
+      const n = v.net, d = Math.hypot(n.x - v.x, n.z - v.z); if (d > 6) { v.x = n.x; v.z = n.z; } else { const k = Math.min(1, dt * 6); v.x += (n.x - v.x) * k; v.z += (n.z - v.z) * k; }
+      hs = n.mv ? 1.5 : 0; v.yaw = G.angLerp(v.yaw, n.r, Math.min(1, 8 * dt)); }
     else if (v.fixed) { const near = Math.hypot(p.x - v.x, p.z - v.z) < 6; v.yaw = G.angLerp(v.yaw, near ? Math.atan2(p.x - v.x, p.z - v.z) : (v.home.yaw || 0), Math.min(1, 2 * dt)); }
     else if (v.st === 'idle') { v.t -= dt; if (v.t < 0) { const a = Math.random() * TAU, r = 2 + Math.random() * 6; v.tx = v.home.x + Math.cos(a) * r; v.tz = v.home.z + 2 + Math.sin(a) * r; v.st = 'walk'; v.t = 6; } }
     else { const dx = v.tx - v.x, dz = v.tz - v.z, d = Math.hypot(dx, dz); v.t -= dt;
       if (d < .3 || v.t < 0) { v.st = 'idle'; v.t = 2 + Math.random() * 5; }
       else { const s = 1.5, nx = v.x + dx / d * s * dt, nz = v.z + dz / d * s * dt; if (walkable(m, nx, nz, v.y) && Math.hypot(nx - p.x, nz - p.z) > .6) { v.x = nx; v.z = nz; hs = s; v.yaw = G.angLerp(v.yaw, Math.atan2(dx, dz), Math.min(1, 6 * dt)); } else { v.st = 'idle'; v.t = 1 + Math.random() * 2; } } }
-    v.y = m.topAt(v.x, v.z); v.root.position.set(v.x, v.y, v.z); v.root.rotation.y = v.yaw; v.blob.position.set(v.x, v.y + .03, v.z); v.blob.scale.set(.7, 1, .7);
+    v.mv = hs > 0; v.y = m.topAt(v.x, v.z); v.root.position.set(v.x, v.y, v.z); v.root.rotation.y = v.yaw; v.blob.position.set(v.x, v.y + .03, v.z); v.blob.scale.set(.7, 1, .7);
     const C = v.C, tn = performance.now() / 1000, dp = Math.hypot(p.x - v.x, p.z - v.z);
     // coucou quand on s'approche, petits sauts de joie au repos (kawaii !)
     if (!v.fixed && !v.talking && dp < 3.2 && G.map === m) { if (!v.greeted) { v.greeted = 1; v.waveT = 1.4; v.st = 'idle'; v.t = 2; } v.yaw = G.angLerp(v.yaw, Math.atan2(p.x - v.x, p.z - v.z), Math.min(1, 5 * dt)); } else if (dp > 6) v.greeted = 0;

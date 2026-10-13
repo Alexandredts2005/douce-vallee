@@ -216,7 +216,7 @@
   A.enterHouse = o => {
     const d = G.OBJ[o.t], h = G.clock.min / 60;
     if (d.enter === 'habitant' && (h >= 22 || h < 6)) { G.ui.toast('Chut… ' + (G.VILLAGERS[o.vi] || {}).n + ' dort.'); return; }
-    if (!o.iid) o.iid = 'h' + Date.now().toString(36);
+    if (!o.iid) o.iid = 'b' + o.t + '_' + o.x + '_' + o.z; // même nom d'intérieur chez l'hôte et chez ses visiteurs
     let im = G.interiors[o.iid];
     if (!im) { const V = G.VILLAGERS[o.vi]; im = G.interiors[o.iid] = G.makeInterior(d.enter, o.iid, V ? { wall: new THREE.Color(V.acc).lerp(new THREE.Color(0xffffff), .75).getHex() } : {}); }
     const [cx, cz] = Mp().center(o), F = G.FR[o.r], dd = G.fpDims(d, o.r)[o.r & 1 ? 0 : 1];

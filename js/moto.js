@@ -152,6 +152,6 @@
       b.addEventListener('pointerdown', e => { e.preventDefault(); const p = G.player; if (p.vehicle && p.vehicle.moto) G.input.chars.moto = true; else deploy(); }); tk.parentNode.appendChild(b); }
   });
   // W (touche W d'un clavier AZERTY = code KeyZ) : monter sur la moto la plus proche
-  G.on('update', () => { const p = G.player, I = G.input; if (!p || p.vehicle || G.state !== 'play' || G.ui.modal || !I.hit('KeyZ') || performance.now() - lastToggle < 300) return; if (G.map !== G.world && !G.map.meta.island) return;
+  G.on('update', () => { const p = G.player, I = G.input; if (!p || p.vehicle || G.state !== 'play' || G.ui.modal || !I.hit('KeyZ') || performance.now() - lastToggle < 300) return; if (G.map.interior) return;
     deploy(); });
 })();
