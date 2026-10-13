@@ -94,7 +94,9 @@
       if (G.ui.fading) done(); else G.ui.fade(done);
     }
     canLeave(x, z, h) { const m = this.map; let ok = 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const t = m.topAt(x + dx, z + dz); if (t < 40 && t <= h + 1.9 && !m.isWaterAt(x + dx, z + dz)) ok++; } return ok >= 1; }
-    update(dt) {
+    // G._feetY : hauteur des pieds pendant le déplacement (on passe sous une plateforme sans se cogner au plancher)
+    update(dt) { G._feetY = this.y; try { this._upd(dt); } finally { G._feetY = null; } }
+    _upd(dt) {
       const I = G.input, m = this.map, free = G.ui.canPlay() && !this.dead;
       if (this.vehicle) { G.feat.updVehicle(this, dt); return; }
       if (this.vault) { G.feat.updVault(this, dt); this.animate(dt, 0); this.place(); return; }
