@@ -109,6 +109,11 @@
     }
   }
   G.m4b = new THREE.Matrix4(); G.m4c = new THREE.Matrix4();
+  // planchers : plateformes à balustrade, terrasses en planches, pontons, tapis… on pose dessus comme par terre
+  G.isFloor = d => !!(d && (d.plat || d.floor));
+  G.floorTop = o => { const d = G.OBJ[o.t]; return d.plat && G.platDeck ? G.platDeck(o) : o.y + d.h; };
+  G.deckOK = d => !!d && !(d.enter || d.shop || d.chop >= 3 || d.onWater || d.up || d.ceil || d.plat || d.floor || d.stair || d.bridge || d.portal || d.fixed || d.balloon || d.grow || d.fence) && d.id !== 'pousse';
+  const DKEEP = ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt'];
 
   class GMap {
     constructor(W, H, o = {}) {
@@ -143,13 +148,25 @@
     }
     baseH(tx, tz) { const i = tz * this.W + tx; return this.lvl[i] * T; }
     waterSurf(tx, tz) { return this.lvl[tz * this.W + tx] * T + WS; }
-    objAt(tx, tz) { if (!this.inb(tx, tz)) return null; const k = this.occ[tz * this.W + tx]; return k ? this.objs[k - 1] : null; }
+    objAt(tx, tz) { if (!this.inb(tx, tz)) return null; const i = tz * this.W + tx; if (G._deckPick != null && this.dk && this.dk.size) { const q = this.deckPick(i, G._deckPick); if (q) return q; } const k = this.occ[i]; return k ? this.objs[k - 1] : null; }
+    // ---------- objets posés sur un plancher (couche à part : la case garde son plancher) ----------
+    deckAt(tx, tz, du) { return this.dk && this.inb(tx, tz) ? this.dk.get((du ? this.W * this.H : 0) + tz * this.W + tx) || null : null; }
+    deckPick(i, py) { let best = null; for (const k of [i, i + this.W * this.H]) { const q = this.dk.get(k); if (q && q.y <= py + 1.7 && q.y >= py - 1.2 && (!best || Math.abs(q.y - py) < Math.abs(best.y - py))) best = q; } return best; }
+    deckSlot(tx, tz, py) { const i = tz * this.W + tx, k = this.occ[i], g = k ? this.objs[k - 1] : null, u = this.up && this.up.get(i); let best = null;
+      for (const [f, du] of [[g, 0], [u, 1]]) { if (!f || !G.isFloor(G.OBJ[f.t]) || f.falling) continue; const h = G.floorTop(f); if (py > h - 1.7 && (!best || Math.abs(h - py) < Math.abs(best.h - py))) best = { du, h }; }
+      return best; }
+    // null : pas de plancher visé (pose normale) — false : plancher visé mais pas la place — sinon {du, h}
+    deckFit(t, tx, tz, r, py) { const d = G.OBJ[t], [w, dd] = G.fpDims(d, r); if (!this.inb(tx, tz)) return null; const s = this.deckSlot(tx, tz, py); if (!s) return null;
+      for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { if (!this.inb(x, z)) return false; const q = this.deckSlot(x, z, py); if (!q || q.du !== s.du || Math.abs(q.h - s.h) > .01 || this.deckAt(x, z, s.du)) return false; }
+      return s; }
+    objTop(o, x, z) { const d = G.OBJ[o.t]; if (!(d.h > 0) || o.falling) return -99; if (d.hAt) return o.y + d.hAt(o, x, z, this); if (!G.shapeTop || d.box) return o.y + d.h; const t = G.shapeTop(o, d, x, z); return t >= 0 ? o.y + t : -99; }
     // hauteur de la surface marchable (terrain + objets solides)
     topAt(x, z) {
       const tx = Math.floor(x), tz = Math.floor(z); if (!this.inb(tx, tz)) return 50;
       let h = this.terrainH(x, z); const o = this.objAt(tx, tz); this._nf = false; // _nf : le point touche un bord arrondi d'objet (racine, buisson, rocher, margelle) : on ne monte pas dessus en marchant
       if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (!G.shapeTop || d.box) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) { const v = o.y + (d.chop >= 3 && t < 1.5 ? 4 : t); if (v > h) { h = v; this._nf = !G.shapeTop.flat && !G.stepOK(d); } } /* pas de marche sur les racines d'un arbre */ } } }
       const u = this.up && this.up.get(tz * this.W + tx); if (u && !u.falling) { const ud = G.OBJ[u.t]; if (ud.hAt) { const v = u.y + ud.hAt(u, x, z, this); if (v > h) { h = v; this._nf = false; } } } // plateforme en hauteur // forme réelle de l'objet (shape.js)
+      if (this.dk && this.dk.size) { const i = tz * this.W + tx; for (const k of [i, i + this.W * this.H]) { const q = this.dk.get(k); if (!q || (G._feetY != null && G._feetY < q.y - 1.4)) continue; const v = this.objTop(q, x, z); if (v > h) { h = v; this._nf = false; } } } // posé sur un plancher (on passe dessous s'il est en hauteur)
       return h;
     }
     isWaterAt(x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!this.isWaterT(tx, tz)) return false; const o = this.objAt(tx, tz); return !(o && G.OBJ[o.t].walk); }
@@ -158,6 +175,7 @@
       const m = this.interior ? 0 : 2;
       if (d.ceil) { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (!this.inb(x, z) || this.ceil.has(z * this.W + x)) return false; return true; }
       if (d.up) { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < m || z < m || x >= this.W - m || z >= this.H - m || (this.up && this.up.has(z * this.W + x))) return false; return true; }
+      if (G._deckY != null && G.deckOK(d)) { const s = this.deckFit(t, tx, tz, r, G._deckY); if (s !== null) return !!s; } // posé par le joueur sur un plancher
       for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
         if (x < m || z < m || x >= this.W - m || z >= this.H - m) return false;
         const i = z * this.W + x; if (this.occ[i] && !G.replaces(d, this.objs[this.occ[i] - 1])) return false;
@@ -168,12 +186,15 @@
     }
     addObj(t, tx, tz, r = 0, extra = null) {
       const d = G.OBJ[t]; if (!d) return null; const [w, dd] = G.fpDims(d, r);
+      let ds = extra && extra.dk != null ? { du: extra.du ? 1 : 0, dk: +extra.dk } : null; // posé sur un plancher : sa hauteur au-dessus du sol
+      if (!ds && G._deckY != null && G.deckOK(d)) { const s = this.deckFit(t, tx, tz, r, G._deckY); if (s) ds = { du: s.du, dk: Math.round((s.h - this.baseH(tx, tz)) * 1000) / 1000 }; }
       // une maison, un bâtiment ou l'avion se posent par-dessus les fleurs : elles sont enlevées
-      for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const q = this.objAt(x, z); if (q && G.replaces(d, q)) this.removeObj(q); }
+      if (!ds) for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const q = this.objAt(x, z); if (q && G.replaces(d, q)) this.removeObj(q); }
       const o = { t, x: tx, z: tz, r, hp: d.chop || d.mine || 0, f: (d.fruit || d.pickFruit) ? 3 : 0 };
       if (extra) Object.assign(o, extra);
       o.y = this.baseH(tx, tz); const own = tz * this.W + tx;
-      if (d.up) { const U = this.up || (this.up = new Map()); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) U.set(z * this.W + x, o); }
+      if (ds) { o.dk = ds.dk; if (ds.du) o.du = 1; else delete o.du; o.y += ds.dk; const D = this.dk || (this.dk = new Map()), b = ds.du ? this.W * this.H : 0; for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) D.set(b + z * this.W + x, o); }
+      else if (d.up) { const U = this.up || (this.up = new Map()); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) U.set(z * this.W + x, o); }
       else if (d.ceil) { o.y += this.ceilH(); o.v = Math.round(this.ceilH() * 2); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.ceil.set(z * this.W + x, o); }
       else { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.occ[z * this.W + x] = own + 1; this.objs[own] = o; }
       this.list.add(o); if (d.light) this.lights.add(o);
@@ -181,11 +202,17 @@
     }
     removeObj(o) {
       const d = G.OBJ[o.t], [w, dd] = G.fpDims(d, o.r);
-      if (d.up) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.up && this.up.get(z * this.W + x) === o) this.up.delete(z * this.W + x); }
+      if (o.dk != null && this.dk) { const b = o.du ? this.W * this.H : 0; for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.dk.get(b + z * this.W + x) === o) this.dk.delete(b + z * this.W + x); }
+      else if (d.up) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.up && this.up.get(z * this.W + x) === o) this.up.delete(z * this.W + x); }
       else if (d.ceil) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.ceil.get(z * this.W + x) === o) this.ceil.delete(z * this.W + x); }
       else { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.inb(x, z) && this.occ[z * this.W + x] === o.z * this.W + o.x + 1) this.occ[z * this.W + x] = 0;
         this.objs[o.z * this.W + o.x] = null; }
       this.list.delete(o); this.lights.delete(o); this.objr.remove(o); this.rev++;
+      // on enlève un plancher : ce qui était posé dessus retombe au sol (ou revient dans le sac s'il n'y a pas la place)
+      if (o.dk == null && G.isFloor(d) && this.dk && this.dk.size) { const b = d.up ? this.W * this.H : 0, top = new Set();
+        for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) { const q = this.inb(x, z) && this.dk.get(b + z * this.W + x); if (q) top.add(q); }
+        for (const q of top) { this.removeObj(q); const ex = {}; for (const k of DKEEP) if (q[k] != null) ex[k] = q[k]; const sy = G._deckY; G._deckY = null;
+          try { if (this.canPlace(q.t, q.x, q.z, q.r)) this.addObj(q.t, q.x, q.z, q.r, ex); else if (G.state === 'play' && G.map === this && G.ITEMS[q.t] && G.mode === 'survie') G.inv.add(q.t, 1); } finally { G._deckY = sy; } } }
     }
     setAnim(o, m) { o._anim = m; if (o._k) this.objr.write(o, m); }
     refresh(o) { this.objr.refresh(o); }
@@ -283,7 +310,7 @@
     aoCorner(X, Z, h) { for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const x = X + dx, z = Z + dz; if (!this.inb(x, z)) continue; const i = z * this.W + x; if (!this.water[i] && !this.ramp[i] && this.lvl[i] * T > h + .5) return true; } return false; }
     shoreCorner(X, Z) { for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const x = X + dx, z = Z + dz; if (this.inb(x, z) && !this.water[z * this.W + x]) return true; } return false; }
     serialize() {
-      const objs = []; for (const o of this.list) { if (o.temp) continue; const e = { t: o.t, x: o.x, z: o.z }; if (o.r) e.r = o.r; for (const k of ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt']) if (o[k] != null && o[k] !== 0) e[k] = o[k]; if (G.OBJ[o.t].fruit && o.f === 0) e.f = 0; objs.push(e); }
+      const objs = []; for (const o of this.list) { if (o.temp) continue; const e = { t: o.t, x: o.x, z: o.z }; if (o.r) e.r = o.r; for (const k of ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt', 'dk', 'du']) if (o[k] != null && o[k] !== 0) e[k] = o[k]; if (G.OBJ[o.t].fruit && o.f === 0) e.f = 0; objs.push(e); }
       return { W: this.W, H: this.H, interior: this.interior, kind: this.kind, id: this.id, lvl: G.b64.enc(new Uint8Array(this.lvl.buffer)), surf: G.b64.enc(this.surf), water: G.b64.enc(this.water), ramp: G.b64.enc(this.ramp), objs, meta: this.meta };
     }
     static deserialize(d) {

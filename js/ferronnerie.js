@@ -149,5 +149,5 @@
     if (o && (plat || d.stair)) { if (plat) relinkPlat(this, o); else if (G.stairRelink) G.stairRelink(this, o); touch(this, o); } return o; };
   GP.removeObj = function (o) { const d = o && O[o.t], hit = d && (d.plat || d.stair); const res = orem.call(this, o); if (hit) touch(this, o); return res; };
   const otake = G.act.take; G.act.take = () => { const p = G.player, m = G.map; if (p && m && m.upAt && !p.act && !p.sit && !p.dead) { const [tx, tz] = p.target(), u = m.upAt(tx, tz), g = m.objAt(tx, tz);
-      if (u && (!g || p.y > G.platDeck(u) - .6)) { const [cx, cz] = m.center(u); if (G.mode === 'survie' && G.inv.add(u.t, 1) > 0) { G.ui.toast('Inventaire plein !'); return; } m.removeObj(u); G.sfx('pickup'); G.fx.puff(cx, G.platDeck(u), cz, 10, 0xffffff, .7); return; } } return otake(); };
+      if (u && !(g && g.dk != null) && (!g || p.y > G.platDeck(u) - .6)) { const [cx, cz] = m.center(u); if (G.mode === 'survie' && G.inv.add(u.t, 1) > 0) { G.ui.toast('Inventaire plein !'); return; } m.removeObj(u); G.sfx('pickup'); G.fx.puff(cx, G.platDeck(u), cz, 10, 0xffffff, .7); return; } } return otake(); };
 })();

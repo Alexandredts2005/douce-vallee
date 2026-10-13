@@ -175,8 +175,8 @@
   // suivis : le village et ses intérieurs chez soi ; le village visité et ses intérieurs pour un ami « admin »
   const tracked = m => !NET.visit ? (m === G.world || !!(m.interior && G.interiors[m.id] === m)) : !!(NET.iAmAdmin() && (m === NET.visit.map || (m.isVisit && NET.visit.interiors[m.id] === m)));
   const mk = m => mapKey(m) === 'world' ? undefined : m.id;
-  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, m: mk(this) }); return o; };
-  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'r', t: o.t, x: o.x, z: o.z, m: mk(this) }); };
+  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, m: mk(this) }); return o; };
+  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'r', t: o.t, x: o.x, z: o.z, dk: o.dk, du: o.du, m: mk(this) }); };
   const omd = GP.markDirty; GP.markDirty = function (tx, tz) { omd.call(this, tx, tz); if (G.state === 'play' && !NET.applying && NET.online() && !this.interior && this.inb(tx, tz) && tracked(this)) { const i = this.idx(tx, tz), op = { k: 't', x: tx, z: tz, l: this.lvl[i], w: this.water[i], p: this.ramp[i], f: this.surf[i] }, last = NET.ops[NET.ops.length - 1];
     if (!(last && last.k === 't' && last.x === tx && last.z === tz && last.l === op.l && last.w === op.w && last.p === op.p && last.f === op.f)) rec(op); } };
   function applyOps(pr, base, key) { const m = base;
@@ -187,8 +187,9 @@
     try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; const op = op0, m = op.m ? (NET.visit && ints === NET.visit.interiors ? NET.room(op.m) : ints[op.m]) : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
       if (op.k === 't') { last = op.s; if (m.interior || op.x < 2 || op.z < 2 || op.x >= m.W - 2 || op.z >= m.H - 2) continue; const i = m.idx(op.x | 0, op.z | 0); m.lvl[i] = Math.max(0, Math.min(4, op.l | 0)); m.water[i] = Math.max(0, Math.min(2, op.w | 0)); m.ramp[i] = Math.max(0, Math.min(255, op.p | 0)); if (G.SURF[op.f | 0]) m.surf[i] = op.f | 0; m.markDirty(op.x | 0, op.z | 0); continue; }
       if (!G.OBJ[op.t]) continue; last = op.s;
-      if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
-      else if (op.k === 'a' && !m.objAt(op.x, op.z)) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); } } }
+      const dk = typeof op.dk === 'number' && op.dk > 0 && op.dk < 40 ? op.dk : null, du = op.du ? 1 : 0; // posé sur un plancher
+      if (op.k === 'r') { const o = dk != null ? m.deckAt(op.x, op.z, du) : m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
+      else if (op.k === 'a' && !(dk != null ? m.deckAt(op.x, op.z, du) : m.objAt(op.x, op.z))) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; if (dk != null) { ex.dk = dk; if (du) ex.du = 1; } m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); } } }
     finally { NET.applying = false; seen.set(sk, last); }
   }
   // amis « admin » : visiteurs autorisés par l'hôte à modifier son village (liste propre à chaque session)

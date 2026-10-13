@@ -59,6 +59,6 @@
     LP.mesh = new THREE.InstancedMesh(geo, LP.mat, 800); LP.mesh.count = 0; LP.mesh.frustumCulled = false; LP.mesh.renderOrder = 1; scene.add(LP.mesh); });
   G.on('frame', dt => { const m = G.map; if (!LP.mesh || !m) return; const n = G.night ? G.night() : 0, on = !m.interior && n > .15; LP.mesh.visible = on; if (!on) return; LP.mat.opacity = Math.min(1, (n - .15) * 2) * .65;
     if ((LP.t -= dt) > 0 && LP.map === m && LP.rev === m.rev) return; LP.t = 1; LP.map = m; LP.rev = m.rev; let k = 0;
-    for (const o of m.lights) { if (o.off || k >= 800) continue; const d = G.OBJ[o.t], [cx, cz] = m.center(o), r = d.h > 1.5 ? 7.5 : d.fire ? 5 : 3.8; V.set(cx, m.terrainH(cx, cz) + .05, cz); Q.identity(); S.set(r, 1, r); M4.compose(V, Q, S); LP.mesh.setMatrixAt(k++, M4); }
+    for (const o of m.lights) { if (o.off || k >= 800) continue; const d = G.OBJ[o.t], [cx, cz] = m.center(o), r = d.h > 1.5 ? 7.5 : d.fire ? 5 : 3.8; V.set(cx, (o.dk != null ? o.y : m.terrainH(cx, cz)) + .05, cz); Q.identity(); S.set(r, 1, r); M4.compose(V, Q, S); LP.mesh.setMatrixAt(k++, M4); }
     LP.mesh.count = k; LP.mesh.instanceMatrix.needsUpdate = true; });
 })();

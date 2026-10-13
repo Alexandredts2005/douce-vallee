@@ -219,9 +219,9 @@
     E.cursor.visible = !!show; E.ghost.visible = false; if (!show) return;
     const [tx, tz] = p.target(); let ok = true, cx = tx + .5, cz = tz + .5;
     if (it.kind === 'place') {
-      const d = G.OBJ[it.obj], r = G.placeRot, [ax, az] = G.act.anchor(d, r, tx, tz), [w, dd] = G.fpDims(d, r); ok = m.canPlace(it.obj, ax, az, r) && !G.act.occupiedByMe(d, r, ax, az);
+      const d = G.OBJ[it.obj], r = G.placeRot, [ax, az] = G.act.anchor(d, r, tx, tz), [w, dd] = G.fpDims(d, r); G._deckY = p.y; const dk = G.deckOK(d) && m.inb(ax, az) ? m.deckFit(it.obj, ax, az, r, p.y) : null; ok = m.canPlace(it.obj, ax, az, r) && !G.act.occupiedByMe(d, r, ax, az); G._deckY = null;
       const gv = d.ghostV ? d.ghostV(m, ax, az) : d.v, key = d.keyOf ? d.keyOf(gv) : d.model + ':' + gv; if (key !== E.ghostKey) { const ki = key.lastIndexOf(':'); E.ghost.geometry = G.getGeo(key.slice(0, ki), +key.slice(ki + 1)); E.ghostKey = key; }
-      cx = ax + w / 2; cz = az + dd / 2; E.ghost.visible = true; E.ghost.position.set(cx, m.inb(ax, az) ? m.baseH(ax, az) : 0, cz); E.ghost.rotation.y = r * Math.PI / 2;
+      cx = ax + w / 2; cz = az + dd / 2; E.ghost.visible = true; E.ghost.position.set(cx, dk ? dk.h : m.inb(ax, az) ? m.baseH(ax, az) : 0, cz); E.ghost.rotation.y = r * Math.PI / 2;
       E.cursor.scale.set(w, 1, dd);
     } else E.cursor.scale.set(1, 1, 1);
     G.M.ghost.color.setHex(ok ? 0x9cff9c : 0xff8080); G.M.cursor.color.setHex(ok ? 0xffffff : 0xff8080);
