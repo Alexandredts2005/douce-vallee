@@ -12,7 +12,7 @@
   const mesh = (name, v) => { const m = new THREE.Mesh(G.getGeo(name, v), G.MATS); m.frustumCulled = false; m.castShadow = true; G.scene.add(m); return m; };
   M.menu = () => { const v = G.ents.villagers.find(x => x.npc === 'jeux'); if (v) G.ents.talk(v); else M.start('etoiles'); };
   M.start = id => {
-    if (M.active || !G.map || G.map.interior) return; const w = G.map, c = w.meta.games || w.meta.plaza || G.player;
+    if (M.active || !G.map || G.map.interior || (G.fete && G.fete.a) || (G.games2 && G.games2.a)) return; const w = G.map, c = w.meta.games || w.meta.plaza || G.player;
     const a = M.active = { id, map: w, t: id === 'anneaux' ? 70 : id === 'ballons' ? 40 : 45, score: 0, objs: [], cx: c.x, cz: c.z, spawn: 0, ring: 0 };
     if (id === 'ballons') G.gear.give('lance_pierre');
     if (id === 'anneaux') { const pts = []; for (let k = 0; k < 8; k++) { const ang = k / 8 * TAU, r = 7 + (k % 3) * 3; let x = a.cx + Math.cos(ang) * r, z = a.cz + Math.sin(ang) * r; if (w.isWaterAt(x, z) || w.topAt(x, z) > 30) { x = a.cx + Math.cos(ang) * 4; z = a.cz + Math.sin(ang) * 4; } pts.push([x, w.topAt(x, z) + (k % 3 === 2 ? 1.9 : 1.0), z, ang]); }

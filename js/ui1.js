@@ -42,7 +42,7 @@
   };
   U.updHotbar = () => {
     if (!U.hotDirty) return; U.hotDirty = false; const cr = G.mode === 'creatif', P = G.player, gt = P && P.tempTool, gon = gt && !P.gearOff, gb = $('hotbar').querySelector('.gear');
-    if (gb) { gb.hidden = !gt; if (gt) { gb.className = 'slot gear' + (gon ? ' sel' : '') + (U.gearPop ? ' pop' : ''); gb.innerHTML = '<span class="k">🎮</span>' + U.icon(gt); gb.title = G.ITEMS[gt].n + ' (pour la partie)'; } U.gearPop = false; }
+    if (gb) { gb.hidden = !gt; if (gt) { gb.className = 'slot gear' + (gon ? ' sel' : '') + (U.gearPop ? ' gpop' : ''); gb.innerHTML = '<span class="k">🎮</span>' + U.icon(gt); gb.title = G.ITEMS[gt].n + ' (pour la partie)'; } U.gearPop = false; }
     [...$('hotbar').querySelectorAll('.slot[data-k]')].forEach((b, k) => {
       const id = cr ? G.inv.hot[k] : (G.inv.slots[k] && G.inv.slots[k].id), n = cr ? 0 : (G.inv.slots[k] && G.inv.slots[k].n);
       b.className = 'slot' + (k === G.sel && !gon ? ' sel' : ''); b.innerHTML = `<span class="k">${(k + 1) % 10}</span>` + (id ? U.icon(id) : '') + (n > 1 ? `<span class="n">${n}</span>` : '');

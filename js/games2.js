@@ -36,7 +36,7 @@
       if (m.isWaterAt(x, z) || g > 30 || Math.abs(g - g0) > 1.6) continue; out.push({ x, y, z, gold, i: k++ }); } return out; }
   // ---------- démarrer / finir ----------
   GM.start = (id, o = {}) => {
-    if (GM.a || (G.mini && G.mini.active)) return G.ui.toast('Une partie est déjà en cours !'); const m = G.map; if (!m || m.interior) return;
+    if (GM.a || (G.mini && G.mini.active) || (G.fete && G.fete.a)) return G.ui.toast('Une partie est déjà en cours !'); const m = G.map; if (!m || m.interior) return;
     const c = center(m), seed = o.seed || (1 + Math.floor(Math.random() * 1e9)), dur = o.dur || ({ cache: 120, peche: 150, safari: 120, etoiles2: 50, ballons2: 40, anneaux2: 70, cueillette: 120, papillons: 120, gros: 150, tresor: 150 }[id]);
     const a = GM.a = { id, map: m, seed, dur, t0: o.t0 || Date.now(), duo: !!o.duo, host: o.host || (G.net && G.net.me ? G.net.me() : null), hostName: o.hostName || G.playerName, score: 0, got: [], items: [], objs: [], cx: c.x, cz: c.z, isle: !!o.isle, np: o.joined ? 1 : 0 };
     if (id === 'cache') { const sp = hideSpots(m, c.x, c.z, seed, 3); a.items = sp.map((s, k) => makeHider((seed + k) % 5, s)); hideVillagers(true); if (!a.items.length) { GM.a = null; return G.ui.toast('Pas de cachette par ici…'); } }
@@ -116,7 +116,7 @@
     return odig(tx, tz, o); };
   // ---------- parties à deux : quand un ami lance un jeu ici, on le rejoint tout de suite (avec son matériel) ----------
   const join = og => GM.start(og.g.id, { seed: og.g.seed, t0: og.g.t0, dur: og.g.dur, duo: true, host: og.g.host, hostName: og.n, joined: true });
-  function invitations() { const net = NET(); if (!net || !net.online() || G.state !== 'play' || (G.mini && G.mini.active)) return;
+  function invitations() { const net = NET(); if (!net || !net.online() || G.state !== 'play' || (G.mini && G.mini.active) || (G.fete && G.fete.a)) return;
     for (const p of net.peersHere()) { const g = p.pr.g; if (!g || !g.open || g.host !== p.pr.home || !NAMES[g.id] || Date.now() - g.t0 > (g.dur - 4) * 1000 || GM.invited[g.seed]) continue;
       if (!G.ui.canPlay()) return; // on rejoint dès que la fenêtre ou le dialogue est fermé
       GM.invited[g.seed] = 1; G.sfx('pop'); join({ n: p.pr.n || 'Ton ami', g }); return; } }
@@ -128,6 +128,7 @@
   G.npcRoles.jeux = v => {
     const og = !GM.a && openGame(), here = friendsHere(), opts = [], acts = [];
     if (og) { opts.push('Rejoindre « ' + NAMES[og.g.id] + ' » de ' + og.n); acts.push(() => join(og)); }
+    if (G.fete) { opts.push('🎪 La fête : ' + G.fete.GAMES.length + ' jeux' + (here.length ? ' à deux' : '')); acts.push(() => setTimeout(G.fete.menu, 60)); }
     if (here.length) { opts.push('Jouer avec ' + whoHere(), 'Jouer seul·e'); acts.push(() => duo(v), () => solo(v)); }
     else { opts.push('Jouer', 'Jouer à deux'); acts.push(() => solo(v), () => duo(v)); }
     opts.push('Non merci'); acts.push(() => { });
