@@ -40,6 +40,7 @@
   const FRAG_DECL = `
 uniform vec3 uSkyTop, uSkyHor, uSkyGnd, uSunDir, uSunCol; uniform float uSunK, uAmbK, uEnvK, uSpecK, uPointK, uWet, uTime, uGlowK, uBumpK;
 uniform sampler2D uCloudTex; uniform vec2 uCloudOff; uniform float uCloudAmt;
+uniform sampler2D uBio; uniform vec4 uBioSz;
 varying vec3 vWP; varying float vSk;
 vec3 s2l(vec3 c) { return pow(max(c, vec3(0.)), vec3(2.2)); }
 vec3 l2s(vec3 c) { return pow(max(c, vec3(0.)), vec3(1. / 2.2)); }
@@ -232,7 +233,9 @@ ${o.floor ? `gRough = ${o.floor === 3 ? '.12 + .06 * ( 1. - pq.a )' : '.2 + .1 *
 ${o.pat ? `{ float pid = floor( vPat + .5 ); gRough = pid < 1.5 ? .85 : pid < 2.5 ? .8 : pid < 3.5 ? .55 : pid < 4.5 ? .62 : pid < 5.5 ? .75 : pid < 6.5 ? .7 : pid < 7.5 ? .93 : pid < 8.5 ? .42 : pid < 9.5 ? .9 : pid < 10.5 ? .8 : .22; }` : ''}
 ${o.ground ? `{ vec2 ce = floor( vUv * 4. ); float cell = ce.x + ( 3. - ce.y ) * 4.;
   gRough = cell < .5 ? .9 : cell < 1.5 ? .92 : cell < 2.5 ? .95 : cell < 3.5 ? .7 : cell < 4.5 ? .55 : cell < 5.5 ? .97 : cell < 6.5 ? .42 : cell < 7.5 ? .97 : cell < 8.5 ? .5 : cell < 9.5 ? .75 : cell < 10.5 ? .45 : cell < 11.5 ? .5 : cell < 12.5 ? .28 : cell < 13.5 ? .97 : cell < 14.5 ? .9 : .85;
-  if ( cell < 1.5 || ( cell > 13.5 && cell < 14.5 ) ) { gSheen = .35; diffuseColor.rgb *= vec3( .6, .72, .46 ); }
+  if ( cell < 1.5 || ( cell > 13.5 && cell < 14.5 ) ) { gSheen = .35; diffuseColor.rgb *= vec3( .6, .72, .46 );
+    if ( uBioSz.z > .5 ) { vec4 bo = texture2D( uBio, vWP.xz * uBioSz.xy ); float nn = prN( vWP.xz * .7 ) * .55 + prN( vWP.xz * 2.9 ) * .45;
+      diffuseColor.rgb *= mix( vec3( 1. ), vec3( .62, .82, .55 ), bo.r ); diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 1.75, 1.15, .5 ), bo.g ); diffuseColor.rgb *= ( .7 + .26 * nn ) * ( 1. - bo.b * .12 ); } }
   if ( uWet > 0. && ( ( cell > 2.5 && cell < 4.5 ) || ( cell > 8.5 && cell < 9.5 ) || ( cell > 10.5 && cell < 12.5 ) || ( cell > 14.5 ) ) ) { // flaques sur les chemins
     float pd = smoothstep( .58, .66, prN( vWP.xz * .55 ) * .7 + prN( vWP.xz * 1.7 ) * .3 ) * uWet; gRough = mix( gRough, .02, pd ); diffuseColor.rgb *= 1. - .45 * pd; } }` : ''}
 `);
@@ -383,7 +386,7 @@ void main() {
   // =====================================================================
   const PP = G.post = { ok: false, fail: false, w: 0, h: 0, msaa: false, hdr: false, focus: 12 };
   const QVS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4( position.xy, 0., 1. ); }';
-  let qScene, qCam, quad, rtScene, rtAO, rtAO2, rtB = [], rtD0, rtD1, mAO, mBlur, mPre, mDown, mUp, mDofDown, mComp, KER;
+  let qScene, qCam, quad, rtScene, rtAO, rtAO2, rtB = [], rtD0, rtD1, rtS, mShaft, mAO, mBlur, mPre, mDown, mUp, mDofDown, mComp, KER;
   const V2 = new THREE.Vector2(), V3 = new THREE.Vector3(), M4 = new THREE.Matrix4();
   const sm = (fs, u) => new THREE.ShaderMaterial({ vertexShader: QVS, fragmentShader: fs, uniforms: u, depthTest: false, depthWrite: false });
   const AO_FS = `#include <packing>
@@ -422,8 +425,12 @@ void main() { vec2 t = uTexel; vec3 s = texture2D( tSrc, vUv + vec2( -t.x * 2., 
   + texture2D( tSrc, vUv + vec2( t.x * 2., 0. ) ).rgb + texture2D( tSrc, vUv + vec2( t.x, -t.y ) ).rgb * 2. + texture2D( tSrc, vUv + vec2( 0., -t.y * 2. ) ).rgb + texture2D( tSrc, vUv - t ).rgb * 2.; gl_FragColor = vec4( s / 12. * uK, 1. ); }`;
   const DOFDOWN_FS = `uniform sampler2D tScene; uniform vec2 uTexel; varying vec2 vUv;
 void main() { vec3 s = vec3( 0. ); for ( int y = -1; y <= 2; y ++ ) for ( int x = -1; x <= 2; x ++ ) s += pow( max( texture2D( tScene, vUv + uTexel * ( vec2( x, y ) - .5 ) ).rgb, vec3( 0. ) ), vec3( 2.2 ) ); gl_FragColor = vec4( s / 16., 1. ); }`;
+  const SHAFT_FS = `uniform sampler2D tDepth, tScene; uniform vec2 uSun; varying vec2 vUv;
+void main() { vec2 d = ( uSun - vUv ) / 32.; vec2 uv = vUv; float s = 0., w = 1., ws = 0.;
+  for ( int i = 0; i < 32; i ++ ) { vec2 q = clamp( uv, vec2( .001 ), vec2( .999 ) ); float sky = step( .99999, texture2D( tDepth, q ).x ); vec3 c = texture2D( tScene, q ).rgb; s += sky * max( dot( c, vec3( .3, .59, .11 ) ) - .5, 0. ) * w; ws += w; w *= .955; uv += d; }
+  float fall = 1. - smoothstep( 0., .85, length( ( vUv - uSun ) * vec2( 1.6, 1. ) ) ); gl_FragColor = vec4( vec3( s / ws * fall * 3. ), 1. ); }`;
   const COMP_FS = `#include <packing>
-uniform sampler2D tScene, tDepth, tAO, tBloom, tBlur; uniform vec2 uTexel; uniform vec3 uHazeCol, uTint;
+uniform sampler2D tScene, tDepth, tAO, tBloom, tBlur, tShaft; uniform vec2 uTexel, uTanFov; uniform vec3 uHazeCol, uTint, uSunHaze, uSunDirW, uShaftCol; uniform mat3 uCamRot; uniform float uCamY, uShaftK, uSharp, uSplit;
 uniform float uNear, uFar, uAOk, uBloomK, uExposure, uDof, uFocus, uFocusR, uFarBlur, uHaze, uHazeStart, uSat, uVig, uTime, uHasAO, uHasBloom, uHasDof, uContrast; varying vec2 vUv;
 vec3 neutral( vec3 c ) { // tonemapper « PBR Neutral » (Khronos) : couleurs fidèles, hautes lumières adoucies
   float x = min( c.r, min( c.g, c.b ) ), off = x < .08 ? x - 6.25 * x * x : .04; c -= off; float pk = max( c.r, max( c.g, c.b ) ); if ( pk < .76 ) return c;
@@ -431,12 +438,18 @@ vec3 neutral( vec3 c ) { // tonemapper « PBR Neutral » (Khronos) : couleurs fi
 void main() {
   vec3 col = texture2D( tScene, vUv ).rgb; float d = texture2D( tDepth, vUv ).x; bool sky = d >= .99999;
   float vz = sky ? 1e4 : -perspectiveDepthToViewZ( d, uNear, uFar );
+  if ( uSharp > 0. && !sky ) { vec3 nb = texture2D( tScene, vUv + vec2( uTexel.x, 0. ) ).rgb + texture2D( tScene, vUv - vec2( uTexel.x, 0. ) ).rgb + texture2D( tScene, vUv + vec2( 0., uTexel.y ) ).rgb + texture2D( tScene, vUv - vec2( 0., uTexel.y ) ).rgb; col = max( col + ( col - nb * .25 ) * uSharp, vec3( 0. ) ); } // netteté douce
   vec3 lin = pow( max( col, vec3( 0. ) ), vec3( 2.2 ) );
   if ( uHasDof > .5 ) { float coc = clamp( ( abs( vz - uFocus ) - uFocusR ) / ( uFocusR * 1.6 ), 0., 1. ); coc = max( coc, smoothstep( uFarBlur, uFarBlur * 2.4, vz ) ); if ( sky ) coc = smoothstep( uFarBlur * .5, uFarBlur, 400. ); lin = mix( lin, texture2D( tBlur, vUv ).rgb, coc * uDof ); }
   if ( uHasAO > .5 && !sky ) { float ao = texture2D( tAO, vUv ).r; lin *= mix( 1., ao, uAOk ); }
-  if ( uHaze > 0. && !sky ) lin = mix( lin, uHazeCol, 1. - exp( -max( 0., vz - uHazeStart ) * uHaze ) );
+  if ( uHaze > 0. && !sky ) { // brume atmosphérique : plus dense en bas, éclairée par le soleil quand on regarde vers lui
+    vec3 vd = vec3( ( vUv * 2. - 1. ) * uTanFov, -1. ); float dl = vz * length( vd ); vec3 wd = normalize( uCamRot * vd );
+    float hy = max( 0., uCamY + wd.y * dl ), hf = mix( 1., exp( -hy * .03 ), .65 ), sa = pow( max( dot( wd, uSunDirW ), 0. ), 5. );
+    lin = mix( lin, mix( uHazeCol, uSunHaze, sa * .75 ), ( 1. - exp( -max( 0., dl - uHazeStart ) * uHaze * hf ) ) ); }
   if ( uHasBloom > .5 ) lin += texture2D( tBloom, vUv ).rgb * uBloomK;
+  if ( uShaftK > 0. ) lin += texture2D( tShaft, vUv ).r * uShaftCol * uShaftK;
   vec3 tm = neutral( lin * uExposure * uTint );
+  { float lm = dot( tm, vec3( .2126, .7152, .0722 ) ); tm *= mix( vec3( 1. ), mix( vec3( .965, .995, 1.05 ), vec3( 1.045, 1., .94 ), smoothstep( .08, .65, lm ) ), uSplit ); } // ombres froides, lumières chaudes
   float l = dot( tm, vec3( .2126, .7152, .0722 ) ); tm = max( mix( vec3( l ), tm, uSat ), 0. );
   vec3 o = pow( tm, vec3( 1. / 2.2 ) ); o = mix( o, o * o * ( 3. - 2. * o ), uContrast );
   vec2 q = vUv - .5; o *= 1. - uVig * smoothstep( .2, .9, dot( q, q ) * 2.4 );
@@ -453,22 +466,23 @@ void main() {
       mPre = sm(PRE_FS, { tScene: { value: null }, uTexel: { value: new THREE.Vector2() }, uTh: { value: 1 }, uKnee: { value: .5 } });
       mDown = sm(DOWN_FS, { tSrc: { value: null }, uTexel: { value: new THREE.Vector2() } });
       mUp = sm(UP_FS, { tSrc: { value: null }, uTexel: { value: new THREE.Vector2() }, uK: { value: 1 } }); mUp.blending = THREE.AdditiveBlending; mUp.transparent = true;
+      mShaft = sm(SHAFT_FS, { tDepth: { value: null }, tScene: { value: null }, uSun: { value: new THREE.Vector2() } });
       mDofDown = sm(DOFDOWN_FS, { tScene: { value: null }, uTexel: { value: new THREE.Vector2() } });
       mComp = sm(COMP_FS, { tScene: { value: null }, tDepth: { value: null }, tAO: { value: null }, tBloom: { value: null }, tBlur: { value: null }, uTexel: { value: new THREE.Vector2() }, uHazeCol: { value: new THREE.Vector3() }, uTint: { value: new THREE.Vector3(1, 1, 1) },
         uNear: { value: .1 }, uFar: { value: 900 }, uAOk: { value: .7 }, uBloomK: { value: .3 }, uExposure: { value: 1 }, uDof: { value: 1 }, uFocus: { value: 12 }, uFocusR: { value: 6 }, uFarBlur: { value: 90 }, uHaze: { value: 0 }, uHazeStart: { value: 30 },
-        uSat: { value: 1.06 }, uVig: { value: .22 }, uTime: { value: 0 }, uHasAO: { value: 1 }, uHasBloom: { value: 1 }, uHasDof: { value: 1 }, uContrast: { value: .1 } });
+        uSat: { value: 1.06 }, uVig: { value: .22 }, tShaft: { value: null }, uTanFov: { value: new THREE.Vector2() }, uSunHaze: { value: new THREE.Vector3() }, uSunDirW: { value: new THREE.Vector3() }, uShaftCol: { value: new THREE.Vector3() }, uCamRot: { value: new THREE.Matrix3() }, uCamY: { value: 0 }, uShaftK: { value: 0 }, uSharp: { value: .22 }, uSplit: { value: 1 }, uTime: { value: 0 }, uHasAO: { value: 1 }, uHasBloom: { value: 1 }, uHasDof: { value: 1 }, uContrast: { value: .1 } });
       PP.ok = true;
     } catch (e) { console.warn('post-traitement indisponible', e); PP.ok = false; }
   }
   function ensure(w, h) {
     if (PP.w === w && PP.h === h && rtScene) return; PP.w = w; PP.h = h;
-    for (const rt of [rtScene, rtAO, rtAO2, rtD0, rtD1, ...rtB]) if (rt) rt.dispose(); rtB = [];
+    for (const rt of [rtScene, rtAO, rtAO2, rtD0, rtD1, rtS, ...rtB]) if (rt) rt.dispose(); rtB = [];
     const o = { type: PP.hdr ? THREE.HalfFloatType : THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true, stencilBuffer: false };
     rtScene = PP.msaa && THREE.WebGLMultisampleRenderTarget ? new THREE.WebGLMultisampleRenderTarget(w, h, o) : new THREE.WebGLRenderTarget(w, h, o); if (rtScene.isWebGLMultisampleRenderTarget) rtScene.samples = 4;
     rtScene.texture.generateMipmaps = false; rtScene.depthTexture = new THREE.DepthTexture(w, h); rtScene.depthTexture.type = THREE.UnsignedIntType;
     const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1); rtAO = makeRT(hw, hh); rtAO2 = makeRT(hw, hh);
     let bw = hw, bh = hh; for (let i = 0; i < 5; i++) { rtB.push(makeRT(Math.max(1, bw), Math.max(1, bh))); bw >>= 1; bh >>= 1; }
-    rtD0 = makeRT(Math.max(1, w >> 2), Math.max(1, h >> 2)); rtD1 = makeRT(Math.max(1, w >> 2), Math.max(1, h >> 2));
+    rtD0 = makeRT(Math.max(1, w >> 2), Math.max(1, h >> 2)); rtD1 = makeRT(Math.max(1, w >> 2), Math.max(1, h >> 2)); rtS = makeRT(Math.max(1, w >> 2), Math.max(1, h >> 2));
   }
   function pass(R, mat, target, clear = true) { quad.material = mat; R.setRenderTarget(target); const ac = R.autoClear; R.autoClear = clear; R.render(qScene, qCam); R.autoClear = ac; }
   PP.use = () => PP.ok && !PP.fail && G.settings && G.settings.post !== false && G.settings.quality !== 'low';
@@ -494,6 +508,13 @@ void main() {
     // mise au point : sur le personnage (vue du village) ; seulement le lointain en vue souris
     let focus = 12; if (p) { V3.set(p.x, p.y + 1, p.z).applyMatrix4(cam.matrixWorldInverse); focus = Math.max(1, -V3.z); } PP.focus += (focus - PP.focus) * .2;
     u.uFocus.value = PP.focus; u.uFocusR.value = mouse ? 60 : Math.max(5, PP.focus * .55); u.uFarBlur.value = mouse ? 110 : Math.max(40, PP.focus * 3.2); u.uDof.value = mouse ? .55 : (G.state === 'title' ? .8 : .9);
+    // rayons de soleil (vers le soleil, au-dessus de l'horizon, de jour) et brume éclairée
+    const sd = SU.uSunDir.value, sCol = SU.uSunCol.value; cam.getWorldDirection(V3); const facing = V3.dot(sd); V3.copy(cam.position).addScaledVector(sd, 600).project(cam);
+    const shaftK = !inside && S.shafts !== false && S.quality !== 'mid' && sd.y > -.03 && facing > .05 && Math.abs(V3.x) < 1.8 && Math.abs(V3.y) < 1.8 ? Math.pow(facing, 1.5) * (1 - n) * (.35 + .5 * (1 - Math.min(1, sd.y * 1.6))) : 0;
+    if (shaftK > .01) { mShaft.uniforms.tDepth.value = rtScene.depthTexture; mShaft.uniforms.tScene.value = rtScene.texture; mShaft.uniforms.uSun.value.set((V3.x + 1) / 2, (V3.y + 1) / 2); pass(R, mShaft, rtS); }
+    u.tShaft.value = rtS.texture; u.uShaftK.value = shaftK; u.uShaftCol.value.set(Math.pow(sCol.r, 2.2), Math.pow(sCol.g, 2.2), Math.pow(sCol.b, 2.2)).multiplyScalar(1.6);
+    u.uTanFov.value.set(tanX, tanY); u.uCamRot.value.setFromMatrix4(cam.matrixWorld); u.uCamY.value = cam.position.y; u.uSunDirW.value.copy(sd); u.uSunHaze.value.set(Math.pow(sCol.r, 2.2), Math.pow(sCol.g, 2.2) * .92, Math.pow(sCol.b, 2.2) * .75).multiplyScalar(1.15 * (1 - n * .8));
+    u.uSharp.value = S.quality === 'low' ? 0 : .22; u.uSplit.value = inside ? .5 : 1;
     const si = G.skyInfo; if (si && !inside) { C1.copy(si.hor); u.uHazeCol.value.set(Math.pow(C1.r, 2.2), Math.pow(C1.g, 2.2), Math.pow(C1.b, 2.2)).multiplyScalar(.9); u.uHaze.value = mouse ? .0045 : .0022; u.uHazeStart.value = mouse ? 35 : 45; } else u.uHaze.value = 0;
     pass(R, mComp, null);
     R.info.autoReset = true;

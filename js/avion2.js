@@ -234,7 +234,7 @@
     // ombre douce, pilote assis
     v.sh.position.set(v.x, gy + .04, v.z); const s = G.clamp(3.6 - (v.y - gy) * .07, 1.4, 3.6); v.sh.scale.set(s * SC, 1, s * 1.1 * SC); v.sh.visible = !water && (v.y - gy) > .15;
     v.mesh.updateMatrixWorld(); const st = v.mesh.localToWorld(SEAT.set(0, .36, -.15)); p.x = st.x; p.z = st.z; p.y = st.y; p.yaw = v.h; p.onGround = true; p.swim = false;
-    p.animate(dt, 0); const C = p.C; C.legL.rotation.x = C.legR.rotation.x = -1.45; C.body.position.y = -.3; C.armR.rotation.x = -.75 + steer * .1; C.armL.rotation.x = -.55 - gas * .15; C.armR.rotation.z = .12 - steer * .15;
+    p.animate(dt, 0); const C = p.C; G.applyPose ? G.applyPose(C, G.sitPose(0, 'pilote')) : (C.legL.rotation.x = C.legR.rotation.x = -1.45, C.body.position.y = -.3); C.armR.rotation.x = -.75 + steer * .1; C.armL.rotation.x = -.55 - gas * .15; C.armR.rotation.z = .12 - steer * .15;
     p.place(); p.root.quaternion.copy(v.mesh.quaternion); p.blob.visible = false;
     // fumées : voltige (F), échappement, poussière au roulage
     if (v.smoke && !v.ground && (v.smT = (v.smT || 0) - dt) < 0) { v.smT = .014; const tl = v.mesh.localToWorld(TMP.set((Math.random() - .5) * .1, .98 + (Math.random() - .5) * .1, -2.05 - Math.random() * .2)); G.fx.one(tl.x, tl.y, tl.z, (Math.random() - .5) * .3, .06, (Math.random() - .5) * .3, 4.5, -.015, v.smoke === 1 ? 0xffffff : RAINBOW[Math.floor(v.t * 2.5) % 6], .45, 2.6); }

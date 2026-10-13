@@ -1,63 +1,9 @@
 'use strict';
-// ===== Ambiance : herbe en 3D qui ondule, aurores boréales, étoiles filantes (vœux), feuilles et pétales qui tombent, halos des lampes, rendu cinéma =====
+// ===== Ambiance (l'herbe 3D est dans herbe.js) : aurores boréales, étoiles filantes (vœux), feuilles et pétales qui tombent, halos des lampes, rendu cinéma =====
 (function () {
   const TAU = Math.PI * 2, A = G.amb2 = { t: 0 };
   const CURVE = 'vec2 cd = wp.xz - uCC.xz; float ca = dot(cd, uCF); float cl = cd.x * uCF.y - cd.y * uCF.x; wp.y -= uCurve * (ca * ca + .3 * cl * cl);';
-  // ---------- herbe ----------
-  function grassGeo(nb = 6) { const pos = [], col = [], base = new THREE.Color(0x2c6a28), mid = new THREE.Color(0x5aa844), tips = [0x9fdc72, 0xb8e884, 0x86cc5e].map(c => new THREE.Color(c));
-    for (let k = 0; k < nb; k++) { const a = k / nb * Math.PI * 2 + k * .7, c = Math.cos(a), s = Math.sin(a), w = .03 + (k % 3) * .008, h = .28 + ((k * 7) % 5) * .05, r = .04 + (k % 3) * .05, ox = Math.cos(a) * r, oz = Math.sin(a) * r, lx = Math.cos(a) * h * .45, lz = Math.sin(a) * h * .45, t = tips[k % 3];
-      const B1 = [ox - s * w, 0, oz + c * w], B2 = [ox + s * w, 0, oz - c * w], M1 = [ox + lx * .35 - s * w * .7, h * .55, oz + lz * .35 + c * w * .7], M2 = [ox + lx * .35 + s * w * .7, h * .55, oz + lz * .35 - c * w * .7], T = [ox + lx, h, oz + lz];
-      for (const [p, q] of [[[B1, B2, M2], [base, base, mid]], [[B1, M2, M1], [base, mid, mid]], [[M1, M2, T], [mid, mid, t]]]) { p.forEach(v => pos.push(...v)); q.forEach(v => col.push(v.r, v.g, v.b)); } }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('gc', new THREE.Float32BufferAttribute(col, 3)); return g; }
-  const GR = { N: 9000, cx: 1e9, cz: 1e9, map: null, t: 0 };
-  G.on('init', scene => {
-    // rendu premium : lumière physique, ombres portées (arbres, maisons) lues dans la carte d'ombre, base des brins dans l'ombre des autres,
-    // lumière qui traverse les brins à contre-jour, ondulation au vent
-    const U = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, THREE.UniformsLib.lights, { uT: { value: 0 }, uTint: { value: new THREE.Color(1, 1, 1) }, uSunL: { value: new THREE.Vector3() }, uAmbL: { value: new THREE.Vector3() } }]); U.uCurve = G.U.curve; U.uCC = G.U.cc; U.uCF = G.U.cf; GR.U = U;
-    if (G.SU) { U.uSunDir = G.SU.uSunDir; U.uWind = G.SU.uWind; U.uWet = G.SU.uWet; } else { U.uSunDir = { value: new THREE.Vector3(0, 1, 0) }; U.uWind = { value: 1 }; U.uWet = { value: 0 }; }
-    U.uCloudTex = G.U.cloudTex; U.uCloudOff = G.U.cloudOff; U.uCloudAmt = G.U.cloudAmt;
-    const mat = new THREE.ShaderMaterial({ uniforms: U, fog: true, lights: true, side: THREE.DoubleSide,
-      vertexShader: `#include <packing>
-attribute vec3 gc; uniform float uT, uCurve, uWind; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC; varying float vH; varying float vSh; varying vec3 vWP; varying vec3 vVD;
-#if NUM_DIR_LIGHT_SHADOWS > 0
-uniform sampler2D directionalShadowMap[ NUM_DIR_LIGHT_SHADOWS ]; uniform mat4 directionalShadowMatrix[ NUM_DIR_LIGHT_SHADOWS ];
-#endif
-#include <fog_pars_vertex>
-void main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; vH = clamp(h / .45, 0., 1.);
-  float sw = (sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035) * uWind; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; vWP = wp.xyz;
-  vSh = 1.;
-  #if NUM_DIR_LIGHT_SHADOWS > 0
-  { vec4 sc = directionalShadowMatrix[ 0 ] * wp; vec3 c = sc.xyz / sc.w; if (c.x > 0. && c.x < 1. && c.y > 0. && c.y < 1. && c.z < 1.) { float s = 0.; for (int i = 0; i < 4; i++) { vec2 o = vec2(i == 0 || i == 3 ? -.0006 : .0006, i < 2 ? -.0006 : .0006); s += step(c.z - .0025, unpackRGBAToDepth(texture2D(directionalShadowMap[ 0 ], c.xy + o))); } vSh = s * .25; } }
-  #endif
-  vVD = cameraPosition - wp.xyz;
-  ${CURVE} vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc * (.82 + .3 * fract(sin(dot(floor(wp.xz * .7), vec2(12.9898, 78.233))) * 43758.5453)) * (.9 + .15 * sin(wp.x * .21 + wp.z * .17));
-#include <fog_vertex>
-}`,
-      fragmentShader: `uniform vec3 uTint, uSunL, uAmbL, uSunDir; uniform sampler2D uCloudTex; uniform vec2 uCloudOff; uniform float uCloudAmt, uWet; varying vec3 vC; varying float vH; varying float vSh; varying vec3 vWP; varying vec3 vVD;
-#include <fog_pars_fragment>
-void main(){ vec3 alb = pow(max(vC, vec3(0.)), vec3(2.2)) * vec3(.86, .95, .78) * mix(.32, 1., pow(vH, .75)) * (1. - uWet * .25);
-  float cl = 1. - uCloudAmt * smoothstep(.42, .75, texture2D(uCloudTex, vWP.xz * .016 + uCloudOff).r);
-  vec3 sun = uSunL * cl * vSh, V = normalize(vVD);
-  vec3 c = alb * (sun * (.3 + .7 * max(uSunDir.y, 0.)) * mix(.55, 1., vH) + uAmbL * mix(.55, 1., vH));
-  c += alb * sun * (pow(max(dot(-V, uSunDir), 0.), 4.) * 1.6 + .12) * vH; // lumière à travers les brins
-  c += sun * pow(vH, 3.) * .025 * (1. + uWet * 3.);
-  gl_FragColor = vec4(pow(c, vec3(1. / 2.2)), 1.0);
-#include <fog_fragment>
-}` });
-    GR.mat = mat; GR.geoN = grassGeo(6); GR.geoF = grassGeo(3); GR.group = new THREE.Group(); scene.add(GR.group); GR.ch = new Map(); GR.q = [];
-  });
-  const SC = new THREE.Color(), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
-  // herbe sur toute la carte, par blocs de 24 × 24 cases construits peu à peu (les plus proches d'abord)
-  const GCH = 24;
-  function grassChunk(m, kx, kz) { const key = kz * 1000 + kx, x0 = kx * GCH, z0 = kz * GCH, x1 = Math.min(m.W, x0 + GCH), z1 = Math.min(m.H, z0 + GCH), tmp = GR.tmp || (GR.tmp = new Float32Array(GCH * GCH * 4 * 16)); let me = GR.ch.get(key), n = 0;
-    for (let z = z0; z < z1; z++) for (let x = x0; x < x1; x++) {
-      const i = m.idx(x, z), s = m.surf[i]; if (m.water[i] || m.ramp[i] || !(s === 0 || s === 1 || s === 14)) continue; const o = m.objAt(x, z); if (o && (G.OBJ[o.t].h > .3 || G.OBJ[o.t].enter)) continue;
-      const k = 3 + (G.hash2(x, z, 11) < .5 ? 1 : 0);
-      for (let j = 0; j < k; j++) { const rx = x + G.hash2(x, z, 20 + j), rz = z + G.hash2(z, x, 40 + j), sc = .7 + G.hash2(x + j, z, 60) * .7;
-        V.set(rx, m.terrainH(rx, rz) - .02, rz); Q.setFromAxisAngle(Y, G.hash2(x, z + j, 80) * TAU); S.set(sc, sc * (s === 1 ? 1.25 : 1), sc); M4.compose(V, Q, S); M4.toArray(tmp, n++ * 16); } }
-    if (me && me.userData.cap < n) { GR.group.remove(me); me.dispose(); GR.ch.delete(key); me = null; }
-    if (!me) { const cap = Math.max(1, n); me = new THREE.InstancedMesh(GR.geoN, GR.mat, cap); me.frustumCulled = false; me.userData = { cap, k: [kx, kz], c: [(x0 + x1) / 2, (z0 + z1) / 2] }; GR.group.add(me); GR.ch.set(key, me); }
-    me.instanceMatrix.array.set(tmp.subarray(0, n * 16)); me.count = n; me.instanceMatrix.needsUpdate = true; }
+  const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3();
   // ---------- aurores ----------
   G.on('init', scene => {
     const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, uniforms: { uT: { value: 0 }, uA: { value: 0 } },
@@ -104,24 +50,6 @@ void main(){ vec3 alb = pow(max(vC, vec3(0.)), vec3(2.2)) * vec3(.86, .95, .78) 
     if ((haloT -= dt) < 0) { haloT = .4; let k = 0; if (out && n > .2) { const near = []; for (const o of m.lights) { if (o.off) continue; const [cx, cz] = m.center(o), d = Math.hypot(cx - p.x, cz - p.z); if (d < 170) near.push([d, o, cx, cz]); } near.sort((a, b) => a[0] - b[0]);
         for (const [d, o, cx, cz] of near) { if (k >= A.halos.length) break; const def = G.OBJ[o.t], s = A.halos[k++], tall = def.h > 1.5; s.position.set(cx, o.y + (o.t === 'grande_fontaine' ? 1.0 : tall ? 2.47 : def.fire ? .55 : .85), cz); const sc = (tall ? 2.2 : 1.3) * (def.fire ? 1.3 : 1); s.scale.set(sc, sc, 1); s.material.opacity = Math.min(1, n * 1.3) * (def.fire ? .9 : .75); s.visible = true; } }
       for (; k < A.halos.length; k++) A.halos[k].visible = false; }
-  });
-  G.on('frame', dt => {
-    const m = G.map, p = G.player; if (!GR.mat || !m || !p) return; const on = !m.interior && G.settings.quality !== 'low' && G.settings.grass !== false; GR.group.visible = on; if (!on) return;
-    GR.U.uT.value += dt; const tx = G.cam.cx || p.x, tz = G.cam.cz || p.z;
-    if (GR.map !== m) { for (const me of GR.ch.values()) { GR.group.remove(me); me.dispose(); } GR.ch.clear(); GR.map = m; GR.rev = m.rev; GR.q = [];
-      for (let kz = 0; kz < Math.ceil(m.H / GCH); kz++) for (let kx = 0; kx < Math.ceil(m.W / GCH); kx++) GR.q.push([kx, kz]); const dd = k => Math.hypot((k[0] + .5) * GCH - tx, (k[1] + .5) * GCH - tz); GR.q.sort((a, b) => dd(a) - dd(b)); }
-    if (GR.rev !== m.rev && (GR.t -= dt) < 0) { GR.t = .4; GR.rev = m.rev; const px = Math.floor(p.x / GCH), pz = Math.floor(p.z / GCH);
-      for (const me of GR.ch.values()) { const [kx, kz] = me.userData.k; if (Math.abs(kx - px) <= 1 && Math.abs(kz - pz) <= 1) grassChunk(m, kx, kz); else if (!GR.q.some(q => q[0] === kx && q[1] === kz)) GR.q.push([kx, kz]); } }
-    for (let i = 0; i < 4 && GR.q.length; i++) { const [kx, kz] = GR.q.shift(); grassChunk(m, kx, kz); }
-    // seuls les blocs dans le champ de la caméra sont dessinés ; au loin, des touffes plus simples
-    const CV = m.cullV, cw8 = m._cw, ch8 = m._ch, R8 = GCH / 8;
-    for (const me of GR.ch.values()) { const [kx, kz] = me.userData.k; let v = true;
-      if (CV && cw8) { v = false; for (let cz = kz * R8; cz < Math.min(ch8, kz * R8 + R8) && !v; cz++) for (let cx = kx * R8; cx < Math.min(cw8, kx * R8 + R8); cx++) if (CV[cz * cw8 + cx]) { v = true; break; } }
-      me.visible = v && me.count > 0; if (me.visible) me.geometry = Math.hypot(me.userData.c[0] - tx, me.userData.c[1] - tz) > 50 ? GR.geoF : GR.geoN; }
-    const L = G.lights, si = G.skyInfo; if (L) { const lin = (c, k) => Math.pow(Math.max(0, c * k), 2.2), SK2 = G.SU ? G.SU.uSunK.value : 1.5, AK = G.SU ? G.SU.uAmbK.value : 1.2, sc = L.sun.color, hc = L.hemi.color, ai = L.amb.intensity;
-      GR.U.uSunL.value.set(lin(sc.r, L.sun.intensity), lin(sc.g, L.sun.intensity), lin(sc.b, L.sun.intensity)).multiplyScalar(SK2);
-      GR.U.uAmbL.value.set(Math.pow(hc.r * L.hemi.intensity + ai, 2.2), Math.pow(hc.g * L.hemi.intensity + ai, 2.2), Math.pow(hc.b * L.hemi.intensity + ai, 2.2)).multiplyScalar(AK); }
-    GR.U.fogColor.value.copy(G.scene.fog.color); GR.U.fogNear.value = G.scene.fog.near; GR.U.fogFar.value = G.scene.fog.far;
   });
   const LP = { t: 0 };
   G.on('init', scene => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);

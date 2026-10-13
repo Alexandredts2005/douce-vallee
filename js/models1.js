@@ -26,7 +26,7 @@
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g;
   }
   class MB {
-    constructor(seed = 1) { this.parts = [[], [], [], [], []]; this.r = G.rng(seed); this.j = 0; this.pat = 0; this.sk = null; }
+    constructor(seed = 1) { this.parts = [[], [], [], [], [], []]; this.r = G.rng(seed); this.j = 0; this.pat = 0; this.sk = null; }
     // motif procédural (briques, pierre, tuiles…) pour les pièces suivantes : 0 = aucun
     P(id = 0) { this.pat = id; return this; }
     // matière (rendu premium : or, fer, verre, feuillage, peau…) des pièces suivantes ; null = devinée d'après la couleur
@@ -60,11 +60,11 @@
     blob(r, det, col, x, y, z, sx = 1, sy = 1, sz = 1, mat = 0) { return this.add(new THREE.IcosahedronGeometry(r, det), col, this.M(x, y, z, 0, 0, 0, sx, sy, sz), mat, true); }
     done() {
       const geos = [], groups = []; let start = 0;
-      let anyPat = false, anySk = false; for (let m = 0; m < 5; m++) { let cnt = 0; for (const g of this.parts[m]) { geos.push(g); cnt += g.attributes.position.count; if (g.userData.pat) anyPat = true; if (g.userData.sk) anySk = true; } if (cnt) { groups.push([start, cnt, m]); start += cnt; } }
-      const N = start, pos = new Float32Array(N * 3), nor = new Float32Array(N * 3), col = new Float32Array(N * 3), pat = anyPat ? new Float32Array(N) : null, sk = anySk ? new Float32Array(N) : null; let o = 0;
-      for (const g of geos) { const n = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); if (pat && g.userData.pat) pat.fill(g.userData.pat, o, o + n); if (sk && g.userData.sk) sk.fill(g.userData.sk, o, o + n); o += n; }
+      let anyPat = false, anySk = false, anyUv = false; for (let m = 0; m < 6; m++) { let cnt = 0; for (const g of this.parts[m]) { geos.push(g); cnt += g.attributes.position.count; if (g.userData.pat) anyPat = true; if (g.userData.sk) anySk = true; if (g.attributes.uv) anyUv = true; } if (cnt) { groups.push([start, cnt, m]); start += cnt; } }
+      const N = start, pos = new Float32Array(N * 3), nor = new Float32Array(N * 3), col = new Float32Array(N * 3), pat = anyPat ? new Float32Array(N) : null, sk = anySk ? new Float32Array(N) : null, uv = anyUv ? new Float32Array(N * 2) : null; let o = 0;
+      for (const g of geos) { const n = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); if (pat && g.userData.pat) pat.fill(g.userData.pat, o, o + n); if (sk && g.userData.sk) sk.fill(g.userData.sk, o, o + n); if (uv && g.attributes.uv) uv.set(g.attributes.uv.array, o * 2); o += n; }
       const out = new THREE.BufferGeometry();
-      out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3)); if (pat) out.setAttribute('pat', new THREE.BufferAttribute(pat, 1)); if (sk) out.setAttribute('sk', new THREE.BufferAttribute(sk, 1));
+      out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3)); if (pat) out.setAttribute('pat', new THREE.BufferAttribute(pat, 1)); if (sk) out.setAttribute('sk', new THREE.BufferAttribute(sk, 1)); if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); if (this.parts[5].length) out.userData.noOutline = true; // feuillage en cartes : pas de contour
       groups.forEach(([s, c, m]) => out.addGroup(s, c, m)); out.computeBoundingSphere(); out.computeBoundingBox();
       return out;
     }

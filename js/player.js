@@ -40,7 +40,7 @@
     }
     build() {
       const sc = this.root && this.root.parent; if (sc) { sc.remove(this.root); }
-      const C = this.C = G.makeChar({ look: this.look }); this.root = C.root; this.toolId = null; this.toolMesh = null; this.xray = []; this._occ = false;
+      const C = this.C = G.makeChar({ look: this.look, hd: true }); this.root = C.root; this.toolId = null; this.toolMesh = null; this.xray = []; this._occ = false;
       for (const m of C.meshes) { let x; if (m.isSkinnedMesh) { x = new THREE.SkinnedMesh(m.geometry, G.M.xraySk); x.bind(m.skeleton, m.bindMatrix); } else x = new THREE.Mesh(m.geometry, G.M.xray); x.renderOrder = 12; x.frustumCulled = false; x.visible = false; m.add(x); this.xray.push(x); }
       if (!this.blob) { const sh = new THREE.Mesh(G.getGeo('blob'), G.M.shadow); sh.frustumCulled = false; sh.renderOrder = 1; this.blob = sh; }
       if (sc) sc.add(this.root);
@@ -176,7 +176,7 @@
     animate(dt, hs) {
       const C = this.C, t = performance.now() / 1000; let legL = 0, legR = 0, armL = 0, armR = 0, armRz = 0, armLz = 0, bob = 0, sy = 1, sxz = 1, lean = 0, headY = 0, headX = 0, expr = 'normal';
       this.idleT = hs > .2 || !this.onGround || this.act ? 0 : this.idleT + dt;
-      if (this.sit) { legL = legR = -1.45; armL = armR = -.3; bob = -.3; }
+      if (this.sit) { const q = this.sit.pose || (G.sitPose ? G.sitPose(.5) : { thigh: -1.45, arm: -.3, bob: -.3, lean: 0 }); legL = legR = q.thigh; armL = armR = q.arm; armLz = -(q.armZ || 0); armRz = q.armZ || 0; bob = q.bob; lean = q.lean || 0; }
       else if (this.swim) { const s = Math.sin(t * 6); lean = .55; armL = -1.4 + s * .9; armR = -1.4 - s * .9; armLz = -.6; armRz = .6; legL = .4 + s * .5; legR = .4 - s * .5; bob = -.05; }
       else if (!this.onGround) { legL = -.6; legR = .3; armL = armR = -2.4; armLz = -.4; armRz = .4; sy = this.vy > 0 ? 1.12 : 1; sxz = this.vy > 0 ? .93 : 1; expr = this.vy > 4 ? 'happy' : 'normal'; }
       else if (hs > .3) { this.walkT += dt * (2.4 + hs * 1.6); const s = Math.sin(this.walkT); const amp = hs > 5 ? .95 : .7; legL = s * amp; legR = -s * amp; armL = -s * amp * .85; armR = s * amp * .85; bob = Math.abs(Math.cos(this.walkT)) * (hs > 5 ? .07 : .045); lean = hs > 5 ? .18 : .05;
@@ -207,7 +207,9 @@
       if (this.fish) { armR = -1.0 + (this.fish.phase === 'bite' ? Math.sin(t * 30) * .15 : 0); if (this.fish.phase === 'bite') expr = 'surprised'; }
       if (this.hurtT > 0) expr = 'sad';
       C.legL.rotation.x = legL; C.legR.rotation.x = legR; C.armL.rotation.x = armL; C.armR.rotation.x = armR; C.armL.rotation.z = armLz; C.armR.rotation.z = armRz;
-      C.body.position.y = bob; C.body.scale.set(sxz, sy, sxz); C.body.rotation.x = lean; C.head.rotation.y += (headY - C.head.rotation.y) * Math.min(1, 6 * dt); C.head.rotation.x += (headX - C.head.rotation.x) * Math.min(1, 6 * dt);
+      C.body.position.y = bob; C.body.scale.set(sxz, sy, sxz); C.body.rotation.x = lean;
+      if (C.shinL) { const q = this.sit && this.sit.pose; C.shinL.userData.k = C.shinR.userData.k = q ? q.shin : null; C.faL.userData.k = C.faR.userData.k = q ? q.fore : null; } // genoux et coudes pilotés quand on est assis
+      C.head.rotation.y += (headY - C.head.rotation.y) * Math.min(1, 6 * dt); C.head.rotation.x += (headX - C.head.rotation.x) * Math.min(1, 6 * dt);
       this.blinkT -= dt; if (this.blinkT < 0) this.blinkT = 2.5 + Math.random() * 3;
       if (expr === 'normal' && this.blinkT < .12) expr = 'blink';
       if (C.setExpr) C.setExpr(expr); else C.eyes.scale.y = expr === 'blink' ? .15 : 1;

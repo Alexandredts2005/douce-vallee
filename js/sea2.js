@@ -29,14 +29,14 @@
   }
   function endRide(p) { const v = p.vehicle; if (v.done) return; v.done = true; v.dest(); }
   function finish(p) { const v = p.vehicle; G.scene.remove(v.mesh); p.vehicle = null; if (v.cap) { v.cap.x = v.capHome.x; v.cap.z = v.capHome.z; v.cap.yaw = v.capHome.yaw; v.cap.C.body.position.y = 0; } if (v.saved && v.m.canPlace('bateau', v.saved.x, v.saved.z, v.saved.r)) v.m.addObj('bateau', v.saved.x, v.saved.z, v.saved.r);
-    if (G.ui.modal === 'boat') G.ui.modal = null; G.audio.music && (G.audio.music.on = true); const C = p.C; C.legL.rotation.x = C.legR.rotation.x = 0; C.body.position.y = 0; p.blob.visible = true; }
+    if (G.ui.modal === 'boat') G.ui.modal = null; G.audio.music && (G.audio.music.on = true); const C = p.C; C.legL.rotation.x = C.legR.rotation.x = 0; C.body.position.y = 0; G.clearPose && G.clearPose(C); p.blob.visible = true; }
   G.on('enterMap', () => { const p = G.player; if (p && p.vehicle && p.vehicle.boat && p.vehicle.done) finish(p); });
   G.on('update', () => { const p = G.player, v = p && p.vehicle; if (!v || !v.boat || !v.cap) return; const c = v.cap, b = v.mesh.position; c.x = b.x; c.z = b.z - .45; c.y = b.y + .12; c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = 0; c.blob.visible = false; c.C.armL.rotation.x = c.C.armR.rotation.x = -1.2 + Math.sin(v.t * 4) * .5; c.C.legL.rotation.x = c.C.legR.rotation.x = -1.4; c.C.setExpr && c.C.setExpr('happy'); });
   G.on('init', () => {
     const ouv = G.feat.updVehicle; G.feat.updVehicle = (p, dt) => { const v = p.vehicle; if (!v || !v.boat) return ouv(p, dt);
       v.t += dt; const k = Math.min(1, v.t / 2), d = (v.t < 2 ? .5 * k * k * 2 : 1 + (v.t - 2)) * 1.6, x = v.x0, z = v.z0 + d, bob = Math.sin(v.t * 2.2) * .07, roll = Math.sin(v.t * 1.7) * .05;
       v.mesh.position.set(x, v.ws - .05 + bob, z); v.mesh.rotation.set(0, -Math.PI / 2, roll);
-      p.x = x; p.z = z + .35; p.y = v.ws + .18 + bob; p.yaw = 0; p.vx = p.vz = p.vy = 0; p.root.position.set(p.x, p.y, p.z); p.root.rotation.y = 0; const C = p.C; C.legL.rotation.x = C.legR.rotation.x = -1.45; C.armL.rotation.x = C.armR.rotation.x = -.3; C.body.position.y = -.25; C.setExpr && C.setExpr('happy');
+      p.x = x; p.z = z + .35; p.y = v.ws + .18 + bob; p.yaw = 0; p.vx = p.vz = p.vy = 0; p.root.position.set(p.x, p.y, p.z); p.root.rotation.y = 0; const C = p.C; if (G.applyPose) G.applyPose(C, G.sitPose(0, 'banquette')); else { C.legL.rotation.x = C.legR.rotation.x = -1.45; C.armL.rotation.x = C.armR.rotation.x = -.3; C.body.position.y = -.25; } C.setExpr && C.setExpr('happy');
       p.blob.visible = false;
       if (v.cap) { v.cap.yaw = 0; v.cap.C.armL.rotation.x = v.cap.C.armR.rotation.x = -1.2 + Math.sin(v.t * 4) * .5; v.cap.C.body.position.y = bob;
         const li = Math.floor(v.t / 2); if (li !== v.lyric && li < LYRICS.length && G.net && G.net.bubble) { v.lyric = li; G.net.bubble(v.cap.root, LYRICS[li], 2100); } }

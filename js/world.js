@@ -57,7 +57,7 @@
       s.low = mk(s.low, s.lg); s.lvis = 0; if (s.lg2) { s.low2 = mk(s.low2, s.lg2); s.lvis2 = 0; }
     }
     outline(s) {
-      if (s.om) { this.group.remove(s.om); s.om = null; } const geo = s.mesh.geometry; if (geo.boundingSphere.radius < .36) return;
+      if (s.om) { this.group.remove(s.om); s.om = null; } const geo = s.mesh.geometry; if (geo.boundingSphere.radius < .36 || geo.userData.noOutline) return;
       const om = new THREE.InstancedMesh(G.outlineGeo(geo), G.M.outlineI, s.cap); om.instanceMatrix = s.mesh.instanceMatrix; om.count = s.vis; om.frustumCulled = false; om.castShadow = false;
       om.visible = this.olOn && s.vis > 0; this.group.add(om); s.om = om;
     }

@@ -85,6 +85,10 @@
     g = x.createLinearGradient(0, iy - iry, 0, iy + iry); g.addColorStop(0, cd); g.addColorStop(.42, cs); g.addColorStop(.85, cl); g.addColorStop(1, st === 'brillants' ? '#ffffff' : cl);
     x.fillStyle = g; x.beginPath(); x.ellipse(cx, iy, ir, iry, 0, 0, TAU); x.fill();
     x.strokeStyle = cd; x.lineWidth = 1.6; x.stroke();
+    // fibres de l'iris, anneau sombre au bord et ombre de la paupière (regard vivant)
+    x.save(); x.beginPath(); x.ellipse(cx, iy, ir, iry, 0, 0, TAU); x.clip(); x.lineWidth = .7; for (let i = 0; i < 28; i++) { const a = i / 28 * TAU; x.strokeStyle = i % 2 ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.14)'; x.beginPath(); x.moveTo(cx + Math.cos(a) * ir * .38, iy + Math.sin(a) * iry * .4); x.lineTo(cx + Math.cos(a) * ir * .95, iy + Math.sin(a) * iry * .95); x.stroke(); }
+    let gl = x.createLinearGradient(0, iy - iry, 0, iy - iry * .2); gl.addColorStop(0, 'rgba(20,10,10,.45)'); gl.addColorStop(1, 'rgba(20,10,10,0)'); x.fillStyle = gl; x.fillRect(cx - ir, iy - iry, ir * 2, iry * .8); x.restore();
+    x.strokeStyle = 'rgba(15,8,6,.55)'; x.lineWidth = 1.1; x.beginPath(); x.ellipse(cx, iy, ir * .98, iry * .98, 0, 0, TAU); x.stroke();
     // pupille
     x.fillStyle = ink; x.beginPath();
     if (st === 'chat') x.ellipse(cx, iy, ir * .18, iry * .72, 0, 0, TAU);
@@ -106,8 +110,8 @@
     x.strokeStyle = 'rgba(60,35,30,.45)'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(oc - s * w * .15, cy + bot * .62); x.quadraticCurveTo(cx + s * w * .2, cy + bot * 1.02, cx - s * w * .35, cy + bot * .9); x.stroke();
     if (!sleepy) { x.strokeStyle = 'rgba(90,50,40,.35)'; x.lineWidth = 1.3; x.beginPath(); x.moveTo(cx - s * w * .4, cy + top * 1.32); x.quadraticCurveTo(cx + s * w * .3, cy + top * 1.42, oc + s * 1, cy + top * .7); x.stroke(); }
   }
-  function drawFace(o, ex) {
-    const c = G.cv(256, 256), x = c.getContext('2d'), cheek = o.cheek || (o.blush === false ? 'aucune' : 'rose');
+  function drawFace(o, ex, hd) {
+    const c = G.cv(hd ? 512 : 256, hd ? 512 : 256), x = c.getContext('2d'); if (hd) x.scale(2, 2); const cheek = o.cheek || (o.blush === false ? 'aucune' : 'rose');
     // joues
     if (cheek === 'rose') for (const s of [-1, 1]) { const gx = 128 + s * 60, g = x.createRadialGradient(gx, CY, 0, gx, CY, 20); g.addColorStop(0, 'rgba(255,120,130,.42)'); g.addColorStop(1, 'rgba(255,120,130,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(gx, CY, 22, 13, 0, 0, TAU); x.fill();
       x.strokeStyle = 'rgba(240,90,110,.4)'; x.lineWidth = 1.4; for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(gx - 8 + i * 6, CY + 4); x.lineTo(gx - 4 + i * 6, CY - 4); x.stroke(); } }
@@ -206,6 +210,41 @@
         else if (st === 'chien') { b.sph(.02, ear, p.x * 1.18, p.y - .03, p.z - .01, .55, 1.6, 1); }
         else { const h = st === 'renard' ? .06 : .045; b.cone(.024, h, 4, ear, p.x, p.y + h * .45, p.z, -.15, 0, -s * .35); b.cone(.012, h * .6, 4, inner, p.x, p.y + h * .4, p.z + .008, -.15, 0, -s * .35); } } }
   }
+  // ---------- peau articulée : des tubes d'anneaux, chaque anneau partagé entre deux os → plis doux aux épaules, coudes, poignets, hanches, genoux ----------
+  const smo = (a, b, x) => { const t = G.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  let SKM = null, SKO = null;
+  const skMat = () => SKM || (SKM = G.toon({ vertexColors: true, skinning: true }));
+  const skOut = () => SKO || (SKO = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x4a3426, side: THREE.BackSide, skinning: true }), { outline: .0042 }));
+  G.on('frame', () => { if (SKO && G.M && G.M.outline) SKO.visible = G.M.outline.visible; });
+  function skinB() {
+    const pos = [], nor = [], col = [], skA = [], si = [], sw = [], idx = [], CC = new THREE.Color();
+    // anneau : { c:[x,y,z], u, v (axes de la section), a, b (demi-axes), e (arrondi), col, sk (matière), w:[[os, poids], …] }
+    function tube(rings, n, o = {}) {
+      const P = [], R = [], I = [];
+      rings.forEach(r => { const e = r.e || 2; for (let j = 0; j < n; j++) { const t = j / n * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t), pc = Math.sign(c) * Math.pow(Math.abs(c), 2 / e), ps = Math.sign(sn) * Math.pow(Math.abs(sn), 2 / e);
+        P.push(r.c[0] + r.u[0] * pc * r.a + r.v[0] * ps * r.b, r.c[1] + r.u[1] * pc * r.a + r.v[1] * ps * r.b, r.c[2] + r.u[2] * pc * r.a + r.v[2] * ps * r.b); R.push(r); } });
+      for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < n; j++) { const a = i * n + j, q = i * n + (j + 1) % n; I.push(a, q, a + n, q, q + n, a + n); }
+      const cap = (k, len, top) => { const r = rings[k], r2 = rings[k === 0 ? 1 : k - 1], d = [r.c[0] - r2.c[0], r.c[1] - r2.c[1], r.c[2] - r2.c[2]], l = Math.hypot(d[0], d[1], d[2]) || 1, ci = P.length / 3;
+        P.push(r.c[0] + d[0] / l * len, r.c[1] + d[1] / l * len, r.c[2] + d[2] / l * len); R.push(r); for (let j = 0; j < n; j++) { const a = k * n + j, q = k * n + (j + 1) % n; if (top) I.push(ci, q, a); else I.push(ci, a, q); } };
+      if (o.cap0 != null) cap(0, o.cap0, true); if (o.cap1 != null) cap(rings.length - 1, o.cap1, false);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); g.computeVertexNormals();
+      const mi = Math.floor(rings.length / 2), r0 = rings[mi], k0 = mi * n, N0 = g.attributes.normal; // les normales doivent sortir du tube
+      if (N0.getX(k0) * (P[k0 * 3] - r0.c[0]) + N0.getY(k0) * (P[k0 * 3 + 1] - r0.c[1]) + N0.getZ(k0) * (P[k0 * 3 + 2] - r0.c[2]) < 0) { for (let i = 0; i < I.length; i += 3) { const t = I[i + 1]; I[i + 1] = I[i + 2]; I[i + 2] = t; } g.setIndex(I); g.computeVertexNormals(); }
+      const base = pos.length / 3, NN = g.attributes.normal;
+      for (let i = 0; i < P.length / 3; i++) { const r = R[i]; pos.push(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]); nor.push(NN.getX(i), NN.getY(i), NN.getZ(i)); CC.set(r.col); col.push(CC.r, CC.g, CC.b); skA.push(r.sk || 0);
+        const w = (r.w || [[0, 1]]).slice(0, 4), tot = w.reduce((t, q) => t + q[1], 0) || 1; for (let k = 0; k < 4; k++) { si.push(w[k] ? w[k][0] : 0); sw.push(w[k] ? w[k][1] / tot : 0); } }
+      for (const q of I) idx.push(q + base);
+    }
+    function finish(Pc, bones) {
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('sk', new THREE.Float32BufferAttribute(skA, 1));
+      g.setAttribute('skinIndex', new THREE.Float32BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); g.setIndex(idx); g.computeBoundingSphere();
+      const mesh = new THREE.SkinnedMesh(g, skMat()); mesh.castShadow = true; mesh.receiveShadow = false; mesh.frustumCulled = false; Pc.root.add(mesh);
+      Pc._bind = true; Pc.root.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones)); Pc._bind = false; Pc.root.updateMatrixWorld(true);
+      const om = new THREE.SkinnedMesh(g, skOut()); om.frustumCulled = false; om.castShadow = false; mesh.add(om); om.bind(mesh.skeleton, mesh.bindMatrix);
+      mesh.userData.mat0 = mesh.material; Pc.bodySk = mesh; Pc.bodyOl = om; return mesh;
+    }
+    return { tube, finish };
+  }
   // ---------- assemblage d'un humain ----------
   const tex = c => { const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t; };
   function build(L, ex = {}) {
@@ -220,15 +259,20 @@
     const pants = bottom === 'pantalon' || top === 'salopette', skirt = bottom === 'jupe' || bottom === 'jupe_longue';
     const shoeCol = L.shoes, shoe = swim ? 'nu' : (L.shoe || 'baskets');
     // ----- torse -----
-    const TR = [[.585, .07, .06, -.004], [.62, .104, .079, -.008], [.66, .118, .085, -.012], [.71, .117, .084, -.012], [.76, .104, .077, -.006], [.80, .094, .07, 0], [.85, .101, .074, .004], [.9, .112, .082, .01], [.95, .118, .083, .01], [.995, .124, .076, .004], [1.028, .127, .068, -.002], [1.052, .104, .058, -.006], [1.074, .05, .044, -.006]];
+    const TR = [[.585, .07, .06, -.004], [.62, .104, .079, -.008], [.66, .118, .085, -.012], [.71, .117, .084, -.012], [.76, .104, .077, -.006], [.80, .094, .07, 0], [.85, .101, .074, .004], [.9, .112, .082, .01], [.95, .118, .083, .01], [.995, .126, .076, .004], [1.028, .13, .068, -.002], [1.052, .108, .058, -.006], [1.074, .05, .044, -.006]];
     for (const r of TR) { if (fem) { if (r[0] < .76) r[1] += .011; if (r[0] > .78 && r[0] < .83) r[1] -= .009; if (r[0] > .98) r[1] -= .013; if (r[0] > .87 && r[0] < .96) { r[2] += .014; r[3] += .006; } } if (masc) { if (r[0] < .74) r[1] -= .006; if (r[0] > .78 && r[0] < .86) r[1] += .007; if (r[0] > .96) r[1] += .014; } }
     const ringAt = y => { for (let i = 0; i < TR.length - 1; i++) { const a = TR[i], c = TR[i + 1]; if (y >= a[0] && y <= c[0]) { const t = (y - a[0]) / (c[0] - a[0]); return [y, a[1] + (c[1] - a[1]) * t, a[2] + (c[2] - a[2]) * t, a[3] + (c[3] - a[3]) * t]; } } return TR[y < TR[0][0] ? 0 : TR.length - 1].slice(); };
     const seg = (y0, y1) => { const o = [ringAt(y0)]; for (const r of TR) if (r[0] > y0 + 1e-4 && r[0] < y1 - 1e-4) o.push(r); o.push(ringAt(y1)); return o; };
     let b = G.mb(501); const WAIST = .795;
     b.S(sk.fabric);
-    if (bottom === 'none') loft(b, seg(.585, openNeck ? .99 : 1.074), tc, { capB: .02 });
-    else { loft(b, seg(.585, WAIST), bc, { capB: .02 }); loft(b, seg(WAIST, openNeck ? .99 : 1.074), tc); }
-    if (openNeck) { b.S(sk.skin); loft(b, seg(.99, 1.074), skin); b.S(sk.fabric); }
+    // ===== corps lisse : une seule peau articulée (torse, cou, bras, mains, jambes, pieds) =====
+    const SB = skinB(), sF = sk.fabric || 9, sS = sk.skin || 10, sP = sk.plastic || 14, neckTop = openNeck ? .99 : 9;
+    { const T = TR, rows = []; for (let i = 0; i < T.length - 1; i++) for (let k = 0; k < 3; k++) { const t = k / 3, a = T[Math.max(0, i - 1)], p = T[i], q = T[i + 1], d = T[Math.min(T.length - 1, i + 2)];
+        const cr = j => .5 * (2 * p[j] + (-a[j] + q[j]) * t + (2 * a[j] - 5 * p[j] + 4 * q[j] - d[j]) * t * t + (-a[j] + 3 * p[j] - 3 * q[j] + d[j]) * t * t * t); rows.push([cr(0), cr(1), cr(2), cr(3) || 0]); }
+      rows.push(T[T.length - 1].slice()); const bnd = []; if (bottom !== 'none') bnd.push(WAIST); if (openNeck) bnd.push(.99);
+      let list = rows.filter(r => !bnd.some(y => Math.abs(r[0] - y) < .005)); for (const y of bnd) { const r = ringAt(y); list.push([y - 1e-4, r[1], r[2], r[3]], [y + 1e-4, r[1], r[2], r[3]]); } list.sort((p, q) => p[0] - q[0]);
+      SB.tube(list.map(r => ({ c: [0, r[0], r[3]], u: [1, 0, 0], v: [0, 0, 1], a: r[1], b: r[2], e: 2.25, col: r[0] > neckTop ? skin : bottom !== 'none' && r[0] < WAIST ? bc : tc, sk: r[0] > neckTop ? sS : sF, w: [[0, 1]] })), 30, { cap0: .02, cap1: .004 }); }
+    SB.tube([[1.0, .046, .042, -.004], [1.05, .042, .039, -.003], [1.09, .039, .036, -.001], [1.12, .037, .035, 0], [1.165, .036, .034, 0]].map(([y, a, bb, dz]) => ({ c: [0, y, dz], u: [1, 0, 0], v: [0, 0, 1], a, b: bb, col: skin, sk: sS, w: [[0, 1 - smo(1.08, 1.14, y)], [1, smo(1.08, 1.14, y)]] })), 18);
     // ceinture, ourlet, détails du haut
     const band = (y, col, k = 1.035, t = .1) => { const r = ringAt(y); b.add(new THREE.TorusGeometry(1, t, 6, 26), col, b.M(0, y, r[3], PI / 2, 0, 0, r[1] * k, r[2] * k, .1), 0, true); };
     if (pants || bottom === 'short' || bottom === 'bermuda') { band(WAIST - .006, dark(bc, .7), 1.04, .09); b.S(sk.gold); b.box(.026, .02, .008, 0xd9b04a, 0, WAIST - .006, ringAt(WAIST)[2] + .006); b.S(sk.fabric); }
@@ -258,7 +302,6 @@
     if (ex.tail) { const tc2 = ex.tailCol || 0xf08a3c; if (ex.tail === 'renard') { loft(b, [[0, .02, .02], [.08, .045, .045], [.18, .05, .05], [.27, .03, .03]], tc2, { rx: -2.3, y: .7, z: -.07, capT: .02, capB: .01 }); b.sph(.03, 0xfaf7f0, 0, .7 + .27 * Math.cos(-2.3), -.07 + .27 * Math.sin(-2.3), 1, 1, 1); }
       else loft(b, [[0, .012, .012], [.15, .011, .011], [.27, .009, .009]], tc2, { rx: -2.0, y: .7, z: -.07, capT: .01 }); }
     // cou
-    b.S(sk.skin); loft(b, [[1.03, .042, .038, -.004], [1.08, .039, .036, -.002], [1.14, .037, .034, 0]], skin);
     b.S(null); add(body, b.done());
     // ----- tête -----
     const head = new THREE.Group(); head.position.set(0, NECK, 0); body.add(head); P.head = head;
@@ -270,11 +313,11 @@
     b.S(null); add(head, b.done());
     // visage
     const fl = Object.assign({}, L);
-    P.faceMat = G.toon({ map: tex(drawFace(fl, 'normal')), transparent: true, alphaTest: .4, polygonOffset: true, polygonOffsetFactor: -2 }, {});
+    P.faceHD = !!HD; P.faceMat = G.toon({ map: tex(drawFace(fl, 'normal', P.faceHD)), transparent: true, alphaTest: .4, polygonOffset: true, polygonOffsetFactor: -2 }, {});
     P.faces.normal = P.faceMat.map; P.faceOpts = fl;
     const fm = new THREE.Mesh(headGeo(1.003, FPS, FPL, FTS, FTL, 30, 26), P.faceMat); fm.frustumCulled = false; fm.userData.sk = sk.skin; head.add(fm); P.faceMesh = fm;
     P.eyes = new THREE.Object3D(); head.add(P.eyes);
-    P.setExpr = e => { if (P.expr === e) return; P.expr = e; if (!P.faces[e]) P.faces[e] = tex(drawFace(P.faceOpts, e)); P.faceMat.map = P.faces[e]; };
+    P.setExpr = e => { if (P.expr === e) return; P.expr = e; if (!P.faces[e]) P.faces[e] = tex(drawFace(P.faceOpts, e, P.faceHD)); P.faceMat.map = P.faces[e]; };
     // cheveux, chapeau, accessoires du visage
     const hatSt = L.hat || 'aucun', covers = ['bonnet', 'casquette', 'bandana', 'beret', 'capitaine', 'haut_forme', 'chapeau', 'sorciere'].includes(hatSt);
     b = G.mb(503); hair(b, L.hair || 'court', L.hairCol, covers); add(head, b.done(), false);
@@ -286,56 +329,63 @@
     if (acc === 'moustache' || ex.moustache) { const p = hp(1.92, PI / 2, 1.03); b.S(sk.hair); for (const s of [-1, 1]) b.sph(.016, ex.moustache || L.hairCol || 0x3a2a1a, p.x + s * .014, p.y + .004, p.z, 1.3, .45, .55); b.S(null); }
     if (ex.beard) { b.S(sk.hair); for (let i = 0; i < 9; i++) { const ph = PI / 2 + (i / 8 - .5) * 1.7, q = hp(2.3 + Math.abs(i / 8 - .5) * .3, ph, 1.05); b.sph(.018, ex.beard, q.x, q.y, q.z, 1, 1, .8); } b.S(null); }
     if (b.parts.some(p => p.length)) add(head, b.done(), false);
-    // ----- bras -----
-    const sleeve = longSleeve ? tc : bareArms ? skin : tc, armCol = bareArms ? skin : longSleeve ? tc : skin;
-    const autoBend = (g, f) => { g.updateMatrix = function () { f(this); THREE.Object3D.prototype.updateMatrix.call(this); }; };
+    // ----- bras : épaule ronde, biceps, coude, avant-bras, poignet, main à cinq doigts (une seule peau) -----
+    const autoBend = (g, f) => { g.updateMatrix = function () { if (P._bind) this.rotation.x = 0; else if (this.userData.k != null) this.rotation.x = this.userData.k; else f(this); THREE.Object3D.prototype.updateMatrix.call(this); }; };
+    const lerpT = (T, y, j) => { for (let i = 0; i < T.length - 1; i++) if (y <= T[i][0] && y >= T[i + 1][0]) { const t = (T[i][0] - y) / (T[i][0] - T[i + 1][0]); return T[i][j] + (T[i + 1][j] - T[i][j]) * t; } return y > T[0][0] ? T[0][j] : T[T.length - 1][j]; };
+    // anneaux d'un membre (du haut vers le bas) avec un ourlet de vêtement à la hauteur « cover » : tissu au-dessus, peau en dessous
+    const limb = (T, k, cover, lip, loose) => { let L = T.map(r => [r[0], r[1] * k, r[2] * k, r[3] || 0, 0]);
+      if (cover > T[T.length - 1][0] && cover < T[0][0]) { L = L.filter(r => Math.abs(r[0] - cover) > .012); const c2 = cover + .013;
+        L.push([c2, lerpT(T, c2, 1) * k + lip * .55, lerpT(T, c2, 2) * k + lip * .55, lerpT(T, c2, 3) || 0, 1], [cover + 1e-4, lerpT(T, cover, 1) * k + lip, lerpT(T, cover, 2) * k + lip, lerpT(T, cover, 3) || 0, 1], [cover - 1e-4, lerpT(T, cover, 1) * k, lerpT(T, cover, 2) * k, lerpT(T, cover, 3) || 0, 0]); L.sort((p, q) => q[0] - p[0]); }
+      return L.map(r => { const cl = r[0] > cover; return { y: r[0], a: r[1] + (cl && !r[4] ? loose : 0), b: r[2] + (cl && !r[4] ? loose : 0), dz: r[3], cl }; }); };
     const arm = s => {
-      const g = new THREE.Group(); g.position.set(s * (masc ? SX + .006 : fem ? SX - .01 : SX), SH, 0); body.add(g);
-      let bb = G.mb(510); bb.S(bareArms ? sk.skin : sk.fabric); bb.sph(.041, bareArms ? skin : tc, -s * .008, -.006, 0, 1, .95, .95);
-      if (longSleeve || bareArms) loft(bb, [[.015, .045, .045], [-.06, .042, .043], [-.14, .036, .038], [-.222, .032, .034]], sleeve);
-      else { loft(bb, [[.015, .046, .046], [-.06, .044, .045], [-.098, .042, .043]], tc); bb.S(sk.skin); loft(bb, [[-.09, .039, .04], [-.14, .036, .038], [-.222, .032, .034]], skin); bb.S(sk.fabric); bb.add(new THREE.TorusGeometry(.043, .006, 6, 18), dark(tc, .9), bb.M(0, -.096, 0, PI / 2, 0, 0), 0, true); }
-      add(g, bb.done());
+      const ax = s * (masc ? SX + .006 : fem ? SX - .01 : SX), g = new THREE.Group(); g.position.set(ax, SH, 0); body.add(g);
       const fa = new THREE.Group(); fa.position.set(0, -UA, 0); g.add(fa);
       autoBend(fa, o => { const a = o.parent.rotation.x; o.rotation.x = -(.16 + Math.max(0, -a) * .17 + Math.max(0, a) * .04); });
-      bb = G.mb(511); bb.S(longSleeve ? sk.fabric : sk.skin); bb.sph(.032, armCol, 0, 0, 0);
-      if (kimono) { bb.S(sk.fabric); loft(bb, [[.02, .036, .036], [-.1, .05, .055, .01], [-.17, .07, .075, .02]], tc); bb.S(sk.skin); loft(bb, [[-.02, .03, .03], [-.17, .023, .022]], skin); }
-      else { loft(bb, [[.01, .032, .033], [-.07, .033, .031], [-.185, .024, .023]], armCol); if (longSleeve) bb.add(new THREE.TorusGeometry(.026, .006, 6, 16), dark(tc, .85), bb.M(0, -.17, 0, PI / 2, 0, 0), 0, true); }
-      add(fa, bb.done());
       const hand = new THREE.Group(); hand.position.set(0, -FA, .004); fa.add(hand);
-      bb = G.mb(512); bb.S(sk.skin); bb.box(.024, .068, .05, skin, 0, -.032, .002); bb.box(.02, .045, .045, skin, -s * .002, -.082, .004, .28, 0, 0); bb.sph(.012, skin, -s * .006, -.025, .03, .9, 2.2, .9);
-      add(hand, bb.done(), false);
-      return [g, hand];
+      const [bA, bF, bH] = s < 0 ? [2, 3, 4] : [5, 6, 7], yE = SH - UA, yW = yE - FA, k = fem ? .9 : masc ? 1.08 : 1;
+      const cover = bareArms ? SH + 1 : longSleeve ? yW + .02 : SH - .1;
+      const wts = y => { const wb = y > SH - .03 ? .5 * smo(SH - .03, SH + .03, y) : 0, wf = smo(yE + .028, yE - .028, y), wh = smo(yW + .008, yW - .012, y);
+        return [[0, wb], [bA, (1 - wb) * (1 - wf)], [bF, (1 - wb) * wf * (1 - wh)], [bH, (1 - wb) * wf * wh]].filter(q => q[1] > 1e-4); };
+      const T = [[SH + .032, .006, .006], [SH + .027, .022, .023], [SH + .017, .033, .035], [SH + .003, .04, .042], [SH - .025, .043, .044], [SH - .07, .043, .044], [SH - .13, .041, .042], [yE + .035, .034, .036], [yE, .031, .033], [yE - .035, .033, .034], [yE - .08, .031, .031], [yE - .14, .025, .026], [yW + .012, .0205, .022], [yW - .004, .02, .0215]];
+      SB.tube(limb(T, k, cover, .007, .004).map(r => ({ c: [ax, r.y, r.dz], u: [1, 0, 0], v: [0, 0, 1], a: r.a, b: r.b, col: r.cl ? tc : skin, sk: r.cl ? sF : sS, w: wts(r.y) })), 18, { cap0: .002 });
+      // main : paume, quatre doigts un peu repliés vers la cuisse, pouce vers l'avant
+      const hz = .004, sH = [[bH, 1]];
+      SB.tube([[yW + .004, .0125, .021], [yW - .012, .0128, .024], [yW - .035, .0124, .0265], [yW - .055, .0118, .026], [yW - .064, .0102, .022]].map(([y, a2, b2]) => ({ c: [ax - s * .001, y, hz], u: [1, 0, 0], v: [0, 0, 1], a: a2, b: b2, col: skin, sk: sS, w: sH })), 14, { cap1: .003 });
+      [[.0165, .043, .0062], [.0055, .049, .0059], [-.0055, .046, .0055], [-.016, .037, .0049]].forEach(([dz, L, rr]) => { const y0 = yW - .056;
+        SB.tube([0, .33, .66, 1].map(t => ({ c: [ax - s * (.0015 + .014 * t * t), y0 - L * t * (1 - .1 * t), hz + dz * (1 + .12 * t)], u: [1, 0, 0], v: [0, 0, 1], a: rr * (1 - .25 * t), b: rr * (1 - .18 * t), col: skin, sk: sS, w: sH })), 8, { cap1: rr * .8 }); });
+      SB.tube([0, .4, .75, 1].map(t => ({ c: [ax - s * (.004 + .011 * t), yW - .014 - .037 * t, hz + .021 + .015 * t], u: [1, 0, 0], v: [0, 0, 1], a: .0072 * (1 - .25 * t), b: .008 * (1 - .25 * t), col: skin, sk: sS, w: sH })), 8, { cap1: .005 });
+      if (kimono) { const bb = G.mb(511); bb.S(sk.fabric); loft(bb, [[.02, .036, .036], [-.1, .05, .055, .01], [-.17, .07, .075, .02]], tc); add(fa, bb.done()); }
+      return { g, fa, hand };
     };
-    [P.armL] = arm(-1); [P.armR, P.hand] = arm(1);
-    // ----- jambes -----
-    const legCol = pants ? bc : skin;
+    const AL = arm(-1), AR = arm(1); P.armL = AL.g; P.armR = AR.g; P.hand = AR.hand; P.faL = AL.fa; P.faR = AR.fa;
+    // ----- jambes : cuisse, genou, mollet, cheville ; chaussures modelées dont la semelle touche le sol -----
     const leg = s => {
-      const g = new THREE.Group(); g.position.set(s * (fem ? HX + .006 : HX), HIP, 0); body.add(g);
-      let bb = G.mb(520); bb.S(pants ? sk.fabric : sk.skin);
-      const thigh = [[.04, .066, .068], [-.04, .064, .066, .004], [-.14, .056, .058, .004], [-.275, .045, .046]];
-      if (pants) loft(bb, thigh, bc);
-      else if (bottom === 'short' || bottom === 'bermuda') { const yc = bottom === 'short' ? -.1 : -.24; bb.S(sk.fabric); loft(bb, [thigh[0], thigh[1], [yc, .06 - (bottom === 'bermuda' ? .012 : 0), .062 - (bottom === 'bermuda' ? .012 : 0)]], bc); bb.S(sk.skin); loft(bb, [[yc + .01, .056, .058], ...thigh.filter(r => r[0] < yc)], skin); bb.S(sk.fabric); bb.add(new THREE.TorusGeometry(.062, .006, 6, 18), dark(bc, .85), bb.M(0, yc, 0, PI / 2, 0, 0, 1, 1.02, 1), 0, true); }
-      else loft(bb, thigh, skin);
-      add(g, bb.done());
+      const lx = s * (fem ? HX + .006 : HX), g = new THREE.Group(); g.position.set(lx, HIP, 0); body.add(g);
       const shin = new THREE.Group(); shin.position.set(0, -TH, 0); g.add(shin);
       autoBend(shin, o => { const a = o.parent.rotation.x; o.rotation.x = a > 0 ? a * 1.1 : a < -1.05 ? -a * .96 : -a * .25; });
-      bb = G.mb(521); bb.S(pants ? sk.fabric : sk.skin);
-      bb.sph(.04, legCol, 0, .004, .002);
-      const boots = shoe === 'bottes';
-      loft(bb, [[.01, .043, .044], [-.08, .043, .046, -.006], [-.19, .033, .035], [-.262, .027, .029]], legCol);
-      if (pants) bb.add(new THREE.TorusGeometry(.03, .006, 6, 16), dark(bc, .85), bb.M(0, -.255, 0, PI / 2, 0, 0), 0, true);
-      // chaussures
-      bb.S(shoe === 'nu' || shoe === 'sandales' ? sk.skin : sk.plastic); const fz = .028, fy = -.272;
-      if (shoe === 'nu') bb.sph(.034, skin, 0, fy, fz, 1, .55, 2.05);
-      else if (shoe === 'sandales') { bb.sph(.033, skin, 0, fy + .004, fz, 1, .5, 2.0); bb.S(sk.plastic); bb.box(.07, .014, .15, shoeCol, 0, fy - .018, fz + .004); for (const z of [-.01, .045]) bb.box(.066, .012, .014, shoeCol, 0, fy + .006, fz + z); }
-      else { if (boots) { bb.S(sk.plastic); loft(bb, [[-.27, .034, .036], [-.18, .037, .039], [-.12, .04, .042]], shoeCol, { capT: .0 }); }
-        bb.sph(.038, shoeCol, 0, fy, fz, 1, .6, 2.05); bb.box(.072, shoe === 'ballerines' ? .012 : .02, .16, shoe === 'baskets' ? 0xf7f5ee : dark(shoeCol, .55), 0, fy - .018, fz + .002);
-        if (shoe === 'baskets') { bb.sph(.024, 0xf7f5ee, 0, fy - .002, fz + .052, 1.4, .7, 1); for (let i = 0; i < 3; i++) bb.box(.034, .004, .006, 0xffffff, 0, fy + .02 - i * .002, fz + .005 + i * .014, -.5); }
-        if (shoe === 'ballerines') bb.sph(.01, 0xffffff, 0, fy + .012, fz + .052, 1.4, .8, .6); }
-      add(shin, bb.done());
-      return g;
+      const [bL, bS] = s < 0 ? [8, 9] : [10, 11], yK = HIP - TH, yA = .085, k = fem ? .97 : masc ? 1.04 : 1, SW = [[bS, 1]];
+      const shortY = bottom === 'short' ? HIP - .1 : bottom === 'bermuda' ? HIP - .24 : null, cover = pants ? yA + .014 : shortY != null ? shortY : HIP + 1;
+      const wts = y => { const wb = y > HIP - .02 ? .55 * smo(HIP - .02, HIP + .07, y) : 0, ws = smo(yK + .03, yK - .035, y); return [[0, wb], [bL, (1 - wb) * (1 - ws)], [bS, (1 - wb) * ws]].filter(q => q[1] > 1e-4); };
+      const T = [[HIP + .07, .036, .036, 0], [HIP + .035, .054, .058, -.004], [HIP - .03, .062, .066, -.006], [HIP - .1, .062, .064, -.004], [HIP - .18, .056, .058, -.002], [yK + .035, .047, .048, .002], [yK, .045, .047, .005], [yK - .03, .046, .048, -.003], [yK - .08, .049, .053, -.012], [yK - .14, .044, .047, -.009], [yK - .2, .034, .036, -.003], [yA + .02, .028, .03, 0], [yA, .027, .029, 0]];
+      SB.tube(limb(T, k, cover, pants ? .007 : .009, pants ? .006 : .004).map(r => ({ c: [lx, r.y, r.dz], u: [1, 0, 0], v: [0, 0, 1], a: r.a, b: r.b, col: r.cl ? bc : skin, sk: r.cl ? sF : sS, w: wts(r.y) })), 18, { cap1: .012 });
+      // pied ou chaussure : section arrondie le long de z (talon → orteils)
+      const foot = (prof, colFn, skv, n = 16) => SB.tube(prof.map(([z, y, a2, b2]) => ({ c: [lx + s * .003, y, z], u: [1, 0, 0], v: [0, 1, 0], a: a2, b: b2, e: 2.5, col: colFn(z, y), sk: skv, w: SW })), n, { cap0: .01, cap1: .01 });
+      const sc = shoeCol, dk = dark(sc, .55);
+      const bare = [[-.045, .036, .025, .034], [-.02, .034, .029, .034], [.02, .028, .032, .026], [.06, .019, .033, .017], [.09, .013, .03, .011], [.104, .012, .025, .009]];
+      if (shoe === 'nu' || shoe === 'sandales' || shoe === 'ballerines') foot(bare, () => skin, sS);
+      if (shoe === 'sandales') { foot([[-.052, .007, .03, .007], [0, .007, .036, .007], [.06, .007, .037, .007], [.112, .008, .028, .008]], () => sc, sP, 12); const bb = G.mb(523); bb.S(sk.plastic);
+        for (const z of [-.005, .05]) bb.box(.07, .012, .014, sc, lx * 0 + s * .003, .026 - yK + (z > 0 ? -.006 : 0), z, 0, 0, 0); add(shin, bb.done(), false); }
+      else if (shoe === 'ballerines') { foot([[-.05, .028, .029, .03], [-.02, .026, .033, .028], [.03, .02, .036, .02], [.07, .015, .036, .015], [.1, .013, .031, .012], [.112, .012, .024, .01]], () => sc, sP); foot([[-.054, .005, .031, .006], [.06, .005, .038, .006], [.115, .006, .025, .006]], () => dk, sP, 12); }
+      else if (shoe !== 'nu') { // baskets, bottes : empeigne galbée, semelle qui déborde un peu, bout renforcé
+        const white = shoe === 'baskets' ? 0xf7f5ee : null;
+        foot([[-.052, .042, .03, .04], [-.035, .046, .035, .046], [-.005, .045, .037, .045], [.03, .038, .039, .036], [.065, .029, .038, .027], [.095, .023, .033, .021], [.112, .021, .025, .017]], (z, y) => white && z > .085 ? white : sc, sP);
+        foot([[-.058, .009, .032, .01], [-.02, .009, .038, .01], [.06, .009, .041, .01], [.11, .01, .03, .011], [.121, .011, .02, .01]], () => white || dk, sP, 14);
+        if (shoe === 'bottes') SB.tube([[.22, .042, .044], [.17, .04, .042], [.11, .038, .041], [.06, .036, .04]].map(([y, a2, b2]) => ({ c: [lx, y, -.006], u: [1, 0, 0], v: [0, 0, 1], a: a2, b: b2, col: sc, sk: sP, w: SW })), 16, { cap1: .01 });
+        if (shoe === 'baskets') { const bb = G.mb(522); bb.S(sk.fabric); for (let i = 0; i < 4; i++) bb.box(.032, .004, .006, 0xffffff, s * .003, .062 - i * .007 - yK, .006 + i * .016, -.55, 0, 0); bb.box(.006, .03, .018, 0xffffff, s * (.003 + .037), .04 - yK, -.03); bb.box(.006, .03, .018, 0xffffff, s * (.003 - .037), .04 - yK, -.03); add(shin, bb.done(), false); } }
+      return { g, shin };
     };
-    P.legL = leg(-1); P.legR = leg(1);
+    const LL = leg(-1), LR = leg(1); P.legL = LL.g; P.legR = LR.g; P.shinL = LL.shin; P.shinR = LR.shin;
+    SB.finish(P, [body, P.head, AL.g, AL.fa, AL.hand, AR.g, AR.fa, AR.hand, LL.g, LL.shin, LR.g, LR.shin]);
     // le personnage s'écrase beaucoup moins qu'avant quand il saute (réalisme)
     body.updateMatrix = function () { const s = this.scale, x = s.x, y = s.y, z = s.z; s.set(1 + (x - 1) * .3, 1 + (y - 1) * .3, 1 + (z - 1) * .3); THREE.Object3D.prototype.updateMatrix.call(this); s.set(x, y, z); };
     return P;
@@ -383,9 +433,10 @@
     if (ex.apron == null) delete ex.apron;
     return { L, ex };
   };
+  let HD = false; // visage en haute définition (joueur)
   G.makeChar = (o = {}) => {
     const sp = o.sp || 'humain';
-    if (sp === 'humain') return build(G.normLook(o.look || o));
+    if (sp === 'humain') { HD = !!o.hd; try { return build(G.normLook(o.look || o)); } finally { HD = false; } }
     const { L, ex } = G.npcLook(o); return build(L, ex);
   };
   G.drawFaceCanvas = drawFace;

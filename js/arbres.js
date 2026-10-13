@@ -11,6 +11,33 @@
   const leafGeo = (both) => { const w = .32, B = [0, 0, 0], L = [-w, .07, .45], T = [0, .03, 1], R = [w, .07, .45], p = [B, L, T, B, T, R].concat(both ? [B, T, L, B, R, T] : []).flat();
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); return g; };
 
+  // ---------- atlas de feuilles (gris + transparence ; la teinte vient des couleurs de sommets) : 0 feuillu, 1 bouleau, 2 fleurs de cerisier, 3 chêne lobé ----------
+  function leafAtlas() {
+    const S = 512, c = G.cv(S * 4, S * 2), x = c.getContext('2d'), r = G.rng(4242), gr = v => 'rgb(' + (v | 0) + ',' + (v | 0) + ',' + (v | 0) + ')';
+    const edge = (t, wid, lobed, ph) => wid / 2 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.02)), .75) * (lobed ? 1 + .32 * Math.sin(t * Math.PI * 7 + ph) : 1);
+    const leaf = (cx, cy, len, wid, ang, v, lobed) => { x.save(); x.translate(cx, cy); x.rotate(ang); const g = x.createLinearGradient(0, -wid / 2, 0, wid / 2); g.addColorStop(0, gr(v)); g.addColorStop(.5, gr(v * .9)); g.addColorStop(1, gr(v * .66)); x.fillStyle = g; x.beginPath(); x.moveTo(0, 0);
+      const N = lobed ? 28 : 14; for (let i = 1; i <= N; i++) x.lineTo(len * i / N, -edge(i / N, wid, lobed, 0)); for (let i = N; i >= 0; i--) x.lineTo(len * i / N, edge(i / N, wid, lobed, .4));
+      x.closePath(); x.fill(); x.strokeStyle = 'rgba(30,30,30,.28)'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(1, 0); x.lineTo(len * .92, 0); x.stroke();
+      x.lineWidth = .8; for (let i = 1; i < 5; i++) { const t = i / 5; x.beginPath(); x.moveTo(len * t, 0); x.lineTo(len * (t + .1), -wid * .3); x.moveTo(len * t, 0); x.lineTo(len * (t + .1), wid * .3); x.stroke(); } x.restore(); };
+    const twig = (ox, oy) => { x.strokeStyle = gr(95); x.lineCap = 'round'; for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + (r() - .5) * 2.4, l = 90 + r() * 90; x.lineWidth = 3.5 - k * .4; x.beginPath(); x.moveTo(ox + S / 2, oy + S - 20); x.quadraticCurveTo(ox + S / 2 + Math.cos(a) * l * .5, oy + S - 20 + Math.sin(a) * l * .5 - 30, ox + S / 2 + Math.cos(a) * l * 1.4, oy + S - 20 + Math.sin(a) * l * 1.4); x.stroke(); } };
+    const cluster = (ox, oy, n, l0, l1, w0, w1, lobed) => { twig(ox, oy); const L = []; for (let i = 0; i < n; i++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * (S * .3), px = ox + S / 2 + Math.cos(a) * d, py = oy + S * .47 + Math.sin(a) * d * .9, len = l0 + r() * (l1 - l0);
+        const ang = Math.atan2(py - (oy + S * .5), px - (ox + S / 2)) + (r() - .5) * 1.1; L.push([px - Math.cos(ang) * len * .3, py - Math.sin(ang) * len * .3, len, w0 + r() * (w1 - w0), ang, 150 + d / (S * .3) * 70 + r() * 35]); }
+      L.sort((a, b) => a[5] - b[5]).forEach(q => leaf(q[0], q[1], q[2], q[3], q[4], Math.min(255, q[5]), lobed)); };
+    const cell = (ox, oy, f) => { x.save(); x.beginPath(); x.rect(ox, oy, S, S); x.clip(); f(); x.restore(); };
+    cell(0, 0, () => cluster(0, 0, 60, 80, 125, 34, 50, false));
+    cell(S, 0, () => cluster(S, 0, 120, 44, 66, 24, 34, false));
+    cell(2 * S, 0, () => { const ox = 2 * S; twig(ox, 0); for (let i = 0; i < 18; i++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * S * .3; leaf(ox + S / 2 + Math.cos(a) * d, S * .48 + Math.sin(a) * d, 60, 30, a, 120, false); }
+      for (let i = 0; i < 70; i++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * S * .34, fx = ox + S / 2 + Math.cos(a) * d, fy = S * .47 + Math.sin(a) * d * .9, R = 13 + r() * 9, v = 205 + r() * 50;
+        for (let p = 0; p < 5; p++) { const pa = p / 5 * Math.PI * 2 + r(); x.fillStyle = gr(v - p * 6); x.beginPath(); x.ellipse(fx + Math.cos(pa) * R * .55, fy + Math.sin(pa) * R * .55, R * .58, R * .42, pa, 0, Math.PI * 2); x.fill(); } x.fillStyle = gr(v * .55); x.beginPath(); x.arc(fx, fy, R * .2, 0, Math.PI * 2); x.fill(); } });
+    cell(3 * S, 0, () => cluster(3 * S, 0, 46, 90, 135, 46, 64, true));
+    // 4 : rameau de sapin (aiguilles) — la tige va du bas (côté tronc) vers le haut
+    cell(0, S, () => { x.lineCap = 'round'; const stem = (x0, y0, x1, y1, w, nd) => { x.strokeStyle = gr(80); x.lineWidth = w; x.beginPath(); x.moveTo(x0, y0); x.lineTo(x1, y1); x.stroke(); const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L;
+        for (let t = 0; t < L; t += nd) { const px = x0 + ux * t, py = y0 + uy * t, k = 1 - t / L * .5; for (const sd of [-1, 1]) { const a = Math.atan2(uy, ux) + sd * (.75 + r() * .35), l = (26 + r() * 16) * k; x.strokeStyle = gr(120 + r() * 120); x.lineWidth = 3.4 + r() * 1.4; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); x.stroke(); } } };
+      stem(S / 2, 2 * S - 12, S / 2, S + 30, 7, 4.5); for (let k = 0; k < 12; k++) { const t = .08 + k * .07, y0 = 2 * S - 12 - t * (S - 40), sd = k % 2 ? 1 : -1, l = (200 - k * 12) * (.8 + r() * .3); stem(S / 2, y0, S / 2 + sd * l * .8, y0 - l * .6, 4, 4.5); } });    return c; }
+  const omm = G.makeMaterials; G.makeMaterials = () => { omm(); const t = new THREE.CanvasTexture(leafAtlas()); t.anisotropy = 8;
+    const m = G.premiumMat({ map: t, vertexColors: true, alphaTest: .45, side: THREE.DoubleSide }, { cloud: true, rough: .62 }); m.alphaToCoverage = true;
+    const ob = m.onBeforeCompile; m.onBeforeCompile = sh => { ob(sh); sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', 'float faceDirection = 1.0;\nvec3 normal = normalize( vNormal );\nvec3 geometryNormal = normal;'); };
+    m.customProgramCacheKey = () => 'prLeaf'; G.M.leaf = m; G.MATS[5] = m; };
   // Les couleurs sont calculées par sommet (ombre sous le houppier, reflets au sommet, nuances), et les normales du feuillage
   // visent le centre du houppier : toutes les touffes s'éclairent comme un seul volume, à la manière des jeux récents.
   const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
@@ -54,11 +81,22 @@
     const disp = (i, ux, uy, uz) => 1 + amp * (fbm(ux * freq + i * 7.13 + seed, uy * freq + i, uz * freq) - .5) * 2 + amp * .5 * (vnoise(ux * freq * 3.4 + i * 3.1, uy * freq * 3.4 + seed, uz * freq * 3.4) - .5) * 2;
     const norm = (ux, uy, uz, px, py, pz) => { const cx = px - c[0], cy = (py - c[1]) * 1.15, cz = pz - c[2], l = Math.hypot(cx, cy, cz) || 1; const v = new V3(ux * (1 - wrap) + cx / l * wrap, uy * (1 - wrap) + cy / l * wrap, uz * (1 - wrap) + cz / l * wrap); return v.normalize(); };
     const surf = (i, ux, uy, uz, k = 1) => { const [x, y, z, r, sx = 1, sy = 1, sz = 1] = cl[i], fy = uy < -.2 ? .78 : 1, d = disp(i, ux, uy, uz) * k; return [x + ux * r * sx * d, y + uy * r * sy * d * fy, z + uz * r * sz * d]; };
-    cl.forEach((k, i) => { const g = new THREE.IcosahedronGeometry(1, LQ ? 1 : det != null ? det : k[3] >= .45 ? 3 : 2), p = g.attributes.position, n = g.attributes.normal;
-      for (let j = 0; j < p.count; j++) { const ux = p.getX(j), uy = p.getY(j), uz = p.getZ(j), q = surf(i, ux, uy, uz), v = norm(ux, uy, uz, q[0], q[1], q[2]); p.setXYZ(j, q[0], q[1], q[2]); n.setXYZ(j, v.x, v.y, v.z); }
-      raw(b, paint(g, shade)); });
-    // petites touffes qui dépassent : la silhouette n'est plus lisse
+    const card = o.leaf != null, core = card ? .72 : 1, coreK = card ? .5 : 1;
+    cl.forEach((k, i) => { const g = new THREE.IcosahedronGeometry(1, LQ ? 1 : det != null ? det : k[3] >= .45 ? (card ? 2 : 3) : 2), p = g.attributes.position, n = g.attributes.normal;
+      for (let j = 0; j < p.count; j++) { const ux = p.getX(j), uy = p.getY(j), uz = p.getZ(j), q = surf(i, ux, uy, uz, core), v = norm(ux, uy, uz, q[0], q[1], q[2]); p.setXYZ(j, q[0], q[1], q[2]); n.setXYZ(j, v.x, v.y, v.z); }
+      raw(b, paint(g, (C, x, y, z, nx, ny) => { shade(C, x, y, z, nx, ny); C.multiplyScalar(coreK); })); });
     const dir = (ymin = -.35) => { for (;;) { const v = new V3(rng() * 2 - 1, rng() * 2 - 1, rng() * 2 - 1); if (v.lengthSq() < 1 && v.lengthSq() > .05 && v.normalize().y > ymin) return v; } };
+    if (card) { // feuillage en cartes : des bouquets de feuilles dessinés (texture), tournés vers l'extérieur du houppier
+      const u0 = (o.leaf % 4) * .25, v0 = o.leaf < 4 ? .5 : 0, pos = [], nor = [], col = [], uv = [], C = new THREE.Color(), N = new V3(), T1 = new V3(), T2 = new V3(), UV = [[0, 0], [1, 0], [1, 1], [0, 1]];
+      cl.forEach((k, i) => { const cnt = Math.max(4, Math.round((LQ ? 10 : 40) * Math.pow(k[3] / .5, 2) * (o.cards || 1)));
+        for (let j = 0; j < cnt; j++) { const u = dir(-.6), f = .55 + .55 * Math.sqrt(rng()), q = surf(i, u.x, u.y, u.z, f), s = (k[3] * .7 + .26) * (.75 + .5 * rng()) * (o.cardS || 1) * (LQ ? 1.35 : 1);
+          N.set(u.x + (rng() - .5) * 1.3, u.y * .6 + (rng() - .5) * 1.3 + .2, u.z + (rng() - .5) * 1.3).normalize(); T1.set(rng() - .5, rng() - .5, rng() - .5).cross(N).normalize(); T2.crossVectors(N, T1);
+          const P4 = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, c2]) => [q[0] + (T1.x * a + T2.x * c2) * s / 2, q[1] + (T1.y * a + T2.y * c2) * s / 2, q[2] + (T1.z * a + T2.z * c2) * s / 2]);
+          const nv = norm(u.x, u.y, u.z, q[0], q[1], q[2]); shade(C, q[0], q[1], q[2], nv.x, nv.y); C.multiplyScalar((.9 + .25 * rng()) * 1.18); const rot = Math.floor(rng() * 4), fl = rng() < .5;
+          for (const vi of [0, 1, 2, 0, 2, 3]) { const P = P4[vi], w = norm(u.x, u.y, u.z, P[0], P[1], P[2]); pos.push(P[0], P[1], P[2]); nor.push(w.x, w.y, w.z); col.push(C.r, C.g, C.b); const t = UV[(vi + rot) % 4]; uv.push(u0 + ((fl ? 1 - t[0] : t[0]) * .96 + .02) * .25, v0 + (t[1] * .96 + .02) * .5); } } });
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.sk = (G.SK && G.SK.leaf) || 5; b.parts[5].push(g);
+    } else
+    // petites touffes qui dépassent : la silhouette n'est plus lisse
     for (let k = 0; k < (LQ ? 0 : tufts); k++) { const i = Math.floor(rng() * cl.length), u = dir(), q = surf(i, u.x, u.y, u.z, .98), s = cl[i][3] * (.2 + rng() * .14), g = new THREE.OctahedronGeometry(1, 0);
       g.applyMatrix4(new THREE.Matrix4().compose(new V3(q[0], q[1], q[2]), new THREE.Quaternion().setFromEuler(new THREE.Euler(rng() * 3, rng() * 3, rng() * 3)), new V3(s, s * .7, s * 1.25)));
       const v = norm(u.x, u.y, u.z, q[0], q[1], q[2]), n = g.attributes.normal; for (let j = 0; j < n.count; j++) n.setXYZ(j, v.x, v.y, v.z); raw(b, paint(g, shade)); }
@@ -73,44 +111,44 @@
     const top = trunk(b, { h: 1.95, r0: .22, r1: .12, seed: 1.3, lean: [.06, -.04], flare: .75, paintFn: bp });
     for (const e of [[.62, 2.35, .28], [-.6, 2.4, .2], [.2, 2.45, -.55], [-.25, 2.55, .45], [.05, 2.9, 0]]) limb(b, [top[0] * .7, 1.3, top[2] * .7], e, .1, .04, bp);
     foliage(b, [[0, 2.78, 0, .78, 1.15, .8, 1.1], [.66, 2.36, .3, .55], [-.66, 2.42, .22, .56], [.26, 2.42, -.64, .55], [-.38, 2.46, -.54, .52], [.15, 2.3, .68, .5], [0, 3.28, .05, .52, 1, .8, 1], [.56, 2.98, -.2, .45], [-.52, 3.02, .16, .45]],
-      { pal: [0x2b632b, 0x4b9638, 0x93c95a], c: [0, 2.65, 0], seed: 3 }); return b.done(); };
+      { pal: [0x2b632b, 0x4b9638, 0x93c95a], c: [0, 2.65, 0], seed: 3, leaf: 3 }); return b.done(); };
   T.tree_birch = v => { const b = G.mb(12), bp = bark.bouleau(2.1);
     trunk(b, { h: 3.05, r0: .13, r1: .06, seed: 2.1, lean: [.12, .03], flare: .3, roots: 4, paintFn: bp });
     for (const [a, c] of [[[.04, 1.6, 0], [.38, 2.3, .14]], [[.06, 1.85, .01], [-.36, 2.45, .1]], [[.08, 2.1, .01], [.12, 2.6, -.38]]]) limb(b, a, c, .045, .02, bp);
     foliage(b, [[.08, 2.9, 0, .48, 1, 1.35, 1], [.42, 2.45, .16, .36, 1, 1.15, 1], [-.32, 2.58, .12, .36, 1, 1.15, 1], [.14, 2.62, -.4, .36, 1, 1.1, 1], [-.1, 3.36, -.1, .36, 1, 1.1, 1], [.32, 3.18, .26, .32], [-.06, 2.2, .36, .3]],
-      { pal: [0x4f8a2e, 0x8cbf45, 0xd2e57a], c: [.08, 2.8, 0], seed: 5, amp: .26, tufts: 22 }); return b.done(); };
+      { pal: [0x4f8a2e, 0x8cbf45, 0xd2e57a], c: [.08, 2.8, 0], seed: 5, amp: .26, tufts: 22, leaf: 1, cards: 1.3, cardS: .85 }); return b.done(); };
   const FRUITC = [0xe8343a, 0xff9420, 0xffa38a];
   T.tree_fruit = v => { const b = G.mb(13 + v % 10), bp = bark.brun(0x7d5a3c, 2.7);
     const top = trunk(b, { h: 1.55, r0: .18, r1: .1, seed: 2.7, lean: [-.04, .05], flare: .6, paintFn: bp });
     for (const e of [[.52, 2.15, .3], [-.52, 2.2, .18], [.18, 2.2, -.52], [-.2, 2.3, -.42], [.02, 2.6, .05]]) limb(b, [top[0] * .8, 1.15, top[2] * .8], e, .085, .035, bp);
     const F = foliage(b, [[0, 2.42, 0, .72, 1.1, .85, 1.1], [.56, 2.2, .3, .46], [-.56, 2.25, .2, .46], [.2, 2.24, -.56, .45], [-.26, 2.3, -.46, .43], [.1, 2.15, .6, .42], [0, 2.88, 0, .45]],
-      { pal: [0x2a6129, 0x4a963a, 0x8cc65c], c: [0, 2.4, 0], seed: 7 + v % 10, tufts: 24 });
+      { pal: [0x2a6129, 0x4a963a, 0x8cc65c], c: [0, 2.4, 0], seed: 7 + v % 10, tufts: 24, leaf: 0 });
     if (v < 10) { const c = FRUITC[v % 3]; for (let k = 0; k < 11; k++) { const [x, y, z] = F.spot(); lo(b, new THREE.SphereGeometry(.12, LQ ? 6 : 10, LQ ? 4 : 7), c, x, y, z); if (LQ) continue; lo(b, new THREE.SphereGeometry(.03, 5, 4), 0xfff3c8, x + .04, y + .05, z + .08); lo(b, new THREE.CylinderGeometry(.012, .012, .08, 4), 0x5a3a22, x, y + .14, z); } }
     return b.done(); };
   T.tree_cherry = v => { const b = G.mb(14), bp = bark.cerisier(0x5e3a30, 3.4);
     const top = trunk(b, { h: 1.5, r0: .2, r1: .11, seed: 3.4, lean: [.05, .02], flare: .65, paintFn: bp });
     for (const e of [[.82, 2.25, .26], [-.82, 2.3, .16], [.3, 2.3, -.68], [-.36, 2.35, -.6], [.15, 2.2, .72], [0, 2.7, 0]]) limb(b, [top[0] * .8, 1.2, top[2] * .8], e, .095, .035, bp);
     const F = foliage(b, [[0, 2.55, 0, .7, 1.4, .72, 1.28], [.8, 2.36, .26, .5, 1, .82, 1], [-.8, 2.4, .16, .5, 1, .82, 1], [.3, 2.42, -.68, .5, 1, .82, 1], [-.36, 2.45, -.62, .48, 1, .82, 1], [.15, 2.32, .74, .46, 1, .82, 1], [-.1, 2.96, .1, .48, 1, .78, 1]],
-      { pal: [0xc9668e, 0xf2a2c2, 0xffe0ec], c: [0, 2.45, 0], seed: 9, tufts: 32 });
+      { pal: [0xc9668e, 0xf2a2c2, 0xffe0ec], c: [0, 2.45, 0], seed: 9, tufts: 32, leaf: 2 });
     const r = G.rng(77); for (let k = 0; k < (LQ ? 0 : 16); k++) { const a = r() * TAU, d = .45 + r() * .9; const pr = .05 + r() * .03; lo(b, new THREE.CylinderGeometry(pr, pr, .01, 7), k % 3 ? 0xffc6da : 0xfff0f5, Math.cos(a) * d, .012, Math.sin(a) * d); }
     if (v < 10) for (let k = 0; k < 7; k++) { const [x, y, z] = F.spot(-.4); lo(b, new THREE.SphereGeometry(.075, 8, 6), 0xc8102e, x, y, z); lo(b, new THREE.SphereGeometry(.075, 8, 6), 0xc8102e, x + .11, y - .03, z + .02); lo(b, new THREE.CylinderGeometry(.01, .01, .14, 4), 0x4c7a2a, x + .05, y + .1, z, .3); }
     return b.done(); };
   // sapin : étages de branches retombantes, à pointes ; neige sur le dessus des étages pour la variante enneigée
-  T.tree_pine = v => { const b = G.mb(15), r = G.rng(15), snow = v === 1, G0 = new THREE.Color(0x1b4429), G1 = new THREE.Color(0x2e6a3c), G2 = new THREE.Color(0x67a457), SN = new THREE.Color(0xf4f8ff), SB = new THREE.Color(0xc9d8ea);
-    trunk(b, { h: 3.4, r0: .17, r1: .05, seed: 1.7, flare: .55, paintFn: bark.brun(0x6b4630, 1.7) });
-    const N = 7, pos = [], nor = [], col = [], C = new THREE.Color();
-    const vert = (x, y, z, nx, ny, nz, k, sn) => { pos.push(x, y, z); const l = Math.hypot(nx, ny, nz) || 1; nor.push(nx / l, ny / l, nz / l);
-      if (k < .5) C.copy(G0).lerp(G1, k * 2); else C.copy(G1).lerp(G2, (k - .5) * 2); C.multiplyScalar(.88 + .24 * vnoise(x * 7, y * 7, z * 7)); if (sn > .35) C.lerp(SN, G.smooth(G.clamp((sn - .35) / .4, 0, 1))).lerp(SB, .25 * (1 - Math.min(1, sn))); col.push(C.r, C.g, C.b); };
-    for (let t = 0; t < N; t++) { const f = t / (N - 1), y = .95 + f * 2.5, R = 1.02 * Math.pow(1 - f, .9) + .2, hT = .82 - f * .3, K = (LQ ? 8 : 13) - Math.round(f * (LQ ? 3 : 5)), off = r() * TAU, gk = .2 + f * .3;
-      const ring = (rad, yy, jag, dy) => { const o = []; for (let i = 0; i < 2 * K; i++) { const a = off + i / (2 * K) * TAU, tip = i % 2 === 0, rr = rad * (tip ? 1 : jag) * (.92 + r() * .16); o.push([Math.cos(a) * rr, yy + (tip ? -dy : dy * .3) + (r() - .5) * .04, Math.sin(a) * rr, tip]); } return o; };
-      const A = ring(R * .56, y + hT * .48, .9, .02), B = ring(R, y, .74, .1 + R * .06), ap = [0, y + hT, 0], un = [0, y + .16, 0];
-      const sn = (yy, kk) => snow ? G.clamp(kk + (fbm(yy * 3, t, 0) - .5) * .4, 0, 1) : 0;
-      for (let i = 0; i < 2 * K; i++) { const j = (i + 1) % (2 * K), a = A[i], c = A[j], p = B[i], q = B[j];
-        vert(ap[0], ap[1], ap[2], 0, 1, 0, gk + .55, sn(ap[1], .9)); vert(c[0], c[1], c[2], c[0], R * .9, c[2], gk + .4, sn(c[1], .72)); vert(a[0], a[1], a[2], a[0], R * .9, a[2], gk + .4, sn(a[1], .72));
-        vert(a[0], a[1], a[2], a[0], R * .9, a[2], gk + .4, sn(a[1], .72)); vert(c[0], c[1], c[2], c[0], R * .9, c[2], gk + .4, sn(c[1], .72)); vert(p[0], p[1], p[2], p[0], R * .45, p[2], gk + (p[3] ? .22 : .08), sn(p[1], p[3] ? .15 : .42));
-        vert(c[0], c[1], c[2], c[0], R * .9, c[2], gk + .4, sn(c[1], .72)); vert(q[0], q[1], q[2], q[0], R * .45, q[2], gk + (q[3] ? .22 : .08), sn(q[1], q[3] ? .15 : .42)); vert(p[0], p[1], p[2], p[0], R * .45, p[2], gk + (p[3] ? .22 : .08), sn(p[1], p[3] ? .15 : .42));
-        vert(un[0], un[1], un[2], 0, -1, 0, 0, 0); vert(p[0], p[1], p[2], p[0] * .3, -1, p[2] * .3, .05, 0); vert(q[0], q[1], q[2], q[0] * .3, -1, q[2] * .3, .05, 0); } }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); raw(b, g);
+  // sapin : tronc élancé, cœur sombre en étages, et des rameaux d'aiguilles (cartes) qui rayonnent et retombent ; neige sur le dessus pour la variante enneigée
+  T.tree_pine = v => { const b = G.mb(15), r = G.rng(15), snow = v === 1, G0 = new THREE.Color(0x173d25), G1 = new THREE.Color(0x2a6238), G2 = new THREE.Color(0x5f9a50), SN = new THREE.Color(0xf4f8ff);
+    trunk(b, { h: 3.5, r0: .17, r1: .05, seed: 1.7, flare: .55, paintFn: bark.brun(0x6b4630, 1.7) });
+    const N = 8; for (let t = 0; t < N; t++) { const f = t / (N - 1), y = .85 + f * 2.55, R = .95 * Math.pow(1 - f, .9) + .18; b.add(new THREE.ConeGeometry(R * .6, .7 - f * .25, LQ ? 7 : 10, 1), new THREE.Color(0x12301c).multiplyScalar(.9 + f * .3).getHex(), b.M(0, y + .25, 0, 0, t * .7, 0), 0); }
+    const pos = [], nor = [], col = [], uv = [], C = new THREE.Color(), D = new V3(), Sd = new V3(), Nn = new V3();
+    const sprig = (y, a, L, droop, vert, k) => { D.set(Math.cos(a) * Math.cos(droop), -Math.sin(droop), Math.sin(a) * Math.cos(droop)); Sd.set(-Math.sin(a), 0, Math.cos(a)); if (vert) Sd.crossVectors(D, Sd).normalize();
+      const w = L * .78, c0 = [Math.cos(a) * .08, y, Math.sin(a) * .08], P = [[-1, 0], [1, 0], [1, 1], [-1, 1]].map(([sx, t]) => [c0[0] + D.x * L * t + Sd.x * w * sx, c0[1] + D.y * L * t + Sd.y * w * sx, c0[2] + D.z * L * t + Sd.z * w * sx]);
+      Nn.set(Math.cos(a) * .55, .85, Math.sin(a) * .55).normalize(); if (k < .5) C.copy(G0).lerp(G1, k * 2); else C.copy(G1).lerp(G2, (k - .5) * 2); C.multiplyScalar((.85 + .3 * r()) * 1.2);
+      if (snow && !vert && r() < .8) C.lerp(SN, .55 + .3 * r());
+      const UVs = [[0, 0], [1, 0], [1, 1], [0, 1]]; for (const vi of [0, 1, 2, 0, 2, 3]) { pos.push(...P[vi]); nor.push(Nn.x, Nn.y, Nn.z); col.push(C.r, C.g, C.b); uv.push((UVs[vi][0] * .96 + .02) * .25, (UVs[vi][1] * .96 + .02) * .5); } };
+    for (let t = 0; t < N; t++) { const f = t / (N - 1), y = .95 + f * 2.5, R = 1.05 * Math.pow(1 - f, .9) + .22, K = Math.max(5, Math.round((LQ ? 6 : 11) - f * (LQ ? 2 : 5))), off = r() * TAU;
+      for (let i = 0; i < K; i++) { const a = off + i / K * TAU + (r() - .5) * .3, L = R * (1.05 + r() * .2); sprig(y + (r() - .5) * .08, a, L, .32 + r() * .2, false, .25 + f * .45 + r() * .15); if (!LQ && i % 2 === 0) sprig(y + .02, a + .2, L * .9, .45, true, .2 + f * .4); } }
+    sprig(3.5, 0, .55, -1.35, false, .8); sprig(3.5, Math.PI / 2, .55, -1.35, true, .8);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.userData.sk = (G.SK && G.SK.leaf) || 5; b.parts[5].push(g);
     return b.done(); };
   // palmier : stipe annelé et courbé, palmes arquées aux folioles en dents de scie, noix de coco
   T.tree_palm = v => { const b = G.mb(16), H = 3.15, LX = .62, cx = t => LX * t * t, g = new THREE.CylinderGeometry(1, 1, 1, LQ ? 7 : 10, LQ ? 16 : 40, true), p = g.attributes.position;
@@ -133,6 +171,12 @@
     if (v < 10) [[.05, -.24, .2], [.2, -.3, -.08], [-.16, -.28, -.1], [-.02, -.36, .02]].forEach(q => { b.sph(.15, 0x5e4126, tx + q[0], ty + q[1], q[2], 1, 1.08, 1, 0, 12, 9); b.sph(.03, 0x2e2015, tx + q[0] * 1.6, ty + q[1] - .02, q[2] * 1.6, 1, 1, 1, 0, 6, 4); });
     return b.done(); };
   for (const k in T) both(k, T[k]);
+  const obush = MD.bush; MD.bush = v => { if (v > 3) return obush(v); const b = G.mb(17 + v), c = v === 2 ? [0x2f6a2c, 0x4f9a4a, 0x8cc070] : [0x2a6528, 0x4a9a42, 0x86c064];
+    foliage(b, [[0, .36, .02, .34, 1.25, .9, 1], [.3, .3, .08, .3, 1.06, .92, .95], [-.3, .3, .04, .29, 1.06, .92, .95], [.06, .59, -.04, .26, 1.15, .95, .98], [.48, .43, -.03, .24], [-.47, .4, .05, .24]], { pal: c, c: [0, .4, 0], seed: 21 + v, leaf: 1, cards: 1.6, cardS: .6, amp: .2 });
+    if (v === 1) [[.25, .55, .35], [-.2, .62, .33], [.05, .8, .25], [.38, .38, .25], [-.38, .35, .2], [.1, .45, .42]].forEach(p => b.sph(.06, 0x4b45c6, p[0], p[1], p[2], 1, 1, 1, 0, 6, 5));
+    if (v === 2) [[.2, .6, .3, 0x9aa8ff], [-.25, .58, .28, 0xf6a3d0], [.0, .86, .1, 0xb7c1ff], [.38, .4, .15, 0xf6a3d0], [-.4, .4, .1, 0x9aa8ff], [.18, .94, -.08, 0xe9b4dc]].forEach(p => { for (let k = 0; k < 7; k++) { const a = k / 7 * TAU; b.sph(.055, p[3], p[0] + Math.cos(a) * .07, p[1] + Math.sin(a) * .06, p[2] + (k % 2) * .03, 1, 1, 1, 0, 6, 5); } });
+    if (v === 3) [[.22, .58, .32], [-.28, .55, .28], [.02, .85, .14], [.4, .4, .18], [-.42, .38, .12], [.12, .3, .42]].forEach((p, i) => { const c2 = [0xe8434a, 0xff6f9a, 0xff9a3c][i % 3]; for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; b.sph(.06, c2, p[0] + Math.cos(a) * .07, p[1] + Math.sin(a) * .07, p[2] + .03, 1, 1, .5, 0, 6, 4); } b.sph(.03, 0xffe27a, p[0], p[1], p[2] + .07); });
+    return b.done(); };
   // très loin (grand monde) : une silhouette toute simple, tronc + houppier aux couleurs moyennes de l'arbre (une centaine de triangles)
   const far = (name, cone) => v => { const g = G.getGeo(name + '_lod', v), P = g.attributes.position.array, C = g.attributes.color.array, n = P.length / 3, H = g.boundingBox.max.y, cut = H * .28;
     const f = [0, 0, 0, 0], t = [0, 0, 0, 0]; let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, y0 = 1e9;

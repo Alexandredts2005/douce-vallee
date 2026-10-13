@@ -11,7 +11,7 @@
     const std = G.toon({ vertexColors: true, skinning: true }), glow = G.curveMat(new THREE.MeshBasicMaterial({ vertexColors: true, skinning: true }));
     const trans = G.toon({ vertexColors: true, transparent: true, opacity: .62, depthWrite: false, skinning: true }), fire = G.curveMat(new THREE.MeshBasicMaterial({ vertexColors: true, skinning: true }));
     SK = { mats: [std, glow, trans, fire, std],
-      outline: G.curveMat(new THREE.MeshBasicMaterial({ color: 0x3a2619, side: THREE.BackSide, skinning: true }), { outline: .008 }),
+      outline: G.curveMat(new THREE.MeshBasicMaterial({ color: 0x4a3426, side: THREE.BackSide, skinning: true }), { outline: .0045 }),
       xray: G.curveMat(new THREE.MeshBasicMaterial({ color: 0xbfefff, transparent: true, opacity: .5, depthWrite: false, depthFunc: THREE.GreaterDepth, skinning: true })),
       hurt: G.toon({ vertexColors: true, color: 0xff7a7a, emissive: 0x661010, skinning: true }, {}) };
     G.M.outlineSk = SK.outline; G.M.xraySk = SK.xray; G.M.hurtSk = SK.hurt; return SK;
@@ -54,7 +54,7 @@
         for (let i = 0; i < A.position.count; i++, q++) { V.fromBufferAttribute(A.position, i).applyMatrix4(c.rel); op[q * 3] = V.x; op[q * 3 + 1] = V.y; op[q * 3 + 2] = V.z; V.fromBufferAttribute(A.normal, i).applyMatrix3(NM).normalize(); on[q * 3] = V.x; on[q * 3 + 1] = V.y; on[q * 3 + 2] = V.z; oi[q * 4] = c.b; ow[q * 4] = 1; } }
       const og = new THREE.BufferGeometry(); og.setAttribute('position', new THREE.BufferAttribute(op, 3)); og.setAttribute('normal', new THREE.BufferAttribute(on, 3)); og.setAttribute('skinIndex', new THREE.BufferAttribute(oi, 4)); og.setAttribute('skinWeight', new THREE.BufferAttribute(ow, 4)); og.computeBoundingSphere();
       const om = new THREE.SkinnedMesh(og, S.outline); om.frustumCulled = false; om.castShadow = false; mesh.add(om); om.bind(skel, mesh.bindMatrix); P.outlineMesh = om; }
-    P.skinned = mesh; P.meshes = [mesh]; P.faceMesh = null; return P;
+    P.skinned = mesh; P.meshes = P.bodySk ? [P.bodySk, mesh] : [mesh]; P.faceMesh = null; return P;
   }
   G.skinify = skinify;
   const omc = G.makeChar; G.makeChar = o => { const P = omc(o); if (G.noSkin) return P; try { skinify(P); } catch (e) { console.warn('personnage non fusionné', e); } return P; };

@@ -116,7 +116,7 @@
     const sub = G.mb(461 + v); k.trunk(sub, { h: 1.45, r0: v ? .1 : .075, r1: .05, seed: v ? 2.2 : 1.4, lean: v ? [.12, -.06] : [0, 0], flare: v ? .9 : .4, roots: v ? 3 : 4, paintFn: bp });
     const tg = sub.done(); tg.translate(0, .74, 0); b.parts[0].push(tg);
     const cl = v ? [[.1, 2.1, 0, .46, 1.2, .8, 1], [-.32, 1.95, .12, .34, 1, .8, 1], [.42, 1.98, -.1, .32, 1, .8, 1], [0, 2.36, -.18, .32, 1, .75, 1], [-.1, 1.85, -.3, .28]] : [[0, 2.15, 0, .55, 1, .95, 1], [.28, 2.05, .2, .32], [-.3, 2.1, .1, .33], [.05, 2.45, -.1, .34], [-.1, 1.95, -.3, .3]];
-    const F = k.foliage(b, cl, { pal: v ? [0x34472f, 0x5f7556, 0x8fa27e] : [0x1d4a22, 0x3d7d32, 0x7db55a], c: [0, 2.1, 0], seed: 11 + v * 7, amp: v ? .3 : .16, tufts: v ? 40 : 26 });
+    const F = k.foliage(b, cl, { pal: v ? [0x34472f, 0x5f7556, 0x8fa27e] : [0x1d4a22, 0x3d7d32, 0x7db55a], c: [0, 2.1, 0], seed: 11 + v * 7, amp: v ? .3 : .16, tufts: v ? 40 : 26, leaf: v ? 1 : 0 });
     if (!v) for (let n = 0; n < 16; n++) { const [x, y, z] = F.spot(-.3); k.lo(b, new THREE.SphereGeometry(.075, 9, 7), 0xff8c1a, x, y, z); k.lo(b, new THREE.SphereGeometry(.02, 4, 3), 0x3f6a2a, x, y + .075, z); }
     else for (let n = 0; n < 10; n++) { const [x, y, z] = F.spot(-.5); k.lo(b, new THREE.SphereGeometry(.022, 6, 4), 0x2f2a3a, x, y - .03, z); }
     return b.done(); };
