@@ -64,15 +64,18 @@
   // ---------- raccords automatiques entre escaliers voisins ----------
   const SIDE = [[1, 0], [0, -1], [-1, 0], [0, 1]]; // axe x local (largeur) dans le monde, selon la rotation
   const isSt = o => !!(o && O[o.t] && O[o.t].stair);
+  // hauteur réelle du bas d'un escalier (escalier en fer posé en hauteur : bits 64/128 de la variante) et du plancher d'une plateforme
+  const eb = o => o.y + (((o.v != null ? o.v : O[o.t].v) >> 6) & 3) * T, deck = o => o.y + ((((o.v != null ? o.v : O[o.t].v) >> 6) & 3) + 1) * T;
+  G.stairBase = eb; G.platDeck = deck;
   // voisins : [gauche, droite, suite en bas (devant, un niveau plus bas), suite en haut (derrière, un niveau plus haut)]
   function around(m, o) { const d = O[o.t], r = o.r & 3, Fv = G.FR[r], S = SIDE[r], [w, dd] = G.fpDims(d, r), cx = o.x + w / 2, cz = o.z + dd / 2;
-    const side = sg => { const q = m.objAt(o.x + S[0] * sg, o.z + S[1] * sg); return isSt(q) && q !== o && O[q.t].model === d.model && (q.r & 3) === r && O[q.t].fp[1] === d.fp[1] && q.x === o.x + S[0] * sg && q.z === o.z + S[1] * sg && Math.abs(q.y - o.y) < .01 ? q : null; };
-    const line = (sg, dy) => { const px = cx + Fv[0] * sg * (dd / 2 + .5), pz = cz + Fv[1] * sg * (dd / 2 + .5), q = m.objAt(Math.floor(px), Math.floor(pz)); if (!isSt(q) || q === o || O[q.t].model !== d.model || (q.r & 3) !== r || Math.abs(q.y - (o.y + dy)) > .01) return null;
+    const side = sg => { const q = m.objAt(o.x + S[0] * sg, o.z + S[1] * sg); return isSt(q) && q !== o && O[q.t].model === d.model && (q.r & 3) === r && O[q.t].fp[1] === d.fp[1] && q.x === o.x + S[0] * sg && q.z === o.z + S[1] * sg && Math.abs(eb(q) - eb(o)) < .01 ? q : null; };
+    const line = (sg, dy) => { const px = cx + Fv[0] * sg * (d.fp[1] / 2 + .5), pz = cz + Fv[1] * sg * (d.fp[1] / 2 + .5), q = m.objAt(Math.floor(px), Math.floor(pz)); if (!isSt(q) || q === o || O[q.t].model !== d.model || (q.r & 3) !== r || Math.abs(eb(q) - (eb(o) + dy)) > .01) return null;
       const [qw, qd] = G.fpDims(O[q.t], r), qx = q.x + qw / 2, qz = q.z + qd / 2; return Math.abs((qx - cx) * S[0] + (qz - cz) * S[1]) < .01 ? q : null; };
     // en haut, une plateforme (même sol, plancher au niveau du palier) compte aussi comme une suite
-    const plat = () => { const q = m.objAt(Math.floor(cx - Fv[0] * (dd / 2 + .5)), Math.floor(cz - Fv[1] * (dd / 2 + .5))); return q && O[q.t].plat && Math.abs(q.y - o.y) < .01 ? q : null; };
-    return [side(-1), side(1), line(1, -T), line(-1, T) || plat()]; }
-  function relink(m, o) { const nb = around(m, o), d = O[o.t], base = (o.v != null ? o.v : d.v) & 3, v = base | (nb[0] ? 4 : 0) | (nb[1] ? 8 : 0) | (nb[2] ? 16 : 0) | (nb[3] ? 32 : 0);
+    const plat = (sg, dh) => { const q = m.objAt(Math.floor(cx + Fv[0] * sg * (d.fp[1] / 2 + .5)), Math.floor(cz + Fv[1] * sg * (d.fp[1] / 2 + .5))); return q && O[q.t].plat && Math.abs(deck(q) - (eb(o) + dh)) < .01 ? q : null; };
+    return [side(-1), side(1), line(1, -T) || plat(1, 0), line(-1, T) || plat(-1, T)]; }
+  function relink(m, o) { const nb = around(m, o), d = O[o.t], base = (o.v != null ? o.v : d.v) & 195, v = base | (nb[0] ? 4 : 0) | (nb[1] ? 8 : 0) | (nb[2] ? 16 : 0) | (nb[3] ? 32 : 0);
     if (v !== o.v) { o.v = v; if (o._k) m.refresh(o); } return nb; }
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
   GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && isSt(o)) { if (o.v == null) o.v = O[t].v; for (const q of relink(this, o)) if (isSt(q)) relink(this, q); } return o; };

@@ -217,7 +217,7 @@
     const [tx, tz] = p.target(); let ok = true, cx = tx + .5, cz = tz + .5;
     if (it.kind === 'place') {
       const d = G.OBJ[it.obj], r = G.placeRot, [ax, az] = G.act.anchor(d, r, tx, tz), [w, dd] = G.fpDims(d, r); ok = m.canPlace(it.obj, ax, az, r) && !G.act.occupiedByMe(d, r, ax, az);
-      const key = d.model + ':' + d.v; if (key !== E.ghostKey) { E.ghost.geometry = G.getGeo(d.model, d.v); E.ghostKey = key; }
+      const gv = d.ghostV ? d.ghostV(m, ax, az) : d.v, key = d.keyOf ? d.keyOf(gv) : d.model + ':' + gv; if (key !== E.ghostKey) { const ki = key.lastIndexOf(':'); E.ghost.geometry = G.getGeo(key.slice(0, ki), +key.slice(ki + 1)); E.ghostKey = key; }
       cx = ax + w / 2; cz = az + dd / 2; E.ghost.visible = true; E.ghost.position.set(cx, m.inb(ax, az) ? m.baseH(ax, az) : 0, cz); E.ghost.rotation.y = r * Math.PI / 2;
       E.cursor.scale.set(w, 1, dd);
     } else E.cursor.scale.set(1, 1, 1);
