@@ -70,7 +70,7 @@
       const m = this.map, lim = m.interior ? .3 : 2.6;
       if (x < lim || z < lim || x > m.W - lim || z > m.H - (m.interior ? .05 : 1.5)) return true;
       const f = this.swim ? this.swimSurf + .14 : feet;
-      for (const [ox, oz] of PTS9) { const cx = x + ox, cz = z + oz; if (m.topAt(cx, cz) > f + (m._nf ? .06 : G.STEP)) return true; if (!noWater && (this.onGround || this.swim) && m.isWaterAt(cx, cz) && !G.canSwim(m, cx, cz)) return true; }
+      for (const [ox, oz] of PTS9) { const cx = x + ox, cz = z + oz; if (m.topAt(cx, cz) > f + (m._nf ? .06 : G.STEP)) return true; if (!noWater && (this.onGround || this.swim) && m.isWaterAt(cx, cz) && !G.canSwim(m, cx, cz) && m.topAt(cx, cz) < m.waterSurf(Math.floor(cx), Math.floor(cz)) + .5) return true; }
       if (!noV) for (const v of G.ents.villagers) if (v.map === m && v.visible && Math.hypot(v.x - x, v.z - z) < .55) return true;
       return false;
     }
@@ -166,7 +166,7 @@
       }
       if (this.onGround && (this.safe.t = (this.safe.t || 0) + dt) > .25) this.safe = { x: this.x, z: this.z, t: 0 };
       // ---------- coincé ? ----------
-      if (this.onGround && !this.splashing && (this.blocked(this.x, this.z, this.y, true, true) || (m.isWaterAt(this.x, this.z) && !G.canSwim(m, this.x, this.z)))) { this.stuckT += dt; if (this.stuckT > .3) this.unstick(false); } else this.stuckT = 0;
+      if (this.onGround && !this.splashing && (this.blocked(this.x, this.z, this.y, true, true) || (m.isWaterAt(this.x, this.z) && !G.canSwim(m, this.x, this.z) && this.y < m.waterSurf(Math.floor(this.x), Math.floor(this.z)) + .5))) { this.stuckT += dt; if (this.stuckT > .3) this.unstick(false); } else this.stuckT = 0;
       if (len > .5 && !busy) { this.tryT += dt; this.tryD += Math.hypot(this.x - ox, this.z - oz); if (this.tryT > 3) { if (this.tryD < .4 && this.onGround && (this.hintT -= 3) < 0) { this.hintT = 20; G.ui.toast('Coincé·e ? Appuie sur U pour te débloquer.'); } this.tryT = 0; this.tryD = 0; } } else { this.tryT = 0; this.tryD = 0; }
       const hs = Math.hypot(this.vx, this.vz);
       if (this.onGround && hs > .5) { this.stepT -= dt * hs; if (this.stepT < 0) { this.stepT = 1.15; G.sfx('step'); if (hs > 5) G.fx.puff(this.x, this.y + .03, this.z, 1, 0xf3ead2, .35); } }

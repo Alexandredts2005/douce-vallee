@@ -121,6 +121,8 @@
       this.ceil = new Map(); // objets accrochés au plafond (lustres) : une case peut avoir un meuble au sol ET un lustre
     }
     ceilAt(tx, tz) { return this.inb(tx, tz) ? this.ceil.get(tz * this.W + tx) || null : null; }
+    // objets posés en hauteur (d.up) : ils ne prennent pas la case au sol, on peut avoir un arbre ou une lampe en dessous
+    upAt(tx, tz) { return this.up && this.inb(tx, tz) ? this.up.get(tz * this.W + tx) || null : null; }
     ceilH() { return this.meta.ceilH || (this.interior ? 3 : 4); }
     idx(x, z) { return z * this.W + x; }
     inb(x, z) { return x >= 0 && z >= 0 && x < this.W && z < this.H; }
@@ -146,7 +148,8 @@
     topAt(x, z) {
       const tx = Math.floor(x), tz = Math.floor(z); if (!this.inb(tx, tz)) return 50;
       let h = this.terrainH(x, z); const o = this.objAt(tx, tz); this._nf = false; // _nf : le point touche un bord arrondi d'objet (racine, buisson, rocher, margelle) : on ne monte pas dessus en marchant
-      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (!G.shapeTop || d.box) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) { const v = o.y + (d.chop >= 3 && t < 1.5 ? 4 : t); if (v > h) { h = v; this._nf = !G.shapeTop.flat && !G.stepOK(d); } } /* pas de marche sur les racines d'un arbre */ } } } // forme réelle de l'objet (shape.js)
+      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (!G.shapeTop || d.box) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) { const v = o.y + (d.chop >= 3 && t < 1.5 ? 4 : t); if (v > h) { h = v; this._nf = !G.shapeTop.flat && !G.stepOK(d); } } /* pas de marche sur les racines d'un arbre */ } } }
+      const u = this.up && this.up.get(tz * this.W + tx); if (u && !u.falling) { const ud = G.OBJ[u.t]; if (ud.hAt) { const v = u.y + ud.hAt(u, x, z, this); if (v > h) { h = v; this._nf = false; } } } // plateforme en hauteur // forme réelle de l'objet (shape.js)
       return h;
     }
     isWaterAt(x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!this.isWaterT(tx, tz)) return false; const o = this.objAt(tx, tz); return !(o && G.OBJ[o.t].walk); }
@@ -154,6 +157,7 @@
       const d = G.OBJ[t]; if (!d) return false; const [w, dd] = G.fpDims(d, r); let L = null;
       const m = this.interior ? 0 : 2;
       if (d.ceil) { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (!this.inb(x, z) || this.ceil.has(z * this.W + x)) return false; return true; }
+      if (d.up) { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < m || z < m || x >= this.W - m || z >= this.H - m || (this.up && this.up.has(z * this.W + x))) return false; return true; }
       for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
         if (x < m || z < m || x >= this.W - m || z >= this.H - m) return false;
         const i = z * this.W + x; if (this.occ[i] && !G.replaces(d, this.objs[this.occ[i] - 1])) return false;
@@ -169,14 +173,16 @@
       const o = { t, x: tx, z: tz, r, hp: d.chop || d.mine || 0, f: (d.fruit || d.pickFruit) ? 3 : 0 };
       if (extra) Object.assign(o, extra);
       o.y = this.baseH(tx, tz); const own = tz * this.W + tx;
-      if (d.ceil) { o.y += this.ceilH(); o.v = Math.round(this.ceilH() * 2); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.ceil.set(z * this.W + x, o); }
+      if (d.up) { const U = this.up || (this.up = new Map()); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) U.set(z * this.W + x, o); }
+      else if (d.ceil) { o.y += this.ceilH(); o.v = Math.round(this.ceilH() * 2); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.ceil.set(z * this.W + x, o); }
       else { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.occ[z * this.W + x] = own + 1; this.objs[own] = o; }
       this.list.add(o); if (d.light) this.lights.add(o);
       this.objr.add(o); this.rev++; return o;
     }
     removeObj(o) {
       const d = G.OBJ[o.t], [w, dd] = G.fpDims(d, o.r);
-      if (d.ceil) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.ceil.get(z * this.W + x) === o) this.ceil.delete(z * this.W + x); }
+      if (d.up) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.up && this.up.get(z * this.W + x) === o) this.up.delete(z * this.W + x); }
+      else if (d.ceil) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.ceil.get(z * this.W + x) === o) this.ceil.delete(z * this.W + x); }
       else { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.inb(x, z) && this.occ[z * this.W + x] === o.z * this.W + o.x + 1) this.occ[z * this.W + x] = 0;
         this.objs[o.z * this.W + o.x] = null; }
       this.list.delete(o); this.lights.delete(o); this.objr.remove(o); this.rev++;
