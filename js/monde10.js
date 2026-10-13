@@ -162,7 +162,7 @@
     for (let x = 2; x < m.W - 2; x++) { if (x >= t.ox && x < t.ox + 16) continue; let pn = false;
       for (const zz of [z - 1, z, z + 1]) { const i = m.idx(x, zz), o = m.objAt(x, zz);
         if (o) { const d = O[o.t]; if (['voie', 'pont', 'passage_niveau'].includes(o.t)) { pn = pn || o.t === 'passage_niveau'; m.removeObj(o); } else if (d.chop || NAT.test(o.t) || G.isFlowerObj(o)) m.removeObj(o); else continue; }
-        m.lvl[i] = 0; m.ramp[i] = 0; m.markDirty(x, zz); }
+        m.lvl[i] = t.lv || 0; m.ramp[i] = 0; m.markDirty(x, zz); }
       if (!m.objAt(x, z)) m.addObj(pn ? 'passage_niveau' : m.water[m.idx(x, z)] ? 'pont' : 'voie', x, z, 1); }
     m.meta.track = { z }; };
   // une ancienne partie dont la gare n'est pas collée en haut : on retire les tunnels et la gare devient provençale
@@ -178,11 +178,22 @@
     for (const x of [ox + 2, ox + 13]) if (m.canPlace('arbre_caisse', x, oz + 7)) m.addObj('arbre_caisse', x, oz + 7, 0, { v: 1 });
     Object.assign(t, { x0: 3, x1: m.W - 3, stop: ox + 8, sx: ox + 8, y: 0, ox, prov: 1 }); m.meta.signals = []; m.meta.gare = { x: ox + 8, z: oz + 6.6 }; };
   // la gare du milieu du monde devient colossale (façon Gare de Lyon) : 14 cases de large, beffroi à horloges et grande verrière
-  const colossify = m => { const g = [...m.list].find(o => o.t === 'gare_provence'); if (!g || m.interior) return; const ox = g.x - 3, oz = g.z - 3;
+  const colossify = m => { const tr = m.meta.train, g = [...m.list].find(o => o.t === 'gare_provence' || (o.t === 'gare' && tr && tr.prov)); if (!g || m.interior) return; const ox = g.x - 3, oz = g.z - 3;
     const ex = {}; for (const k of ['iid', 'v']) if (g[k] != null) ex[k] = g[k]; m.removeObj(g); const moved = [];
     for (let z = oz + 3; z <= oz + 5; z++) for (let x = ox + 1; x <= ox + 14; x++) { const o = m.objAt(x, z); if (o && !O[o.t].enter && !O[o.t].fixed) { const e = { t: o.t, ex: {} }; for (const k of ['v', 'txt']) if (o[k] != null) e.ex[k] = o[k]; m.removeObj(o); moved.push(e); } }
-    if (m.canPlace('gare_colossale', ox + 1, oz + 3)) m.addObj('gare_colossale', ox + 1, oz + 3, 0, ex); else m.addObj('gare_provence', ox + 3, oz + 3, 0, ex);
+    const gt = g.t, gx = g.x, gz = g.z; if (m.canPlace('gare_colossale', ox + 1, oz + 3)) m.addObj('gare_colossale', ox + 1, oz + 3, 0, ex); else m.addObj(gt, gx, gz, 0, ex);
     for (const e of moved) if (e.t === 'panneau' && m.canPlace('panneau', ox + 15, oz + 4)) m.addObj('panneau', ox + 15, oz + 4, 0, e.ex); };
+  // la gare change de place (touche B ou parcelle échangée) : quai, rails et voie qui traverse le pays la suivent
+  G.relayStation = (m, ox, oz) => { const t = m.meta.train || {}, I = (x, z) => m.idx(x, z), oz0 = t.z != null ? Math.floor(t.z) : -99, ox0 = t.ox != null ? t.ox : t.x0 != null ? t.x0 - 2 : -99;
+    for (const o of [...m.list]) { const row = o.t === 'voie' || (o.z === oz0 && ['rails', 'passage_niveau', 'pont'].includes(o.t)), near = Math.abs(o.x - ox0 - 8) < 12 && Math.abs(o.z - oz0) < 6 && ['tunnel', 'signal_pn', 'rails'].includes(o.t); if (row || near) m.removeObj(o); }
+    const L = Math.max(0, m.lvl[I(Math.min(m.W - 1, ox + 8), Math.min(m.H - 1, oz + 4))]);
+    for (let x = ox; x < ox + 16; x++) for (let z = oz; z <= oz + 2; z++) { if (!m.inb(x, z)) continue; const i = I(x, z), o = m.objAt(x, z); if (o && (O[o.t].chop || NAT.test(o.t) || G.isFlowerObj(o))) m.removeObj(o);
+      if (m.objAt(x, z)) continue; m.lvl[i] = L; m.water[i] = 0; m.ramp[i] = 0; if (z > oz) m.surf[i] = z === oz + 2 ? 11 : 4; m.markDirty(x, z); }
+    for (let x = ox; x < ox + 16; x++) if (m.inb(x, oz + 1) && !m.objAt(x, oz + 1)) m.addObj('rails', x, oz + 1, 1);
+    m.meta.train = { x0: 3, x1: m.W - 3, z: oz + 1.5, stop: ox + 8, sx: ox + 8, y: 0, ox, prov: 1, lv: L }; m.meta.signals = []; m.meta.gare = { x: ox + 8, z: oz + 6.6 };
+    m.meta.track2 = 0; m.meta.track = null; railway(m); colossify(m); if (G.train) { G.train.st = null; if (G.train.mesh) G.train.mesh.visible = false; } m.flush(); };
+  // la voie qui traverse le pays est reposée (après un échange de parcelles par exemple)
+  G.relayTrack = m => { const t = m.meta.train; if (!t) return; for (const o of [...m.list]) if (o.t === 'voie') m.removeObj(o); m.meta.track = null; m.meta.track2 = 0; if (t.prov) railway(m); else layTrack(m); m.flush(); };
   G.on('worldgen', m => { layTrack(m); railway(m); bigGate(m); });
   G.on('load', () => { const m = G.world; if (!m) return; provencify(m); colossify(m); railway(m); layTrack(m); bigGate(m); m.flush(); });
   // la grande carte montre les hameaux

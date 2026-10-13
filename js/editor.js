@@ -21,15 +21,18 @@
   function lockedAcres(m) { const L = m.meta.layout, S = new Set(); for (let az = 0; az < L.length; az++) for (let ax = 0; ax < L[0].length; ax++) { const a = G.ACRES[L[az][ax]]; if (a && a.struct && a.struct !== 'hameau') S.add(ax + ',' + az); }
     for (const o of m.list) { const d = G.OBJ[o.t]; if (!d.enter && o.t !== 'maison_hab' && !d.plane && o.t !== 'montgolfiere') continue; const [w, dd] = G.fpDims(d, o.r || 0);
       for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) S.add(Math.floor((x - B) / A) + ',' + Math.floor((z - B) / A)); } return S; }
-  const setTexts = () => { const w = E.world; $('editor').classList.toggle('ed-world', w);
+  // parcelles qui font partie d'un grand ensemble (un bâtiment à cheval sur deux parcelles) : on ne les échange pas seules
+  function groupedAcres(m) { const S = new Set(); for (const o of m.list) { const [w, dd] = G.fpDims(G.OBJ[o.t], o.r || 0), k0 = Math.floor((o.x - B) / A) + ',' + Math.floor((o.z - B) / A), k1 = Math.floor((o.x + w - 1 - B) / A) + ',' + Math.floor((o.z + dd - 1 - B) / A); if (k0 !== k1) { S.add(k0); S.add(k1); } } return S; }
+  const setTexts = () => { const w = E.world; $('ed-swap').hidden = !w; $('ed-swap').classList.toggle('on', !!E.swapMode); $('editor').classList.toggle('ed-world', w);
     $('editor').querySelector('h2').textContent = w ? '🗺️ Modifier les parcelles de ton village' : '🗺️ Éditeur de carte';
-    $('editor').querySelector('.ed-steps').innerHTML = w ? '<li><b>Choisis un paysage</b> dans la liste à gauche.</li><li><b>Peins les parcelles</b> à changer (🔒 = il y a des bâtiments : déplace-les d\'abord avec la touche B).</li><li><b>« Appliquer au village »</b> : les parcelles peintes sont recréées, ce qui était posé dessus disparaît.</li>'
+    $('editor').querySelector('.ed-steps').innerHTML = w ? '<li><b>Peins un paysage</b> sur les parcelles libres (🔒 = il y a des bâtiments).</li><li><b>✋ Déplacer une parcelle</b> : clique une parcelle (même la gare, la mairie, ta maison…) puis l\'endroit où l\'emmener : les deux s\'échangent avec tout ce qu\'il y a dessus. Les rails suivent la gare.</li><li><b>« Appliquer au village »</b> pour tout faire d\'un coup.</li>'
       : '<li><b>Choisis un terrain</b> dans la liste à gauche.</li><li><b>Clique ou glisse</b> sur les cases de la carte pour le poser.</li><li>Regarde l\'<b>aperçu</b> à droite, puis <b>« Jouer sur cette carte »</b>.</li>';
     $('ed-play').textContent = w ? '✅ Appliquer au village' : '▶ Jouer sur cette carte'; $('ed-back').textContent = w ? 'Annuler' : 'Retour';
     for (const id of ['ed-classic', 'ed-random', 'ed-clear']) $(id).hidden = w; $('ed-seed').parentNode.hidden = w; };
   E.open = (o = {}) => {
     E.world = !!o.world; G.state = 'editor'; G.ui.hideScreens(); if (E.world) $('hud').hidden = true; $('editor').hidden = false; E.hist = [];
-    if (E.world) { E.layout = clone(G.world.meta.layout); E.base = clone(E.layout); E.locked = lockedAcres(G.world); if (!WORLD_OK.has(E.brush)) E.brush = 'foret'; }
+    E.swaps = []; E.swapMode = false; E.sel = null; E.moved = new Set();
+    if (E.world) { E.layout = clone(G.world.meta.layout); E.base = clone(E.layout); E.locked = lockedAcres(G.world); E.grouped = groupedAcres(G.world); if (!WORLD_OK.has(E.brush)) E.brush = 'foret'; }
     else { E.layout = clone(G.editorLayout || G.DEFAULT_LAYOUT); E.base = null; E.locked = null; $('ed-seed').value = G.store.get('dv_seed', '1234'); }
     setTexts(); E.palette(); E.grid(); E.preview();
   };
@@ -51,14 +54,24 @@
     if (last !== isBeach(id)) { if (!quiet) { G.ui.toast(last ? 'La rangée du bas touche la mer : choisis un terrain du « Bord de mer ».' : 'Les plages, pontons, phares et ports vont sur la rangée du bas, au bord de la mer.'); G.sfx('error'); } return; }
     if (E.layout[z][x] === id) return; if (!E.stroked) { push(); E.stroked = true; } E.layout[z][x] = id; G.sfx('place', .4); E.cell(x, z); E.schedule();
   };
-  const push = () => { E.hist.push(clone(E.layout)); if (E.hist.length > 60) E.hist.shift(); };
+  const push = () => { E.hist.push({ layout: clone(E.layout), base: E.base && clone(E.base), locked: E.locked && new Set(E.locked), swaps: E.swaps.slice(), moved: new Set(E.moved) }); if (E.hist.length > 60) E.hist.shift(); };
+  // ---------- échanger deux parcelles (village existant) ----------
+  const swapIn = (L, a, b) => { const t = L[a[1]][a[0]]; L[a[1]][a[0]] = L[b[1]][b[0]]; L[b[1]][b[0]] = t; };
+  E.pickSwap = (x, z) => { const k = x + ',' + z;
+    if (E.grouped.has(k)) { G.ui.toast('Cette parcelle fait partie d\'un grand ensemble (grande place, parc, aérodrome…) : elle ne se déplace pas seule.'); G.sfx('error'); return; }
+    if (!E.sel) { E.sel = [x, z]; E.cell(x, z); G.sfx('ui'); $('ed-hover').textContent = 'Parcelle ' + COLN(x) + '-' + (z + 1) + ' choisie : clique maintenant l\'endroit où l\'emmener.'; return; }
+    const a = E.sel; E.sel = null; E.cell(a[0], a[1]); if (a[0] === x && a[1] === z) return;
+    if ((a[1] === lastRow()) !== (z === lastRow())) { G.ui.toast('Les parcelles du bord de mer ne s\'échangent qu\'entre elles.'); G.sfx('error'); return; }
+    push(); const b = [x, z]; swapIn(E.layout, a, b); swapIn(E.base, a, b); const la = E.locked.has(a[0] + ',' + a[1]), lb = E.locked.has(k);
+    E.locked.delete(a[0] + ',' + a[1]); E.locked.delete(k); if (la) E.locked.add(k); if (lb) E.locked.add(a[0] + ',' + a[1]); E.swaps.push([a, b]); E.moved.add(a[0] + ',' + a[1]); E.moved.add(k);
+    E.cell(a[0], a[1]); E.cell(x, z); G.sfx('place'); $('ed-hover').textContent = 'Les parcelles ' + COLN(a[0]) + '-' + (a[1] + 1) + ' et ' + COLN(x) + '-' + (z + 1) + ' seront échangées en appliquant.'; E.schedule(); };
   E.cell = (x, z) => { const b = E.cells && E.cells[z] && E.cells[z][x], id = E.layout[z][x], a = G.ACRES[id] || { col: '#999', ico: '?', n: id }; if (!b) return; b.style.background = a.col; b.textContent = a.ico; b.title = COLN(x) + '-' + (z + 1) + ' · ' + a.n;
-    b.classList.toggle('locked', !!(E.world && E.locked.has(x + ',' + z))); b.classList.toggle('changed', !!(E.base && E.base[z][x] !== id)); };
+    b.classList.toggle('locked', !!(E.world && E.locked.has(x + ',' + z))); b.classList.toggle('changed', !!(E.base && E.base[z][x] !== id)); b.classList.toggle('moved', !!(E.moved && E.moved.has(x + ',' + z))); b.classList.toggle('sel', !!(E.sel && E.sel[0] === x && E.sel[1] === z)); };
   E.grid = () => {
     const g = $('ed-grid'), W = E.layout[0].length; g.style.setProperty('--cols', W); g.innerHTML = ''; E.cells = [];
     E.layout.forEach((row, z) => { E.cells[z] = []; row.forEach((id, x) => {
       const b = document.createElement('div'); b.className = 'acre' + (z === lastRow() ? ' sea-row' : ''); b.dataset.x = x; b.dataset.z = z; E.cells[z][x] = b; E.cell(x, z);
-      b.addEventListener('mousedown', e => { e.preventDefault(); if (e.button === 2) { E.brush = E.layout[z][x]; G.sfx('ui'); E.palette(); return; } E.stroked = false; E.painting = true; E.paint(x, z); });
+      b.addEventListener('mousedown', e => { e.preventDefault(); if (E.world && E.swapMode && e.button !== 2) { E.pickSwap(x, z); return; } if (e.button === 2) { E.brush = E.layout[z][x]; G.sfx('ui'); E.palette(); return; } E.stroked = false; E.painting = true; E.paint(x, z); });
       b.addEventListener('mouseenter', () => { const a = G.ACRES[E.layout[z][x]] || {}; $('ed-hover').textContent = `Case ${COLN(x)}-${z + 1} : ${a.ico || ''} ${a.n || ''} — ${DESC[E.layout[z][x]] || ''}`; if (E.painting) E.paint(x, z, true); });
       b.addEventListener('contextmenu', e => e.preventDefault());
       g.appendChild(b); }); });
@@ -87,16 +100,33 @@
   };
   const click = (id, fn) => $(id).addEventListener('click', () => { G.sfx('ui'); fn(); });
   const reset = L => { push(); E.layout = L; E.grid(); E.preview(); };
-  click('ed-undo', () => { if (!E.hist.length) { G.ui.toast('Rien à annuler.'); return; } E.layout = E.hist.pop(); E.grid(); E.preview(); });
+  click('ed-undo', () => { if (!E.hist.length) { G.ui.toast('Rien à annuler.'); return; } const h = E.hist.pop(); E.layout = h.layout; if (h.base) E.base = h.base; if (h.locked) E.locked = h.locked; E.swaps = h.swaps; E.moved = h.moved; E.sel = null; E.grid(); E.preview(); });
+  click('ed-swap', () => { E.swapMode = !E.swapMode; E.sel = null; $('ed-swap').classList.toggle('on', E.swapMode); E.grid(); $('ed-hover').textContent = E.swapMode ? '✋ Clique la parcelle à déplacer, puis l\'endroit où l\'emmener.' : 'Pinceau : clique ou glisse pour peindre un paysage.'; });
   click('ed-classic', () => reset(clone(G.DEFAULT_LAYOUT)));
   click('ed-random', () => { const s = Math.floor(Math.random() * 1e6); $('ed-seed').value = s; reset(G.randomLayout(s)); });
   click('ed-clear', () => reset(E.layout.map((r, z) => r.map(() => z === lastRow() ? 'plage' : 'plaine'))));
   click('ed-back', () => E.close());
   click('ed-play', () => {
     if (E.world) { const L = clone(E.layout); $('load-msg').textContent = 'Le village se transforme…'; $('loading').hidden = false;
-      setTimeout(() => { let n = 0; try { n = G.applyAcres(L); } catch (e) { console.error(e); G.ui.toast('Erreur : ' + e.message); } $('loading').hidden = true; E.close(); if (n) G.ui.toast('🗺️ ' + n + ' parcelle' + (n > 1 ? 's' : '') + ' transformée' + (n > 1 ? 's' : '') + ' !'); }, 40); return; }
+      const SW = E.swaps.slice(); setTimeout(() => { let n = 0; try { for (const [a, b] of SW) { G.swapAcres(G.world, a, b); n++; } n += G.applyAcres(L); } catch (e) { console.error(e); G.ui.toast('Erreur : ' + e.message); } $('loading').hidden = true; E.close(); if (n) G.ui.toast('🗺️ ' + n + ' parcelle' + (n > 1 ? 's' : '') + ' transformée' + (n > 1 ? 's' : '') + ' !'); }, 40); return; }
     E.save(); $('editor').hidden = true; G.state = 'title'; $('btn-new').click(); $('ng-map').value = 'custom'; $('ng-seed').value = $('ed-seed').value; });
   // ---------- appliquer : les parcelles changées sont recréées (terrain, rivières, arbres, hameaux), le reste du village ne bouge pas ----------
+  // échange de deux parcelles : terrain, objets, habitants, portes, icônes ; la gare emmène ses rails
+  const KEEP = ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt'];
+  G.swapAcres = (m, a, b) => { const M = m.meta, ax0 = B + a[0] * A, az0 = B + a[1] * A, bx0 = B + b[0] * A, bz0 = B + b[1] * A, dx = bx0 - ax0, dz = bz0 - az0;
+    const inR = (x, z, x0, z0) => x >= x0 && x < x0 + A && z >= z0 && z < z0 + A, side = (x, z) => inR(x, z, ax0, az0) ? 1 : inR(x, z, bx0, bz0) ? -1 : 0;
+    const t = M.train, so = t ? (t.ox != null ? t.ox : t.x0 - 2) : null, sz = t ? Math.floor(t.z) - 1 : null, st = t ? side(so + 8, sz + 4) : 0;
+    for (let z = 0; z < A; z++) for (let x = 0; x < A; x++) { const i = m.idx(ax0 + x, az0 + z), j = m.idx(bx0 + x, bz0 + z); for (const k of ['lvl', 'surf', 'water', 'ramp']) { const v = m[k][i]; m[k][i] = m[k][j]; m[k][j] = v; } m.markDirty(ax0 + x, az0 + z); m.markDirty(bx0 + x, bz0 + z); }
+    const mv = []; for (const o of [...m.list]) { const sd = side(o.x, o.z); if (!sd) continue; const ex = {}; for (const k of KEEP) if (o[k] != null) ex[k] = o[k]; mv.push([o.t, o.x + sd * dx, o.z + sd * dz, o.r || 0, ex]); m.removeObj(o); }
+    for (const [t2, x, z, r, ex] of mv) m.addObj(t2, x, z, r, ex);
+    const sh = q => { if (!q || typeof q.x !== 'number' || typeof q.z !== 'number') return; const sd = side(q.x, q.z); if (!sd) return; q.x += sd * dx; q.z += sd * dz; for (const k of ['x0', 'x1', 'sx']) if (typeof q[k] === 'number') q[k] += sd * dx; for (const k of ['z0', 'z1', 'sz']) if (typeof q[k] === 'number') q[k] += sd * dz; };
+    for (const k in M) { if (['layout', 'train', 'track', 'seaZ', 'seed', 'signals'].includes(k)) continue; const v = M[k]; if (Array.isArray(v)) v.forEach(q => q && typeof q === 'object' && sh(q)); else if (k === 'homesP') { for (const id in v) sh(v[id]); } else if (v && typeof v === 'object') sh(v); }
+    for (const e of G.ents.villagers) if (e.map === m) { const sd = side(e.x, e.z); if (e.fixed && e.home) sh(e.home); if (sd) { e.x += sd * dx; e.z += sd * dz; } }
+    for (const id in G.interiors) { const mt = G.interiors[id].meta; if (mt && mt.door && (!mt.fromId || mt.fromId === 'world')) sh(mt.door); }
+    const p = G.player, ps = G.map === m ? side(p.x, p.z) : 0; if (ps) p.teleport(p.x + ps * dx, p.z + ps * dz, p.yaw);
+    swapIn(M.layout, a, b);
+    if (st && G.relayStation) { const nox = so + st * dx, noz = sz + st * dz; for (const o of [...m.list]) if (['tunnel', 'signal_pn'].includes(o.t) && Math.abs(o.x - nox - 8) < 10 && Math.abs(o.z - noz - 1) < 4) m.removeObj(o); G.relayStation(m, nox, noz); } else if (t && G.relayTrack) G.relayTrack(m);
+    m.flush(); G.ui.mmRev = -1; };
   G.applyAcres = L => {
     const m = G.world, M = m.meta, old = M.layout, C = old[0].length, R = old.length, seed = (M.seed == null ? 1234 : M.seed) >>> 0, ch = new Uint8Array(C * R); let n = 0;
     for (let z = 0; z < R; z++) for (let x = 0; x < C; x++) if (L[z][x] !== old[z][x]) { ch[z * C + x] = 1; n++; } if (!n) return 0;

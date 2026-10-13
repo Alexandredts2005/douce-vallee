@@ -1,19 +1,27 @@
 'use strict';
-// ===== Déplacer un bâtiment déjà construit (touche B) : la mairie, les maisons, la boutique, le musée, les monuments…
+// ===== Déplacer un bâtiment déjà construit (touche B, ou 🏗️ sur tactile) : la mairie, ta maison, la boutique, le musée, la gare…
 // B devant le bâtiment pour le soulever, on marche jusqu'à la nouvelle place (R pour tourner), B pour le poser, X pour annuler.
-// Les habitants, les portes, les icônes de la carte suivent le bâtiment. =====
+// À la pose, les arbres, fleurs et cailloux gênants sont dégagés et le sol est aplani. Les habitants, les portes, les icônes
+// de la carte suivent le bâtiment ; si c'est la gare, le quai, les rails et la voie qui traverse le pays la suivent aussi. =====
 (function () {
   const O = G.OBJ, KEEP = ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt'];
-  const NO = new Set(['voie', 'rails', 'tunnel', 'tunnel2', 'gare', 'gare_provence', 'gare_colossale', 'grande_porte', 'signal_pn', 'paillasson', 'ponton', 'pont', 'passage_niveau']);
+  const NO = new Set(['voie', 'rails', 'tunnel', 'tunnel2', 'grande_porte', 'signal_pn', 'paillasson', 'ponton', 'pont', 'passage_niveau']);
+  const GARES = { gare: 3, gare_provence: 3, gare_colossale: 1 }; // décalage du bâtiment dans la parcelle de la gare
   const MV = G.move = { c: null };
   let ghost = null, gmat = null;
   const free = () => G.state === 'play' && !G.ui.modal && !G.ui.fading;
+  const natural = o => { const d = O[o.t]; return !!(d.chop || d.pick || G.isFlowerObj(o) || /^(mauvaise_herbe|rocher|gros_rocher|buisson|champignon|coquillage|fissure|souche|hortensia|lavande)/.test(o.t)); };
   function makeGhost(c) {
     if (!gmat) gmat = G.curveMat(new THREE.MeshBasicMaterial({ color: 0x8fe39a, transparent: true, opacity: .45, depthWrite: false }));
     const d = O[c.t]; ghost = new THREE.Mesh(G.getGeo(d.model, c.ex.v != null ? c.ex.v : d.v || 0), gmat); ghost.frustumCulled = false; ghost.renderOrder = 6; G.scene.add(ghost);
   }
   const dropGhost = () => { if (ghost) { G.scene.remove(ghost); ghost = null; } };
-  const spot = c => { const m = G.world, d = O[c.t], r = G.placeRot || 0, [tx, tz] = G.player.target(), [ax, az] = G.act.anchor(d, r, tx, tz); return { ax, az, r, ok: m.canPlace(c.t, ax, az, r) && !G.act.occupiedByMe(d, r, ax, az) }; };
+  // la place visée : libre (ou seulement encombrée de nature), pas dans l'eau ; le sol sera aplani
+  const spot = c => { const m = G.world, d = O[c.t], gare = GARES[c.t] != null, r = gare ? 0 : G.placeRot || 0, [tx, tz] = G.player.target(), [ax, az] = G.act.anchor(d, r, tx, tz), [w, dd] = G.fpDims(d, r);
+    let ok = !G.act.occupiedByMe(d, r, ax, az) && !(gare && az - 3 < 3);
+    for (let z = az; z < az + dd && ok; z++) for (let x = ax; x < ax + w && ok; x++) { if (x < 2 || z < 2 || x >= m.W - 2 || z >= m.H - 2) { ok = false; break; } const i = m.idx(x, z);
+      if (m.water[i]) ok = false; else { const o = m.objAt(x, z); if (o && !natural(o)) ok = false; } }
+    return { ax, az, r, w, dd, ok }; };
   // ---------- soulever ----------
   function lift() {
     const m = G.world, p = G.player; if (G.map !== m || m.isVisit || (G.net && G.net.visit)) { G.ui.toast('On ne déplace les bâtiments que dans son propre village.'); return; }
@@ -23,7 +31,7 @@
     const ex = {}; for (const k of KEEP) if (o[k] != null) ex[k] = o[k]; const [cx, cz] = m.center(o), [w, dd] = G.fpDims(d, o.r || 0);
     MV.c = { t: o.t, ex, x: o.x, z: o.z, r: o.r || 0, cx, cz, box: [o.x - 3, o.z - 3, o.x + w + 3, o.z + dd + 3] }; G.placeRot = o.r || 0;
     m.removeObj(o); makeGhost(MV.c); G.sfx('pickup'); G.fx.puff(cx, o.y + .5, cz, 12, 0xf3ead2, .9);
-    G.ui.toast('🏗️ Tu déplaces « ' + d.n + ' ». Marche jusqu\'à la nouvelle place · R pour tourner · B pour poser · X pour annuler.', 8000);
+    G.ui.toast('🏗️ Tu déplaces « ' + d.n + ' ». Marche jusqu\'à la nouvelle place' + (GARES[o.t] != null ? ' (les rails suivront)' : ' · R pour tourner') + ' · B pour poser · X pour annuler.', 8000);
   }
   // ---------- poser : tout ce qui était attaché au bâtiment le suit ----------
   function follow(m, c, dx, dz) {
@@ -35,9 +43,15 @@
     for (const id in G.interiors) { const dm = G.interiors[id].meta && G.interiors[id].meta.door; if (dm && inB(dm)) mv(dm); }
   }
   function drop() {
-    const c = MV.c, m = G.world, s = spot(c); if (!s.ok) { G.ui.toast('Pas de place ici : il faut un terrain plat et libre.'); G.sfx('error'); return; }
+    const c = MV.c, m = G.world, s = spot(c); if (!s.ok) { G.ui.toast('Pas possible ici : ni dans l\'eau, ni sur un autre bâtiment.'); G.sfx('error'); return; }
+    // on dégage la nature et on aplanit le sol au niveau le plus courant
+    const cnt = {}; for (let z = s.az; z < s.az + s.dd; z++) for (let x = s.ax; x < s.ax + s.w; x++) { const o = m.objAt(x, z); if (o) m.removeObj(o); const L = m.lvl[m.idx(x, z)]; cnt[L] = (cnt[L] || 0) + 1; }
+    const L = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+    for (let z = s.az; z < s.az + s.dd; z++) for (let x = s.ax; x < s.ax + s.w; x++) { const i = m.idx(x, z); m.lvl[i] = L; m.ramp[i] = 0; m.markDirty(x, z); }
     const o = m.addObj(c.t, s.ax, s.az, s.r, c.ex), [cx, cz] = m.center(o); follow(m, c, cx - c.cx, cz - c.cz);
-    MV.c = null; dropGhost(); G.sfx('place'); G.fx.puff(cx, o.y + .3, cz, 16, 0xf3ead2, 1.1); G.ui.mmRev = -1; G.ui.toast('✅ « ' + O[c.t].n + ' » est à sa nouvelle place !'); G.saveGame(true);
+    if (GARES[c.t] != null && G.relayStation) G.relayStation(m, s.ax - GARES[c.t], s.az - 3);
+    m.flush(); MV.c = null; dropGhost(); G.sfx('place'); G.fx.puff(cx, o.y + .3, cz, 16, 0xf3ead2, 1.1); G.ui.mmRev = -1;
+    G.ui.toast('✅ « ' + O[c.t].n + ' » est à sa nouvelle place !' + (GARES[c.t] != null ? ' Les rails ont suivi.' : '')); G.saveGame(true);
   }
   // annuler : le bâtiment retourne à sa place (ou juste à côté si elle a été prise)
   function cancel(quiet) {
@@ -48,7 +62,7 @@
   G.on('update', () => {
     const I = G.input; if (!free()) return;
     if (I.ch('b')) { if (MV.c) drop(); else lift(); }
-    if (!MV.c || !ghost) return; const s = spot(MV.c), m = G.world, d = O[MV.c.t], [w, dd] = G.fpDims(d, s.r), x = s.ax + w / 2, z = s.az + dd / 2;
+    if (!MV.c || !ghost) return; const s = spot(MV.c), m = G.world, x = s.ax + s.w / 2, z = s.az + s.dd / 2;
     ghost.position.set(x, m.terrainH(x, z) + .02, z); ghost.rotation.set(0, s.r * Math.PI / 2, 0); gmat.color.setHex(s.ok ? 0x8fe39a : 0xff8a80);
   });
   // X annule pendant un déplacement ; on ne perd jamais un bâtiment (sauvegarde, menu, changement de carte)
@@ -56,6 +70,9 @@
     const ot = G.act.take; G.act.take = () => MV.c ? cancel() : ot();
     const os = G.serialize; G.serialize = () => { if (MV.c) cancel(true); return os(); };
     const ott = G.toTitle; G.toTitle = () => { if (MV.c) cancel(true); return ott(); };
+    // bouton tactile 🏗️ à côté de ✋
+    const tk = document.getElementById('tb-take'); if (tk && !document.getElementById('tb-move')) { const b = tk.cloneNode(false); b.id = 'tb-move'; b.textContent = '🏗️'; b.title = 'Déplacer un bâtiment';
+      b.style.right = '230px'; b.addEventListener('pointerdown', e => { e.preventDefault(); G.input.chars.b = true; }); tk.parentNode.appendChild(b); }
   });
   G.on('enterMap', m => { if (MV.c && m !== G.world) cancel(true); });
 })();
