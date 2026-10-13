@@ -81,11 +81,11 @@
     const W = map.W, I = (x, z) => z * W + x, add = (t, x, z, r = 0, ex) => map.canPlace(t, x, z, r) ? map.addObj(t, x, z, r, ex) : null;
     for (let x = ox; x < ox + 16; x++) for (let z = oz; z <= oz + 2; z++) { const i = I(x, z); map.lvl[i] = 0; map.water[i] = 0; map.ramp[i] = 0; map.surf[i] = z === oz + 2 ? 11 : z === oz + 1 ? 4 : 0; }
     for (let x = ox; x < ox + 16; x++) add('rails', x, oz + 1, 1);
-    add('gare_provence', ox + 3, oz + 3);
+    add('gare_colossale', ox + 1, oz + 3);
     for (let z = oz + 6; z <= oz + 8; z++) for (let x = ox + 1; x <= ox + 14; x++) map.surf[I(x, z)] = 11;
     for (const x of [ox + 4, ox + 7, ox + 10]) add('banc', x, oz + 2, 2); add('horloge', ox + 13, oz + 2);
     for (const x of [ox + 1, ox + 7, ox + 14]) add('lampadaire', x, oz + 6); for (const x of [ox + 2, ox + 13]) add('arbre_caisse', x, oz + 7, 0, { v: 1 });
-    add('montgolfiere', ox + 11, oz + 8); add('panneau', ox + 14, oz + 4, 0, { txt: 'Gare : les trains traversent tout le pays. Traverse les voies sur le quai ou à un passage à niveau !' });
+    add('montgolfiere', ox + 11, oz + 8); add('panneau', ox + 15, oz + 4, 0, { txt: 'Gare : les trains traversent tout le pays. Traverse les voies sur le quai ou à un passage à niveau !' });
     for (let x = ox + 1; x <= ox + 14; x++) if (x < ox + 10 || x > ox + 13) add('lavande_violette', x, oz + 9);
     map.meta.train = { x0: 3, x1: W - 3, z: oz + 1.5, stop: ox + 8, sx: ox + 8, y: 0, ox, prov: 1 }; map.meta.signals = []; map.meta.gare = { x: ox + 8, z: oz + 6.6 };
   }

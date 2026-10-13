@@ -4,7 +4,7 @@
 // Les habitants, les portes, les icônes de la carte suivent le bâtiment. =====
 (function () {
   const O = G.OBJ, KEEP = ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt'];
-  const NO = new Set(['voie', 'rails', 'tunnel', 'tunnel2', 'gare', 'gare_provence', 'grande_porte', 'signal_pn', 'paillasson', 'ponton', 'pont', 'passage_niveau']);
+  const NO = new Set(['voie', 'rails', 'tunnel', 'tunnel2', 'gare', 'gare_provence', 'gare_colossale', 'grande_porte', 'signal_pn', 'paillasson', 'ponton', 'pont', 'passage_niveau']);
   const MV = G.move = { c: null };
   let ghost = null, gmat = null;
   const free = () => G.state === 'play' && !G.ui.modal && !G.ui.fading;

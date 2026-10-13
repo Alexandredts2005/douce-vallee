@@ -100,7 +100,7 @@
       if (it.kind === 'tool') { f = VERB[it.tool]; if (it.tool === 'axe' && !(d && d.chop)) f = null; if (it.tool === 'pick' && !(d && d.mine)) f = null; }
       else if (it.food) f = 'Manger'; else if (it.kind === 'place') f = 'Poser · <kbd>R</kbd>Tourner'; else if (it.kind === 'bridge') f = 'Poser le pont'; else if (it.kind === 'surf') f = 'Peindre le sol'; else if (it.kind === 'terra') f = it.n; else if (it.id === 'cadeau') f = 'Ouvrir';
       if (f) out.push(`<kbd>F</kbd>${f}`); }
-    if (d && !d.fixed && (G.mode === 'creatif' || d.take) && !['maison_hab', 'boutique', 'paillasson'].includes(o.t)) out.push('<kbd>X</kbd>' + (G.mode === 'creatif' ? 'Retirer' : 'Ranger')); if (d && G.map === G.world && (d.enter || d.fp[0] * d.fp[1] >= 4) && !['gare', 'gare_provence', 'grande_porte', 'tunnel', 'tunnel2', 'ponton'].includes(o.t)) out.push('<kbd>B</kbd>Déplacer');
+    if (d && !d.fixed && (G.mode === 'creatif' || d.take) && !['maison_hab', 'boutique', 'paillasson'].includes(o.t)) out.push('<kbd>X</kbd>' + (G.mode === 'creatif' ? 'Retirer' : 'Ranger')); if (d && G.map === G.world && (d.enter || d.fp[0] * d.fp[1] >= 4) && !['gare', 'gare_provence', 'gare_colossale', 'grande_porte', 'tunnel', 'tunnel2', 'ponton'].includes(o.t)) out.push('<kbd>B</kbd>Déplacer');
     return out.length ? out.join('&nbsp;&nbsp; ') : null;
   }
   let lastPrompt = '';

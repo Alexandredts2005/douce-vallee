@@ -177,8 +177,14 @@
     if (m.canPlace('gare_provence', ox + 3, oz + 3)) m.addObj('gare_provence', ox + 3, oz + 3, 0, ex); else m.addObj('gare', ox + 3, oz + 3, 0, ex);
     for (const x of [ox + 2, ox + 13]) if (m.canPlace('arbre_caisse', x, oz + 7)) m.addObj('arbre_caisse', x, oz + 7, 0, { v: 1 });
     Object.assign(t, { x0: 3, x1: m.W - 3, stop: ox + 8, sx: ox + 8, y: 0, ox, prov: 1 }); m.meta.signals = []; m.meta.gare = { x: ox + 8, z: oz + 6.6 }; };
+  // la gare du milieu du monde devient colossale (façon Gare de Lyon) : 14 cases de large, beffroi à horloges et grande verrière
+  const colossify = m => { const g = [...m.list].find(o => o.t === 'gare_provence'); if (!g || m.interior) return; const ox = g.x - 3, oz = g.z - 3;
+    const ex = {}; for (const k of ['iid', 'v']) if (g[k] != null) ex[k] = g[k]; m.removeObj(g); const moved = [];
+    for (let z = oz + 3; z <= oz + 5; z++) for (let x = ox + 1; x <= ox + 14; x++) { const o = m.objAt(x, z); if (o && !O[o.t].enter && !O[o.t].fixed) { const e = { t: o.t, ex: {} }; for (const k of ['v', 'txt']) if (o[k] != null) e.ex[k] = o[k]; m.removeObj(o); moved.push(e); } }
+    if (m.canPlace('gare_colossale', ox + 1, oz + 3)) m.addObj('gare_colossale', ox + 1, oz + 3, 0, ex); else m.addObj('gare_provence', ox + 3, oz + 3, 0, ex);
+    for (const e of moved) if (e.t === 'panneau' && m.canPlace('panneau', ox + 15, oz + 4)) m.addObj('panneau', ox + 15, oz + 4, 0, e.ex); };
   G.on('worldgen', m => { layTrack(m); railway(m); bigGate(m); });
-  G.on('load', () => { const m = G.world; if (!m) return; provencify(m); railway(m); layTrack(m); bigGate(m); m.flush(); });
+  G.on('load', () => { const m = G.world; if (!m) return; provencify(m); colossify(m); railway(m); layTrack(m); bigGate(m); m.flush(); });
   // la grande carte montre les hameaux
   G.on('init', () => { const U = G.ui, om = U.openMap; if (!om) return; U.openMap = () => { om(); const m = G.world, M = m.meta, cv = document.getElementById('bigmap'), c = cv && cv.getContext('2d'); if (!c || !M.layout || M.layout.length <= 8) return; const sc = cv.width / m.W;
     c.save(); c.font = '13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; const L = M.layout;
