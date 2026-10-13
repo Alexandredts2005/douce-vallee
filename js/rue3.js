@@ -285,27 +285,57 @@
     for (const x of [-1.5, 1.4]) { b.box(.36, .8, .3, 0xb0704f, x, H + 1.45, z0 - .3); for (let q = 0; q < 3; q++) b.cyl(.04, .04, .16, 6, 0xc0603c, x - .1 + q * .1, H + 1.92, z0 - .3); }
     return b.done(); };
 
-  // ---------- 11. le musée : façade néoclassique, colonnade, fronton à la chouette, coupole ----------
-  MD.musee_rue = v => { const b = G.mb(965), S1 = 0xeee7d6, S2 = 0xd9cfb8, BZ = 0x6b4a2a, ZF = .72;
-    b.P(PT.pierre).box(5.9, 4.3, 2.2, S1, 0, 2.15, ZF - 1.1).P(0);
-    b.P(PT.pierre).box(5.8, .36, .4, S2, 0, .18, ZF + .2).box(5.4, .12, .36, S2, 0, .06, 1.3).box(5.4, .24, .24, S2, 0, .12, 1.24).box(5.4, .36, .12, S2, 0, .18, 1.18).P(0);
-    for (let i = 0; i < 6; i++) { const x = -2.5 + i; b.cyl(.19, .19, .08, 14, S2, x, .4, .95); b.cyl(.15, .17, .1, 14, S1, x, .49, .95); b.cyl(.13, .15, 2.85, 14, S1, x, 1.965, .95, 0, 0, 0, 0, true);
-      b.box(.4, .1, .4, S2, x, 3.45, .95); for (const s of [-1, 1]) b.tor(.055, .02, S2, x + s * .15, 3.34, 1.1, 0, 0, 0, 0, 12); }
-    b.box(5.9, .5, .62, S1, 0, 3.75, .9); b.box(5.6, .16, .02, GOLD, 0, 3.78, 1.215);
-    P(b, 6.0, 1.05, .6, S1, 0, 4.0, .9); P(b, 5.2, .82, .03, S2, 0, 4.08, 1.215);
-    for (const s of [-1, 1]) b.box(3.25, .12, .66, S2, s * 1.5, 4.0 + .525, .9, 0, 0, -s * .337);
-    // la chouette du Professeur Plume, dorée, au tympan
-    b.sph(.17, GOLD, 0, 4.3, 1.24, 1, 1.1, .4); b.sph(.12, GOLD, 0, 4.52, 1.24, 1, .9, .4); for (const s of [-1, 1]) { b.sph(.045, 0xfff8e8, s * .05, 4.54, 1.29, 1, 1, .4); b.cone(.03, .09, 4, GOLD, s * .08, 4.65, 1.24); }
-    // portes de bronze, imposte, hautes fenêtres, bannières d'exposition
-    b.box(1.0, 2.1, .06, BZ, 0, 1.41, ZF + .03); b.box(.02, 2.0, .07, dark(BZ), 0, 1.41, ZF + .04); for (const s of [-1, 1]) for (const y of [.95, 1.85]) b.box(.36, .6, .065, dark(BZ, .85), s * .24, y, ZF + .035); for (const s of [-1, 1]) b.sph(.035, GOLD, s * .07, 1.4, ZF + .08);
-    halfDisc(b, .5, WIN, 0, 2.46, ZF + .03, 1); b.add(new THREE.TorusGeometry(.52, .04, 6, 18, PI), S2, b.M(0, 2.46, ZF + .05), 0, true);
-    for (const s of [-1, 1]) { fen(b, s * 2.0, 2.0, ZF, 1, S2, .5, 1.4); b.box(.55, 1.8, .025, s < 0 ? 0xa8323e : 0x2f4f8a, s * 1.0, 2.55, .95); b.box(.55, .06, .03, GOLD, s * 1.0, 3.44, .95); b.box(.55, .05, .03, GOLD, s * 1.0, 1.7, .95);
-      if (s < 0) b.tor(.12, .035, 0xf4f2ec, -1.0, 2.7, .97, 0, 0, 0, 0, 14); else for (const k of [-1, 1]) lo(b, sg(.09, 8, 6), k < 0 ? 0xffd23f : 0x6fd3f0, 1.0 + k * .09, 2.7, .97, 0, 0, k * .4, 1, .6, .3); }
-    // toit-terrasse à balustres, tambour et coupole
-    for (let k = 0; k < 28; k++) b.cyl(.03, .04, .24, 6, S2, -2.8 + k * .207, 4.42, ZF - .12); b.box(5.9, .06, .12, S2, 0, 4.56, ZF - .12);
-    b.cyl(1.05, 1.05, .7, 24, S1, 0, 4.65, -.45); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; b.box(.1, .6, .06, S2, Math.cos(a) * 1.07, 4.65, -.45 + Math.sin(a) * 1.07, 0, -a + PI / 2, 0); }
-    b.sph(1.08, 0x7fb6c8, 0, 5.0, -.45, 1, .85, 1, 0, 24, 14); b.cyl(.18, .2, .4, 10, S1, 0, 5.98, -.45); b.cone(.24, .3, 10, 0x7fb6c8, 0, 6.33, -.45); b.sph(.07, GOLD, 0, 6.53, -.45);
-    for (const s of [-1, 1]) { b.cyl(.04, .05, 1.5, 8, BZ, s * 2.85, .75, 1.3); b.sph(.13, 0xfff1c8, s * 2.85, 1.6, 1.3, 1, 1, 1, 1); b.cyl(.06, .08, .06, 8, GOLD, s * 2.85, 1.47, 1.3); }
+  // grand musée (9 × 3) façon Petit Palais : perron monumental, portique de six colonnes corinthiennes, fronton sculpté,
+  // ailes à hautes baies cintrées, pavillons d'angle à statues, balustrade à vases, coupole de cuivre vert (elle déborde en arrière, au-dessus des toits)
+  MD.musee_rue = v => { const b = G.mb(965), S1 = 0xeee7d6, S2 = 0xd9cfb8, S3 = 0xf6f1e6, BZ = 0x6b4a2a, CU = 0x6fae9a, CU2 = 0x5a9584, ZF = .72, A = G.ARCH;
+    const LT = { M: ['10001', '11011', '10101', '10001', '10001'], U: ['101', '101', '101', '101', '111'], S: ['111', '100', '111', '001', '111'], E: ['111', '100', '110', '100', '111'] };
+    const lettres = (txt, y, z, px) => { let w = -1; for (const c of txt) w += LT[c === 'É' ? 'E' : c][0].length + 1; let cx = -w * px / 2;
+      for (const c of txt) { const g = LT[c === 'É' ? 'E' : c]; g.forEach((row, r) => [...row].forEach((k, i) => { if (k === '1') b.box(px * .92, px * .92, px * .5, GOLD, cx + (i + .5) * px, y + (4 - r) * px, z); }));
+        if (c === 'É') b.box(px * 1.6, px * .7, px * .5, GOLD, cx + 1.6 * px, y + 5.4 * px, z, 0, 0, .5); cx += (g[0].length + 1) * px; } };
+    const blk = (xc, zc, w, d, fh, wh) => ({ xc, zc, w, d, fh, wh }), WO = { glass: 0x9fb9d4, frame: 0xf2ead8, sill: S2, pane: 'petits', curt: 0xfff1d6 };
+    const WL = blk(-2.85, -.55, 2.5, 1.9, .55, 4.6), WR = blk(2.85, -.55, 2.5, 1.9, .55, 4.6), PL = blk(-3.95, -.45, 1.1, 2.1, .55, 5.0), PR = blk(3.95, -.45, 1.1, 2.1, .55, 5.0), CE = blk(0, -.6, 3.3, 1.8, .55, 5.2);
+    // soubassement et perron monumental sur toute la largeur
+    b.P(PT.pierre); b.box(9.0, .55, 2.3, S2, 0, .275, -.45); for (let k = 0; k < 4; k++) b.box(4.6 - k * .2, .14, .26, k % 2 ? S2 : S3, 0, .07 + k * .14, 1.35 - k * .2); b.P(0);
+    for (const s of [-1, 1]) { b.P(PT.pierre); b.box(.4, .62, 1.0, S2, s * 2.5, .31, .95); b.P(0); b.box(.42, .06, 1.02, S3, s * 2.5, .64, .95);
+      b.cyl(.06, .09, 1.1, 10, BZ, s * 2.5, 1.2, 1.2); b.cyl(.09, .07, .1, 10, GOLD, s * 2.5, 1.77, 1.2); b.sph(.17, 0xfff1c8, s * 2.5, 1.95, 1.2, 1, 1, 1, 1, 12, 10); b.cone(.05, .12, 8, GOLD, s * 2.5, 2.16, 1.2); }
+    for (const H of [WL, WR, PL, PR, CE]) { b.P(PT.pierre); b.box(H.w, H.wh, H.d, S1, H.xc, H.fh + H.wh / 2, H.zc); b.box(H.w + .16, .2, H.d + .16, S2, H.xc, H.fh + H.wh, H.zc); b.box(H.w + .06, .1, H.d + .06, S2, H.xc, H.fh + 2.3, H.zc); b.P(0); }
+    // ailes : hautes baies cintrées au rez-de-chaussée, fenêtres à l'étage, pilastres
+    for (const H of [WL, WR]) { for (const a of [-.62, .62]) { A.fenetre(b, H, 0, a, 1.55, Object.assign({ w: .5, h: 1.25, arch: 1 }, WO)); A.fenetre(b, H, 0, a, 3.65, Object.assign({ w: .45, h: .9 }, WO)); }
+      for (const a of [-1.2, 0, 1.2]) { b.P(PT.pierre); b.box(.18, H.wh - .1, .08, S3, H.xc + a, H.fh + H.wh / 2, H.zc + H.d / 2 + .04); b.P(0); }
+      for (let k = 0; k < 11; k++) b.cyl(.035, .045, .24, 6, S2, H.xc - 1.15 + k * .23, H.fh + H.wh + .22, H.zc + H.d / 2 - .05); b.box(H.w, .06, .1, S2, H.xc, H.fh + H.wh + .36, H.zc + H.d / 2 - .05);
+      for (const a of [-1.15, 0, 1.15]) { b.cyl(.06, .1, .12, 10, S2, H.xc + a, H.fh + H.wh + .44, H.zc + H.d / 2 - .05); b.sph(.11, S3, H.xc + a, H.fh + H.wh + .58, H.zc + H.d / 2 - .05, 1, 1.2, 1, 0, 10, 8); } }
+    // pavillons d'angle : niche à statue, œil-de-bœuf, toit en dôme carré
+    for (const H of [PL, PR]) { const zf = H.zc + H.d / 2; b.box(.6, 1.7, .08, 0xcfc4ab, H.xc, 1.75, zf + .02); b.geo(new THREE.CylinderGeometry(.3, .3, .08, 16, 1, false, -PI / 2, PI), 0xcfc4ab, b.M(H.xc, 2.6, zf + .02, -PI / 2, 0, 0));
+      b.box(.34, .12, .3, S2, H.xc, 1.0, zf + .1); b.cyl(.09, .14, .55, 8, S3, H.xc, 1.35, zf + .1); b.sph(.1, S3, H.xc, 1.72, zf + .1); b.box(.36, .05, .07, S3, H.xc, 1.55, zf + .14, 0, 0, .5);
+      b.cyl(.2, .2, .04, 16, 0x9fb9d4, H.xc, 3.9, zf + .02, PI / 2, 0, 0, 1); b.tor(.21, .04, S2, H.xc, 3.9, zf + .05, 0, 0, 0, 0, 16);
+      b.P(PT.ardoise); b.sph(.8, 0x55607a, H.xc, H.fh + H.wh + .1, H.zc, .75, .7, 1.25, 0, 16, 10); b.P(0); b.cyl(.04, .06, .35, 8, GOLD, H.xc, H.fh + H.wh + .75, H.zc); b.sph(.07, GOLD, H.xc, H.fh + H.wh + .95, H.zc, 1, 1, 1, 0, 8, 6); }
+    // portique central : six colonnes cannelées à chapiteaux, entablement « MUSÉE », fronton sculpté, acrotères
+    const zc = .95, yT = 4.45; for (let i = 0; i < 6; i++) { const x = -1.75 + i * .7; b.cyl(.2, .2, .08, 16, S2, x, .62, zc); b.cyl(.16, .18, .12, 16, S1, x, .72, zc);
+      b.cyl(.13, .15, 3.4, 20, S1, x, 2.48, zc, 0, 0, 0, 0, true); for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; b.box(.02, 3.3, .02, S2, x + Math.cos(a) * .14, 2.48, zc + Math.sin(a) * .14); }
+      b.cyl(.2, .14, .26, 14, S3, x, 4.3, zc); b.jit(.2); for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; b.blob(.06, 0, S3, x + Math.cos(a) * .15, 4.25, zc + Math.sin(a) * .15, 1, 1.4, 1); } b.jit(0);
+      for (const s of [-1, 1]) b.tor(.05, .018, S2, x + s * .17, 4.38, zc + .12, 0, 0, 0, 0, 10); b.box(.44, .08, .44, S2, x, 4.47, zc); }
+    b.P(PT.pierre); b.box(4.3, .55, .7, S1, 0, yT + .33, zc - .08); b.box(4.45, .12, .78, S2, 0, yT + .66, zc - .08); b.P(0); b.box(3.0, .32, .03, 0x3a3a2a, 0, yT + .33, zc + .28); lettres('MUSÉE', yT + .21, zc + .3, .06);
+    for (let k = 0; k < 18; k++) b.box(.1, .08, .1, S2, -2.05 + k * .24, yT + .58, zc + .3);
+    P(b, 4.5, 1.15, .7, S1, 0, yT + .72, zc - .08); P(b, 3.9, .9, .05, S2, 0, yT + .8, zc + .29);
+    for (const s of [-1, 1]) b.box(2.48, .14, .76, S2, s * 1.13, yT + .72 + .58, zc - .08, 0, 0, -s * .473);
+    // tympan : la chouette dorée du Professeur Plume entre deux figures allongées
+    b.sph(.2, GOLD, 0, yT + 1.1, zc + .3, 1, 1.1, .4); b.sph(.14, GOLD, 0, yT + 1.36, zc + .3, 1, .9, .4); for (const s of [-1, 1]) { b.sph(.05, 0xfff8e8, s * .06, yT + 1.38, zc + .35, 1, 1, .4); b.cone(.035, .1, 4, GOLD, s * .09, yT + 1.5, zc + .3);
+      b.sph(.13, S3, s * .75, yT + .98, zc + .27, 2.6, .7, .5); b.sph(.08, S3, s * 1.15, yT + 1.0, zc + .27); }
+    for (const s of [-1, 0, 1]) { const x = s * 2.15, y = s ? yT + .85 : yT + 1.95; b.box(.3, .2, .3, S2, x, y, zc - .08); b.cyl(.08, .13, .45, 8, S3, x, y + .32, zc - .08); b.sph(.09, S3, x, y + .62, zc - .08); if (!s) { b.box(.4, .05, .06, S3, x, y + .5, zc - .04, 0, 0, .6); b.sph(.06, GOLD, x + .22, y + .66, zc - .04); } }
+    // portes de bronze sous le portique, imposte, bannières d'exposition entre les colonnes
+    const DZ = CE.zc + CE.d / 2; b.box(1.1, 2.3, .06, BZ, 0, 1.7, DZ + .03); b.box(.02, 2.2, .07, dark(BZ), 0, 1.7, DZ + .04); for (const s of [-1, 1]) for (const y of [1.2, 2.2]) b.box(.4, .7, .065, dark(BZ, .85), s * .27, y, DZ + .035); for (const s of [-1, 1]) b.sph(.035, GOLD, s * .07, 1.7, DZ + .08);
+    halfDisc(b, .55, WIN, 0, 2.85, DZ + .03, 1); b.add(new THREE.TorusGeometry(.57, .05, 6, 18, PI), S2, b.M(0, 2.85, DZ + .05), 0, true);
+    for (const s of [-1, 1]) { const x = s * 1.05; b.box(.5, 2.0, .02, s < 0 ? 0xa8323e : 0x2f4f8a, x, 2.8, zc - .18); b.box(.52, .06, .03, GOLD, x, 3.82, zc - .18); b.box(.52, .05, .03, GOLD, x, 1.8, zc - .18);
+      if (s < 0) { b.tor(.13, .035, 0xf4f2ec, x, 3.0, zc - .16, 0, 0, 0, 0, 14); for (let k = 0; k < 4; k++) b.box(.04, .2, .02, 0xf4f2ec, x - .12 + k * .08, 2.65, zc - .16); } else for (const k of [-1, 1]) lo(b, sg(.1, 8, 6), k < 0 ? 0xffd23f : 0x6fd3f0, x + k * .1, 3.0, zc - .16, 0, 0, k * .4, 1, .6, .3); }
+    // tambour à baies et grande coupole de cuivre vert à côtes, lanterneau, épi doré (en retrait, au-dessus des toits)
+    const DX = 0, DZc = -1.0, yD = CE.fh + CE.wh + .2; b.P(PT.pierre); b.cyl(1.55, 1.6, 1.1, 32, S1, DX, yD + .55, DZc); b.P(0); b.cyl(1.68, 1.68, .14, 32, S2, DX, yD + 1.15, DZc); b.cyl(1.65, 1.65, .12, 32, S2, DX, yD + .05, DZc);
+    for (let k = 0; k < 16; k++) { const a = k / 16 * TAU, x = DX + Math.cos(a) * 1.58, z = DZc + Math.sin(a) * 1.58; if (k % 2) b.box(.1, 1.0, .12, S3, x, yD + .55, z, 0, -a + PI / 2, 0); else { b.box(.32, .6, .05, 0x9fb9d4, x, yD + .6, z, 0, -a + PI / 2, 0, 1); b.box(.36, .05, .07, S2, x, yD + .92, z, 0, -a + PI / 2, 0); } }
+    b.sph(1.6, CU, DX, yD + 1.2, DZc, 1, 1.1, 1, 0, 32, 16); for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; b.geo(new THREE.TorusGeometry(1.62, .035, 5, 20, PI / 2), CU2, b.M(DX, yD + 1.2, DZc, 0, -a, 0, 1, 1.1, 1), 0, true); }
+    const yL = yD + 1.2 + 1.6 * 1.1; b.cyl(.3, .34, .5, 12, S1, DX, yL + .2, DZc); for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; b.box(.06, .4, .06, S2, DX + Math.cos(a) * .32, yL + .2, DZc + Math.sin(a) * .32); }
+    b.sph(.36, CU, DX, yL + .48, DZc, 1, .8, 1, 0, 16, 10); b.cyl(.04, .07, .5, 8, GOLD, DX, yL + .9, DZc); b.sph(.09, GOLD, DX, yL + 1.15, DZc, 1, 1, 1, 0, 10, 8); b.cone(.05, .3, 8, GOLD, DX, yL + 1.38, DZc);
+    // toit des ailes (terrasse) et massifs fleuris devant le soubassement
+    b.box(9.0, .1, 1.7, 0x8a8f96, 0, CE.fh + 4.75, -.75);
+    for (const s of [-1, 1]) { b.jit(.08); b.blob(.3, 1, 0x3f7a35, s * 3.6, .75, .95, 2.2, .55, .9); b.jit(0); for (let k = 0; k < 7; k++) b.sph(.06, [0xe8434a, 0xffffff, 0xffd23f][k % 3], s * (3.0 + k * .19), .92, 1.0, 1, 1, 1, 0, 6, 5); }
     return b.done(); };
 
   // ---------- 12. la jardinerie de la rue (4 × 3) : façade verte et petite serre devant la vitrine ----------
@@ -389,7 +419,7 @@
   obj('rue_echoppe', 'Boutique de la rue', 'rue_echoppe', { fp: [3, 3], h: 5, fixed: 1 });
   obj('rue_angle', 'Immeuble d\'angle', 'rue_angle', { fp: [4, 3], h: 6.6, fixed: 1 });
   obj('rue_fond', 'Immeuble', 'rue_fond', { fp: [4, 3], h: 9.5, fixed: 1 });
-  obj('musee_rue', 'Musée', 'musee_rue', { fp: [6, 3], h: 6.6, fixed: 1, enter: 'musee' });
+  obj('musee_rue', 'Musée', 'musee_rue', { fp: [9, 3], h: 11, fixed: 1, enter: 'musee' });
   obj('jardinerie_rue', 'Jardinerie Feuillu', 'jardinerie_rue', { fp: [4, 3], h: 5, fixed: 1, enter: 'jardinerie' });
   obj('rue_eglise', 'Église', 'rue_eglise', { fp: [10, 4], h: 14.8, fixed: 1 });
   obj('rue_magasins', 'Grands Magasins', 'rue_magasins', { fp: [10, 4], h: 11.5, fixed: 1 });
@@ -446,7 +476,7 @@
   }
 
   // ---------- la rue ----------
-  const NROW = [['rue_angle', 4, 0], ['immeuble', 3, 0], ['musee_rue', 6, null, 'rue_musee', 'Musée'], ['galerie', 4, null, 'rue_galerie', 'Galerie d\'art'], ['cafe', 3, null, 'rue_cafe', 'Café Le Perchoir'], ['boutique', 4, null, 'rue_boutique', 'Bazar Gaston'],
+  const NROW = [['rue_angle', 4, 0], ['musee_rue', 9, null, 'rue_musee', 'Musée'], ['galerie', 4, null, 'rue_galerie', 'Galerie d\'art'], ['cafe', 3, null, 'rue_cafe', 'Café Le Perchoir'], ['boutique', 4, null, 'rue_boutique', 'Bazar Gaston'],
     ['immeuble', 3, 1], ['couturiere', 3, null, 'rue_couture', 'Sœurs Laine'], ['salon', 3, null, 'rue_salon', 'Salon Frisette'], ['chausseur', 3, null, 'rue_chausseur', 'Chausseur Lacet'], ['immeuble', 3, 2],
     ['melimelo', 4, null, 'rue_meli', 'Méli-Mélo'], ['jardinerie_rue', 4, null, 'rue_jardin', 'Jardinerie Feuillu'], ['agence', 3, null, 'rue_agence', 'Agence Nid Douillet'], ['club', 3, null, 'rue_club', 'Club Rire'], ['immeuble', 3, 3], ['rue_angle', 4, 1]];
   const SROW = [['rue_angle', 4, 2], ['rue_echoppe', 3, 0], ['rue_echoppe', 3, 9], ['halle_rue', 9], ['rue_echoppe', 3, 1], ['rue_echoppe', 3, 2], ['rue_echoppe', 3, 3], ['passage_gare', 4], ['rue_echoppe', 3, 4], ['rue_echoppe', 3, 10],
@@ -469,12 +499,12 @@
     // trottoir nord : platanes, candélabres, bancs, colonne Morris, terrasse du café
     // (les grands arbres seulement devant les immeubles : vus d'en haut, ils ne cachent pas les vitrines)
     for (const px of [5, 25, 37, 54]) put('platane', px, 8);
-    for (const cx of [8, 16, 22, 31, 40, 46, 52]) put('candelabre', cx, 8);
+    for (const cx of [12, 16, 22, 31, 40, 46, 52]) put('candelabre', cx, 8);
     for (const bx2 of [13, 27, 48]) put('banc_fer', bx2, 8);
     put('olivier_caisse', 11, 8); put('oranger_caisse', 34, 8); put('colonne_morris', 43, 8, 0, { v: 3 });
     for (const tx of [17, 19]) put('table_bistrot', tx, 7);
     put('chaise_bistrot', 16, 7, 1); put('chaise_bistrot', 18, 7, 3); put('chaise_bistrot', 20, 7, 3); put('chaise_bistrot', 17, 8, 2); put('chaise_bistrot', 19, 8, 2); put('parasol', 18, 8);
-    put('oranger_caisse', 7, 6); put('oranger_caisse', 12, 6); put('pot_fleurs', 24, 6); put('pot_fleurs', 26, 6); put('pot_fleurs', 53, 6); put('pot_fleurs', 55, 6);
+    put('oranger_caisse', 5, 6); put('oranger_caisse', 11, 6); put('pot_fleurs', 24, 6); put('pot_fleurs', 26, 6); put('pot_fleurs', 53, 6); put('pot_fleurs', 55, 6);
     // trottoir sud : platanes, candélabres, étals, kiosque, fontaine Wallace, terrasse de la brasserie
     [7, 13, 19, 25, 34, 40, 46, 52].forEach((px, i) => put(i % 2 ? 'olivier_caisse' : 'oranger_caisse', px, 13));
     for (const cx of [4, 10, 16, 22, 28, 31, 37, 43, 49, 55]) put('candelabre', cx, 13);
