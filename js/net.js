@@ -119,8 +119,9 @@
       if (NET.pubClosed) { await unpublish(s.code, s.sid); return; }
       const homes = {}; for (const r of s.residents || []) { const h = r && r.home && G.interiors[r.home]; if (h) homes[r.home] = h.serialize(); }
       const snap = { v: 2, vil: clean(G.villageName, 24), who: (s.residents || []).filter(Boolean).map(r => clean(r.name, 16)), ses: NET.ses, seq: NET.seq, at: Date.now(), day: G.clock.day, world: G.world.serialize(), homes };
-      let rec = await seal(s.code, snap); if (rec.d.length > 240000) { snap.homes = {}; rec = await seal(s.code, snap); }
-      if (rec.d.length > 240000) { if (!NET.bigWarn) { NET.bigWarn = 1; G.ui.toast('Ton village est trop grand pour être publié en ligne.'); } return; }
+      const LIM = NET.mode === 'server' ? 2800000 : 240000; // le serveur accepte les grands villages (jusqu'à 3 millions de caractères)
+      let rec = await seal(s.code, snap); if (rec.d.length > LIM) { snap.homes = {}; rec = await seal(s.code, snap); }
+      if (rec.d.length > LIM) { if (!NET.bigWarn) { NET.bigWarn = 1; G.ui.toast('Ton village est trop grand pour être publié en ligne.'); } return; }
       if (NET.mode === 'claude' && NET.db && NET.uid) {
         const idx = NET.db.doc('towns/' + NET.uid), cur = await idx.get(), d = cur.exists ? cur.data() : {};
         // ancien format (codes en clair) : effacé
@@ -128,7 +129,7 @@
         await NET.db.doc('towns/' + NET.uid + '/s/' + I.doc).set(rec);
         const k = (Array.isArray(d.k) ? d.k : []).filter(x => x !== I.doc).concat([I.doc]).slice(-8);
         if (Array.isArray(d.list) || JSON.stringify(k) !== JSON.stringify(d.k)) await idx.set({ v: 2, k });
-      } else if (NET.mode === 'server') await wsReq({ t: 'pub', h: I.doc, ow: ownerTag(s.sid, s.code), rec }, 30000);
+      } else if (NET.mode === 'server') await wsReq({ t: 'pub', h: I.doc, ow: ownerTag(s.sid, s.code), rec }, 90000);
     } catch (e) { if (!NET.pubWarn) { NET.pubWarn = 1; console.warn('publication du village impossible', e); } }
     finally { NET.pubBusy = false; }
   };
@@ -148,7 +149,7 @@
       if (NET.mode === 'claude' && NET.db) { const q = await NET.db.collection('towns').where('k', 'array-contains', I.doc).limit(5).get(); let best = null;
         for (const d of q.docs) { const sn = await NET.db.doc('towns/' + d.id + '/s/' + I.doc).get(); if (!sn.exists) continue; try { const snap = await unseal(code, sn.data()); if (!best || (snap.at || 0) > (best.at || 0)) best = snap; } catch (e) { } }
         return best ? { snap: best, code } : { err: 'Aucun village ouvert avec ce code… Vérifie le code : ton ami doit avoir ouvert le jeu, et ses portes, au moins une fois.' }; }
-      if (NET.mode === 'server') { const r = await wsReq({ t: 'get', h: I.doc }); if (!r) return { err: 'Aucun village ouvert avec ce code sur ce serveur.' }; try { return { snap: await unseal(code, r), code }; } catch (e) { return { err: e.message === 'navigateur' ? 'Ton navigateur est trop ancien pour ouvrir ce village.' : 'Ce village est illisible.' }; } }
+      if (NET.mode === 'server') { const r = await wsReq({ t: 'get', h: I.doc }, 60000); if (!r) return { err: 'Aucun village ouvert avec ce code sur ce serveur.' }; try { return { snap: await unseal(code, r), code }; } catch (e) { return { err: e.message === 'navigateur' ? 'Ton navigateur est trop ancien pour ouvrir ce village.' : 'Ce village est illisible.' }; } }
     } catch (e) { return { err: 'Connexion impossible pour le moment.' }; }
     return { err: 'Tu joues hors ligne : ouvre le jeu depuis son lien claude.ai, ou lance le serveur sur ton PC.' };
   };
@@ -293,7 +294,7 @@
     code = clean(code, 16).toUpperCase().replace(/\s/g, '');
     if (NET.visit && NET.visit.code === code) { G.ui.toast('Tu es déjà ici !'); return {}; }
     const r = await NET.findTown(code); if (!r || r.err) { if (!fromPanel) G.ui.toast(r ? r.err : 'Village introuvable.'); return r || { err: 'Village introuvable.' }; }
-    const sn = r.snap, w = sn && sn.world; if (!w || !(w.W > 16 && w.W < 260 && w.H > 16 && w.H < 260)) return { err: 'Ce village est illisible.' };
+    const sn = r.snap, w = sn && sn.world; if (!w || !(w.W > 16 && w.W < 1300 && w.H > 16 && w.H < 1000)) return { err: 'Ce village est illisible.' };
     let m; try { m = G.GMap.deserialize(w); } catch (e) { return { err: 'Ce village est illisible.' }; }
     G.ui.closePanel && G.ui.modal === 'panel' && G.ui.closePanel();
     m.id = 'world'; m.kind = 'world'; m.visit = true; G.scene.add(m.group); m.buildAll(); m.group.visible = false;
