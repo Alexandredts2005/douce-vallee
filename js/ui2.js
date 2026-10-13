@@ -115,7 +115,7 @@
   click('btn-options', () => { backTo = 'screen-title'; U.show('screen-options'); });
   click('btn-controls', () => { backTo = 'screen-title'; U.show('screen-controls'); });
   click('ng-back', () => U.show('screen-title'));
-  click('ng-go', () => { const mp = $('ng-map').value; G.startNew({ name: $('ng-name').value.trim() || 'Pomme', village: $('ng-village').value.trim() || 'Douce Vallée', mode: look.mode, look: ngLook, map: mp, seed: G.hashStr($('ng-seed').value || '1') % 1e9 }); });
+  click('ng-go', () => { const mp = $('ng-map').value; G.startNew({ name: $('ng-name').value.trim() || 'Pomme', village: $('ng-village').value.trim() || 'Douce Vallée', mode: look.mode, look: ngLook, map: mp, size: ($('ng-size') || {}).value || 'grand', seed: G.hashStr($('ng-seed').value || '1') % 1e9 }); });
   click('o-back', () => { U.saveSettings(); U.show(backTo); });
   click('c-back', () => U.show(backTo));
   click('p-resume', () => U.resume());

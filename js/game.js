@@ -189,7 +189,7 @@
   G.startNew = o => loading('Plantation des arbres…', () => {
     G.mode = o.mode; G.playerName = o.name; G.villageName = o.village; G.startDate = Date.now(); G.clock = { min: 8 * 60, day: 1 }; G.coins = o.mode === 'survie' ? 300 : 5000; G.sel = 0; G.placeRot = 0;
     const layout = o.map === 'random' ? G.randomLayout(o.seed) : o.map === 'custom' && G.editorLayout ? G.editorLayout : G.DEFAULT_LAYOUT;
-    setWorld(G.genWorld(G.bigLayout ? G.bigLayout(layout, o.seed) : layout, o.seed));
+    setWorld(G.genWorld(G.bigLayout ? G.bigLayout(layout, o.seed, o.size || 'grand') : layout, o.seed)); G.world.meta.taille = o.size || 'grand';
     G.inv.slots = new Array(30).fill(null); G.inv.hot = new Array(10).fill(null);
     if (o.mode === 'survie') START.survie.forEach(([id, n], i) => G.inv.slots[i] = { id, n }); else START.creatif.forEach((id, i) => G.inv.hot[i] = id);
     G.dex = { caught: {}, donated: {} }; G.storage = new Array(120).fill(null); G.flags = {}; G.mini.best = {}; if (G.island) { scene.remove(G.island.group); G.island = null; }
