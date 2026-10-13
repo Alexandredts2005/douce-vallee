@@ -440,9 +440,9 @@
   function decor(m) {
     const W = m.W, H = m.H, b = G.mb(999), r = G.rng(999), EX = 30;
     // bordures de granit et caniveaux, par morceaux d'un mètre (le monde est courbé : un long bloc ne suivrait pas la courbure)
-    for (let x = 4; x < W - 4; x++) for (const [z, s] of [[9, 1], [13, -1]]) { bx(b, 1.0, .05, .16, vary(0xbab5aa, r, .1), x + .5, .025, z); bx(b, 1.0, .015, .3, 0x8f8a80, x + .5, .0075, z + s * .23); }
-    for (let k = 0; k < 4; k++) bx(b, 2.3, .012, .5, 0xf2f0ea, EX, .006, 9.65 + k * .9); // passage piéton devant le passage de la gare
-    for (const [mx, mz] of [[12.5, 11.2], [24.5, 10.3], [38.5, 11.6], [50.5, 10.4]]) { b.add(new THREE.CircleGeometry(.3, 16).rotateX(-PI / 2), 0x4f4b44, b.M(mx, .009, mz)); b.tor(.3, .02, 0x3f3b35, mx, .01, mz, PI / 2, 0, 0, 0, 16); }
+    for (const oz of [0, OZ]) for (let x = 4; x < W - 4; x++) for (const [z, s] of [[9 + oz, 1], [13 + oz, -1]]) { bx(b, 1.0, .05, .16, vary(0xbab5aa, r, .1), x + .5, .025, z); bx(b, 1.0, .015, .3, 0x8f8a80, x + .5, .0075, z + s * .23); }
+    for (let k = 0; k < 4; k++) { bx(b, 2.3, .012, .5, 0xf2f0ea, EX, .006, OZ + 9.65 + k * .9); for (const cx of [62, 102]) for (const oz of [0, OZ]) bx(b, 2.3, .012, .5, 0xf2f0ea, cx, .006, oz + 9.65 + k * .9); } // passage piéton devant le passage de la gare
+    for (const [mx, mz] of [[12.5, OZ + 11.2], [24.5, OZ + 10.3], [38.5, OZ + 11.6], [50.5, OZ + 10.4], [74.5, OZ + 11.0], [93.5, OZ + 10.5], [18.5, 11.1], [45.5, 10.4], [80.5, 11.4], [110.5, 10.6]]) { b.add(new THREE.CircleGeometry(.3, 16).rotateX(-PI / 2), 0x4f4b44, b.M(mx, .009, mz)); b.tor(.3, .02, 0x3f3b35, mx, .01, mz, PI / 2, 0, 0, 0, 16); }
     // guirlandes de guinguette en zigzag et fanions au-dessus du marché
     const BULB = [0xfff1c8, 0xffd36b, 0xff6b5a, 0x7fd36b, 0x6bb6ff, 0xffa64d], FLAG = [0xd8343a, 0xffd23f, 0x2f6fb8, 0x3f9a59, 0xffffff, 0xff8fc0];
     const strand = (A, B, sag, deco) => { const L = Math.hypot(B[0] - A[0], B[2] - A[2]), n = Math.max(4, Math.round(L / .42)), dx = (B[0] - A[0]) / L, dz = (B[2] - A[2]) / L; let prev = A;
@@ -451,9 +451,10 @@
     const bulb = (p, i) => { bx(b, .03, .05, .03, 0x22252a, p[0], p[1] - .02, p[2]); lo(b, sg(.045, 6, 4), BULB[i % 6], p[0], p[1] - .075, p[2], 0, 0, 0, 1, 1.2, 1, 1); };
     const flag = (p, i, dx, dz) => { const w = .13, h = .26, a = [p[0] - dx * w, p[1], p[2] - dz * w], c = [p[0] + dx * w, p[1], p[2] + dz * w], d = [p[0], p[1] - h, p[2]], g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...c, ...d, ...a, ...d, ...c], 3)); b.add(g, FLAG[i % 6], b.M(), 0, false); };
-    const NY = 3.45, SY = 3.3, NZ = 5.58, SZ = 16.42, zig = [22, 26, 30, 34, 38, 42, 46, 50, 54];
+    const NY = 3.45, SY = 3.3, NZ = OZ + 5.58, SZ = OZ + 16.42, zig = [22, 26, 30, 34, 38, 42, 46, 50, 54];
     for (let i = 0; i + 1 < zig.length; i++) { const nth = i % 2 === 0, A = nth ? [zig[i], NY, NZ] : [zig[i], SY, SZ], B = nth ? [zig[i + 1], SY, SZ] : [zig[i + 1], NY, NZ]; strand(A, B, .75, bulb); }
-    for (const fx of [5.5, 9.5, 12.5, 16.5]) { const halle = fx > 10 && fx < 18; strand([fx, NY, NZ], [fx, halle ? 2.95 : SY, halle ? 16.1 : SZ], .55, flag); }
+    for (const fx of [5.5, 9.5, 12.5, 16.5]) { const halle = fx > 10 && fx < 18; strand([fx, NY, NZ], [fx, halle ? 2.95 : SY, halle ? OZ + 16.1 : SZ], .55, flag); }
+    for (let i = 0; i + 1 < 8; i++) { const x0 = 66 + i * 6, nth = i % 2 === 0; strand(nth ? [x0, NY, NZ] : [x0, SY, SZ], nth ? [x0 + 6, SY, SZ] : [x0 + 6, NY, NZ], .75, bulb); }
     // la ville continue tout autour (silhouettes d'immeubles, arbres) : on ne voit plus le bord du monde
     const block = (x, z, w, d, h) => { const wall = [0xeadfca, 0xe4ddd2, 0xf0e4c2, 0xd9c7b0, 0xcfd6dc, 0xb5553d][Math.floor(r() * 6)], roof = r() < .5 ? ZINC : r() < .5 ? SLATE : 0xb5533f;
       bx(b, w, h, d, wall, x, h / 2, z); P(b, (w > d ? d : w) + .3, 1.3, (w > d ? w : d) + .3, roof, x, h, z, w > d ? PI / 2 : 0);
@@ -469,10 +470,11 @@
     for (let i = 0; i < pa.count; i++) { C.set(0x6f8f54).multiplyScalar(.82 + G.hash2(Math.floor(pa.getX(i) / 7) + 500, Math.floor(pa.getZ(i) / 7) + 500, 5) * .3); ca[i * 3] = C.r; ca[i * 3 + 1] = C.g; ca[i * 3 + 2] = C.b; }
     sk.setAttribute('color', new THREE.BufferAttribute(ca, 3)); const skm = new THREE.Mesh(sk, G.MATS[0]); skm.receiveShadow = true; skm.frustumCulled = false; m.group.add(skm);
     // plaques de rue émaillées et enseigne des grands magasins
-    const plate = { bg: '#1f4f9a', fg: '#ffffff', border: '#e9f0ff', rad: 22, w: .56, h: .25, cw: 512, ch: 224 }, PL = [['GRAND-RUE', 92, .44], [G.villageName.toUpperCase(), 34, .78]];
-    textPlane(m, PL, Object.assign({}, plate, { x: 2.65, y: 3.05, z: 5.57 })); textPlane(m, PL, Object.assign({}, plate, { x: 57.35, y: 3.05, z: 5.57 }));
-    textPlane(m, PL, Object.assign({}, plate, { x: 2.65, y: 3.05, z: 16.43, ry: PI })); textPlane(m, PL, Object.assign({}, plate, { x: 57.35, y: 3.05, z: 16.43, ry: PI }));
-    textPlane(m, [['GRANDS MAGASINS DE LA VALLÉE', 92, .52]], { bg: '#1d3a5f', fg: '#e9c46a', w: 7.0, h: .4, cw: 2048, ch: 118, rad: 6, x: 56.6, y: 3.25, z: 11, ry: -PI / 2 });
+    const plate = { bg: '#1f4f9a', fg: '#ffffff', border: '#e9f0ff', rad: 22, w: .56, h: .25, cw: 512, ch: 224 }, PL = [['GRAND-RUE', 92, .44], [G.villageName.toUpperCase(), 34, .78]], PB = [['BD DE LA VALLÉE', 64, .44], [G.villageName.toUpperCase(), 34, .78]];
+    textPlane(m, PL, Object.assign({}, plate, { x: 2.65, y: 3.05, z: OZ + 5.57 })); textPlane(m, PL, Object.assign({}, plate, { x: 57.35, y: 3.05, z: OZ + 5.57 })); textPlane(m, PL, Object.assign({}, plate, { x: W - 2.65, y: 3.05, z: OZ + 5.57 }));
+    for (const px of [4.65, 63.35, W - 4.65]) textPlane(m, PB, Object.assign({}, plate, { x: px, y: 3.05, z: 5.57 }));
+    textPlane(m, PL, Object.assign({}, plate, { x: 2.65, y: 3.05, z: OZ + 16.43, ry: PI })); textPlane(m, PL, Object.assign({}, plate, { x: 57.35, y: 3.05, z: OZ + 16.43, ry: PI }));
+    textPlane(m, [['GRANDS MAGASINS DE LA VALLÉE', 92, .52]], { bg: '#1d3a5f', fg: '#e9c46a', w: 7.0, h: .4, cw: 2048, ch: 118, rad: 6, x: W - 3.4, y: 3.25, z: OZ + 11, ry: -PI / 2 });
   }
 
   // ---------- la rue ----------
@@ -482,57 +484,96 @@
   const SROW = [['rue_angle', 4, 2], ['rue_echoppe', 3, 0], ['rue_echoppe', 3, 9], ['halle_rue', 9], ['rue_echoppe', 3, 1], ['rue_echoppe', 3, 2], ['rue_echoppe', 3, 3], ['passage_gare', 4], ['rue_echoppe', 3, 4], ['rue_echoppe', 3, 10],
     ['rue_echoppe', 3, 5], ['rue_echoppe', 3, 6], ['rue_echoppe', 3, 7], ['rue_echoppe', 3, 11], ['rue_echoppe', 3, 12], ['rue_echoppe', 3, 8], ['rue_angle', 4, 3]];
   const CAMH = { rue_angle: 6.4, rue_echoppe: 4.8, halle_rue: 2.9, passage_gare: 5.6 }; // hauteur que la caméra doit survoler (rangée sud)
+  // la ville, quatre fois plus grande (120 × 56) : au nord le Boulevard de la Vallée et ses immeubles haussmanniens, au milieu la Place
+  // de la Fontaine, au sud la Grand-Rue d'origine (décalée de OZ) prolongée vers l'est ; deux rues transversales relient les deux rues
+  const OZ = 22, SQ = [52, 72], X1 = [60, 64], X2 = [100, 104];
+  const CH = { immeuble: 6.2, rue_echoppe: 4.8, rue_angle: 6.4, rue_fond: 9.5 };
+  // une rangée de façades de x0 à x1 (largeurs 3 et 4, mélangées), un immeuble d'angle à chaque bout
+  function fillRow(force, x0, x1, z, rot, rr, tall) { const L = x1 - x0; if (L < 3) return; let b = L % 3, a = (L - 4 * b) / 3; while (a >= 4 && rr() < .45) { a -= 4; b += 3; }
+    const ws = []; for (let i = 0; i < a; i++) ws.push(3); for (let i = 0; i < b; i++) ws.push(4); for (let i = ws.length - 1; i > 0; i--) { const j = Math.floor(rr() * (i + 1)); [ws[i], ws[j]] = [ws[j], ws[i]]; }
+    const i4 = ws.indexOf(4); if (i4 > 0) [ws[0], ws[i4]] = [ws[i4], ws[0]]; const l4 = ws.lastIndexOf(4); if (l4 > 0 && l4 < ws.length - 1) [ws[ws.length - 1], ws[l4]] = [ws[l4], ws[ws.length - 1]];
+    let x = x0; ws.forEach((w, k) => { const end = k === 0 || k === ws.length - 1; let t, v;
+      if (w === 4) { if (end || !tall || rr() < .35) { t = 'rue_angle'; v = Math.floor(rr() * 4); } else { t = 'rue_fond'; v = Math.floor(rr() * 6); } }
+      else if (rr() < .5) { t = 'immeuble'; v = Math.floor(rr() * 4); } else { t = 'rue_echoppe'; v = Math.floor(rr() * 13); }
+      force(t, x, z, rot, { v, ch: CH[t] }); x += w; }); }
   G.genRue = () => {
-    const W = 60, H = 28, EX = 30, m = new G.GMap(W, H, { kind: 'rue', id: 'rue' }), I = (x, z) => z * W + x, r = G.rng(4243);
-    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const side = x < 4 || x >= W - 4;
-      m.surf[I(x, z)] = z <= 5 || (z >= 16 && z <= 18) || (side && z <= 18) ? 3 : z <= 8 || (z >= 13 && z <= 15) ? 11 : z <= 12 ? 4 : G.hash2(x, z, 7) < .16 ? 14 : 0; }
-    for (let z = 19; z <= 22; z++) for (const x of [EX - 1, EX]) m.surf[I(x, z)] = 4;
+    const W = 120, H = 56, EX = 30, m = new G.GMap(W, H, { kind: 'rue', id: 'rue' }), I = (x, z) => z * W + x, r = G.rng(4243), rr = G.rng(4244);
+    const inSq = (x, z) => x >= SQ[0] && x < SQ[1] && z >= 16 && z <= 24, cross = (x, z) => ((x >= X1[0] && x < X1[1]) || (x >= X2[0] && x < X2[1])) && z >= 16 && z <= 27;
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { let s;
+      if (z < OZ) s = z <= 5 ? 3 : z <= 8 ? 11 : z <= 12 ? 4 : z <= 15 ? 11 : z <= 18 ? 3 : G.hash2(x, z, 7) < .3 ? 14 : 0; // le boulevard
+      else { const q = z - OZ, side = x < 4 || x >= W - 4; s = q <= 2 ? (G.hash2(x, z, 7) < .3 ? 14 : 0) : q <= 5 || (q >= 16 && q <= 18) || (side && q <= 18) ? 3 : q <= 8 || (q >= 13 && q <= 15) ? 11 : q <= 12 ? 4 : G.hash2(x, z, 7) < .16 ? 14 : 0; } // la Grand-Rue
+      if (inSq(x, z)) s = 11; if (cross(x, z)) s = 4; m.surf[I(x, z)] = s; }
+    for (let z = 19 + OZ; z <= 22 + OZ; z++) for (const x of [EX - 1, EX]) m.surf[I(x, z)] = 4;
     const force = (t, x, z, rot, ex) => m.addObj(t, x, z, rot, ex), put = (t, x, z, rot = 0, ex) => m.canPlace(t, x, z, rot) ? m.addObj(t, x, z, rot, ex) : null, labels = [];
-    // les toits de la ville, derrière les boutiques
-    for (let k = 0; k < 15; k++) force('rue_fond', k * 4, 0, 0, { v: k % 6, ch: 8 });
-    // rangée nord : les boutiques, plein sud
-    let x = 0; for (const [t, w, v, iid, name] of NROW) { const ex = { ch: 6 }; if (v != null) ex.v = v; if (iid) ex.iid = iid; force(t, x, 3, 0, ex); if (name) labels.push([name, x + w / 2, t === 'musee_rue' ? 3.78 : 2.45]); x += w; }
-    // rangée sud : échoppes, marché couvert, passage de la gare (façades vers la rue)
-    x = 0; for (const [t, w, v] of SROW) { const ex = { ch: CAMH[t] }; if (v != null) ex.v = v; force(t, x, 16, 2, ex); x += w; }
-    // la perspective est fermée par l'église (ouest) et les grands magasins (est)
-    force('rue_eglise', 0, 6, 1, { ch: 12 }); force('rue_magasins', W - 4, 6, 3, { ch: 9 });
-    // trottoir nord : platanes, candélabres, bancs, colonne Morris, terrasse du café
-    // (les grands arbres seulement devant les immeubles : vus d'en haut, ils ne cachent pas les vitrines)
-    for (const px of [5, 25, 37, 54]) put('platane', px, 8);
-    for (const cx of [12, 16, 22, 31, 40, 46, 52]) put('candelabre', cx, 8);
-    for (const bx2 of [13, 27, 48]) put('banc_fer', bx2, 8);
-    put('olivier_caisse', 11, 8); put('oranger_caisse', 34, 8); put('colonne_morris', 43, 8, 0, { v: 3 });
-    for (const tx of [17, 19]) put('table_bistrot', tx, 7);
-    put('chaise_bistrot', 16, 7, 1); put('chaise_bistrot', 18, 7, 3); put('chaise_bistrot', 20, 7, 3); put('chaise_bistrot', 17, 8, 2); put('chaise_bistrot', 19, 8, 2); put('parasol', 18, 8);
-    put('oranger_caisse', 5, 6); put('oranger_caisse', 11, 6); put('pot_fleurs', 24, 6); put('pot_fleurs', 26, 6); put('pot_fleurs', 53, 6); put('pot_fleurs', 55, 6);
-    // trottoir sud : platanes, candélabres, étals, kiosque, fontaine Wallace, terrasse de la brasserie
-    [7, 13, 19, 25, 34, 40, 46, 52].forEach((px, i) => put(i % 2 ? 'olivier_caisse' : 'oranger_caisse', px, 13));
-    for (const cx of [4, 10, 16, 22, 28, 31, 37, 43, 49, 55]) put('candelabre', cx, 13);
-    for (const bx2 of [20, 47]) put('banc_fer', bx2, 13, 2);
-    put('etal_fruits', 10, 14, 2); put('etal_legumes', 16, 14, 2); put('etal_fleurs', 19, 15, 2); put('etal_pains', 5, 15, 2); put('etal_fromages', 33, 15, 2);
-    put('colonne_morris', 24, 15); put('fontaine_wallace', 35, 14); put('kiosque_journaux', 41, 14);
-    for (const tx of [44, 46]) put('table_bistrot', tx, 14);
-    put('chaise_bistrot', 43, 14, 1); put('chaise_bistrot', 45, 14, 1); put('chaise_bistrot', 44, 15, 2); put('chaise_bistrot', 46, 15, 2); put('parasol', 45, 15);
-    // la ruelle de la gare : grilles, et la grille de la gare au bout
-    for (const fz of [19, 20]) { put('cloture_fer', EX - 2, fz, 0, { v: 5 }); put('cloture_fer', EX + 1, fz, 0, { v: 5 }); }
-    force('grille_gare', EX - 2, 21, 0, { ch: 2.8 });
-    // jardins derrière les échoppes : haies, arbres fruitiers, fleurs ; puis les arbres de la colline
-    for (let gx = 2; gx < W - 2; gx++) if (gx < EX - 2 || gx > EX + 1) put('haie', gx, 21, 0, { v: (gx > 2 && gx !== EX + 2 ? 8 : 0) | (gx < W - 3 && gx !== EX - 3 ? 2 : 0) });
-    for (const hx of [9, 15, 21, 36, 42, 48, 54]) for (const hz of [19, 20]) put('haie', hx, hz, 0, { v: hz === 19 ? 4 : 5 });
+    // ===== le boulevard (nord) =====
+    for (let k = 0; k < W / 4; k++) force('rue_fond', k * 4, 0, 0, { v: k % 6, ch: 8 });
+    fillRow(force, 0, W, 3, 0, rr, true);
+    fillRow(force, 4, SQ[0], 16, 2, rr, false); fillRow(force, SQ[1], X2[0], 16, 2, rr, false); fillRow(force, X2[1], W - 4, 16, 2, rr, false);
+    for (const z of [6, 10]) { force('rue_fond', 0, z, 1, { v: z === 6 ? 2 : 4, ch: 9.5 }); force('rue_fond', W - 3, z, 3, { v: z === 6 ? 1 : 5, ch: 9.5 }); }
+    for (const x of [0, 1, 2, 3, W - 4, W - 3, W - 2, W - 1]) for (const z of [14, 15, 16, 17, 18]) put('haie', x, z, 0, { v: 0 });
+    // trottoirs du boulevard : platanes, candélabres, bancs, kiosques, colonnes Morris, fontaines Wallace, terrasses
+    for (let x = 6; x < W - 6; x += 8) { put('platane', x, 8); if (!(x >= SQ[0] - 1 && x < SQ[1]) && !(x >= X2[0] - 1 && x < X2[1] + 1)) put('platane', x + 4, 13); }
+    for (let x = 10; x < W - 6; x += 8) { put('candelabre', x, 8); const sx = x - 4; if (!(sx >= SQ[0] - 1 && sx <= SQ[1]) && !(sx >= X2[0] - 1 && sx <= X2[1])) put('candelabre', sx, 13); }
+    for (const x of [15, 47, 79, 111]) put('banc_fer', x, 8); for (const x of [23, 87]) put('banc_fer', x, 13, 2);
+    put('kiosque_journaux', 33, 6); put('colonne_morris', 40, 8, 0, { v: 1 }); put('colonne_morris', 94, 13, 0, { v: 2 }); put('fontaine_wallace', 75, 13); put('fontaine_wallace', 28, 8);
+    for (const [cx, cz] of [[18, 6], [82, 6]]) { put('parasol', cx + 1, cz + 1); for (const tx of [cx, cx + 2]) { put('table_bistrot', tx, cz); put('chaise_bistrot', tx - 1 + (tx - cx), cz, tx === cx ? 1 : 3); } }
+    for (const x of [8, 26, 44, 58, 70, 90, 106]) { put('oranger_caisse', x, 6); put('pot_fleurs', x + 2, 6); }
+    // ===== la Place de la Fontaine (entre les deux rues) =====
+    force('grande_fontaine', X1[0] - 1, 17, 0);
+    for (const [x, z] of [[SQ[0] + 1, 17], [SQ[1] - 2, 17], [SQ[0] + 1, 23], [SQ[1] - 2, 23]]) put('platane', x, z);
+    for (const [x, z] of [[SQ[0] + 4, 17], [SQ[1] - 5, 17], [SQ[0] + 4, 23], [SQ[1] - 5, 23]]) put('candelabre', x, z);
+    put('jardiniere', SQ[0] + 1, 19); put('jardiniere', SQ[1] - 4, 19); put('banc_fer', SQ[0] + 5, 24, 2); put('banc_fer', SQ[1] - 7, 24, 2);
+    put('stand_fleurs', SQ[0] + 2, 24); put('kiosque_journaux', SQ[1] - 4, 23);
+    for (let z = 16; z <= 24; z++) { put('haie', SQ[0] - 1, z, 0, { v: z > 16 ? 4 : 0 }); put('haie', SQ[1], z, 0, { v: z > 16 ? 4 : 0 }); }
+    // ===== les cours et jardins entre les deux rues =====
     const FL = ['rouge', 'jaune', 'blanche', 'rose', 'bleue', 'violette', 'orange'];
-    for (let gx = 4; gx < W - 4; gx++) { if (gx >= EX - 2 && gx <= EX + 1) continue; if (gx % 6 === 0) put(G.pick(['pommier', 'cerisier', 'oranger', 'pecher'], r), gx, 20); else if (r() < .45) put((r() < .5 ? 'tulipe_' : 'fleur_') + FL[Math.floor(r() * 7)], gx, 19 + (r() < .5 ? 0 : 1)); }
+    for (let x = 0; x < W; x++) { if (inSq(x, 20) || cross(x, 20) || x === SQ[0] - 1 || x === SQ[1]) continue; put('haie', x, 19, 0, { v: 0 }); put('haie', x, 24, 0, { v: 0 });
+      if (x % 5 === 2) put(G.pick(['pommier', 'cerisier', 'oranger', 'chene', 'bouleau'], r), x, 21 + (x % 2)); else if (r() < .35) put((r() < .5 ? 'tulipe_' : 'fleur_') + FL[Math.floor(r() * 7)], x, 20 + Math.floor(r() * 4)); }
+    for (const X of [X2]) for (let z = 19; z <= 24; z++) { put('haie', X[0] - 1, z, 0, { v: 0 }); put('haie', X[1], z, 0, { v: 0 }); }
+    // ===== la Grand-Rue (d'origine, décalée vers le sud, prolongée vers l'est) =====
+    let x = 0; for (const [t, w, v, iid, name] of NROW) { const ex = { ch: 6 }; if (v != null) ex.v = v; if (iid) ex.iid = iid; force(t, x, 3 + OZ, 0, ex); if (name) labels.push([name, x + w / 2, t === 'musee_rue' ? 3.78 : 2.45]); x += w; }
+    fillRow(force, X1[1], X2[0], 3 + OZ, 0, rr, true); fillRow(force, X2[1], W, 3 + OZ, 0, rr, true);
+    x = 0; for (const [t, w, v] of SROW) { const ex = { ch: CAMH[t] }; if (v != null) ex.v = v; force(t, x, 16 + OZ, 2, ex); x += w; }
+    fillRow(force, 60, W, 16 + OZ, 2, rr, false);
+    force('rue_eglise', 0, 6 + OZ, 1, { ch: 12 }); force('rue_magasins', W - 4, 6 + OZ, 3, { ch: 9 });
+    const Z = z => z + OZ;
+    for (const px of [5, 25, 37, 54, 70, 82, 94, 108]) put('platane', px, Z(8));
+    for (const cx of [12, 16, 22, 31, 40, 46, 52, 66, 76, 88, 98, 106, 112]) put('candelabre', cx, Z(8));
+    for (const bx2 of [13, 27, 48, 72, 92]) put('banc_fer', bx2, Z(8));
+    put('olivier_caisse', 11, Z(8)); put('oranger_caisse', 34, Z(8)); put('colonne_morris', 43, Z(8), 0, { v: 3 }); put('colonne_morris', 85, Z(8), 0, { v: 0 });
+    for (const tx of [17, 19]) put('table_bistrot', tx, Z(7));
+    put('chaise_bistrot', 16, Z(7), 1); put('chaise_bistrot', 18, Z(7), 3); put('chaise_bistrot', 20, Z(7), 3); put('chaise_bistrot', 17, Z(8), 2); put('chaise_bistrot', 19, Z(8), 2); put('parasol', 18, Z(8));
+    put('oranger_caisse', 5, Z(6)); put('oranger_caisse', 11, Z(6)); for (const px of [24, 26, 53, 55, 68, 80, 96, 110]) put('pot_fleurs', px, Z(6));
+    [7, 13, 19, 25, 34, 40, 46, 52, 64, 70, 76, 82, 88, 94, 100, 106, 112].forEach((px, i) => put(i % 2 ? 'olivier_caisse' : 'oranger_caisse', px, Z(13)));
+    for (const cx of [4, 10, 16, 22, 28, 31, 37, 43, 49, 55, 61, 67, 73, 79, 85, 91, 97, 103, 109, 115]) put('candelabre', cx, Z(13));
+    for (const bx2 of [20, 47, 71, 101]) put('banc_fer', bx2, Z(13), 2);
+    put('etal_fruits', 10, Z(14), 2); put('etal_legumes', 16, Z(14), 2); put('etal_fleurs', 19, Z(15), 2); put('etal_pains', 5, Z(15), 2); put('etal_fromages', 33, Z(15), 2);
+    put('colonne_morris', 24, Z(15)); put('fontaine_wallace', 35, Z(14)); put('kiosque_journaux', 41, Z(14)); put('fontaine_wallace', 87, Z(14)); put('kiosque_journaux', 95, Z(14));
+    for (const tx of [44, 46]) put('table_bistrot', tx, Z(14));
+    put('chaise_bistrot', 43, Z(14), 1); put('chaise_bistrot', 45, Z(14), 1); put('chaise_bistrot', 44, Z(15), 2); put('chaise_bistrot', 46, Z(15), 2); put('parasol', 45, Z(15));
+    for (const tx of [77, 79]) { put('table_bistrot', tx, Z(14)); put('chaise_bistrot', tx, Z(15), 2); } put('parasol', 78, Z(15));
+    // la ruelle de la gare : grilles, et la grille de la gare au bout
+    for (const fz of [19, 20]) { put('cloture_fer', EX - 2, Z(fz), 0, { v: 5 }); put('cloture_fer', EX + 1, Z(fz), 0, { v: 5 }); }
+    force('grille_gare', EX - 2, Z(21), 0, { ch: 2.8 });
+    // jardins derrière les échoppes : haies, arbres fruitiers, fleurs ; puis les arbres de la colline
+    for (let gx = 2; gx < W - 2; gx++) if (gx < EX - 2 || gx > EX + 1) put('haie', gx, Z(21), 0, { v: (gx > 2 && gx !== EX + 2 ? 8 : 0) | (gx < W - 3 && gx !== EX - 3 ? 2 : 0) });
+    for (const hx of [9, 15, 21, 36, 42, 48, 54, 66, 78, 90, 102, 114]) for (const hz of [19, 20]) put('haie', hx, Z(hz), 0, { v: hz === 19 ? 4 : 5 });
+    for (let gx = 4; gx < W - 4; gx++) { if (gx >= EX - 2 && gx <= EX + 1) continue; if (gx % 6 === 0) put(G.pick(['pommier', 'cerisier', 'oranger', 'pecher'], r), gx, Z(20)); else if (r() < .45) put((r() < .5 ? 'tulipe_' : 'fleur_') + FL[Math.floor(r() * 7)], gx, Z(19) + (r() < .5 ? 0 : 1)); }
     // au sud (entre la caméra et la rue) : rien de haut, des massifs et des fleurs ; les arbres seulement loin du passage
-    for (let tz = 22; tz < H - 2; tz++) for (let tx2 = 2; tx2 < W - 2; tx2++) { if (tx2 >= EX - 3 && tx2 <= EX + 2) continue; const far = Math.abs(tx2 + .5 - EX) > 16;
-      if (far && tz >= 24 && G.hash2(tx2, tz, 11) < .28) put(G.pick(['chene', 'bouleau', 'cerisier', 'pommier'], r), tx2, tz);
+    for (let tz = Z(22); tz < H - 2; tz++) for (let tx2 = 2; tx2 < W - 2; tx2++) { if (tx2 >= EX - 3 && tx2 <= EX + 2) continue; const far = Math.abs(tx2 + .5 - EX) > 16;
+      if (far && tz >= Z(24) && G.hash2(tx2, tz, 11) < .28) put(G.pick(['chene', 'bouleau', 'cerisier', 'pommier'], r), tx2, tz);
       else if (G.hash2(tx2, tz, 12) < .16) put(G.pick(['buisson', 'hortensia', 'buisson_baies'], r), tx2, tz); else if (G.hash2(tx2, tz, 13) < .2) put((r() < .5 ? 'tulipe_' : 'fleur_') + FL[Math.floor(r() * 7)], tx2, tz); }
-    m.meta = { rue: true, rue3: true, spawn: { x: EX, z: 19.6 }, exitZ: 20.9, exitX: EX, seaZ: H + 1000, plaza: { x: EX, z: 11 }, title: 'Rue commerçante',
-      homes: [{ vi: 0, x: 23, z: 10.5 }, { vi: 2, x: 41, z: 10.5 }, { vi: 1, x: 12, z: 7.4 }], npcs: [{ role: 'marche', x: 14.5, z: 17.65, yaw: PI }] };
+    const NV = (G.VILLAGERS && G.VILLAGERS.length) || 4;
+    m.meta = { rue: true, rue3: true, ville4: true, spawn: { x: EX, z: Z(19.6) }, exitZ: Z(20.9), exitX: EX, seaZ: H + 1000, plaza: { x: EX, z: Z(11) }, title: 'Rue commerçante',
+      homes: [{ vi: 0, x: 23, z: Z(10.5) }, { vi: 2, x: 41, z: Z(10.5) }, { vi: 1, x: 12, z: Z(7.4) }, { vi: 3 % NV, x: 84, z: Z(10.5) }, { vi: 4 % NV, x: 36, z: 10.5 }, { vi: 5 % NV, x: 62, z: 15 }, { vi: 6 % NV, x: 96, z: 10.5 }],
+      npcs: [{ role: 'marche', x: 14.5, z: Z(17.65), yaw: PI }] };
     // la caméra survole les immeubles de la rangée sud au lieu de se cacher derrière
     m.camH = (cx, cz) => { const t = m.terrainH(cx, cz), o = m.objAt(Math.floor(cx), Math.floor(cz)); return o && o.ch ? Math.max(t, o.y + o.ch) : t; };
-    for (const [n, lx, ly] of labels) G.mapLabel(m, n, lx, ly, 6.15, .9);
-    G.mapLabel(m, 'Marché couvert', 14.5, 3.3, 15.8, .95);
-    G.mapLabel(m, '🚉 Passage de la Gare', EX, 3.35, 16.2, 1.0);
-    G.mapLabel(m, '🏬 ' + G.villageName + ' · Rue commerçante', EX, 3.7, 19.1, 1.1);
+    for (const [n, lx, ly] of labels) G.mapLabel(m, n, lx, ly, Z(6.15), .9);
+    G.mapLabel(m, 'Marché couvert', 14.5, 3.3, Z(15.8), .95);
+    G.mapLabel(m, '🚉 Passage de la Gare', EX, 3.35, Z(16.2), 1.0);
+    G.mapLabel(m, '🏬 ' + G.villageName + ' · Rue commerçante', EX, 3.7, Z(19.1), 1.1);
+    G.mapLabel(m, '⛲ Place de la Fontaine', X1[0] + 2, 4.6, 16.2, 1.05); G.mapLabel(m, '🌳 Boulevard de la Vallée', 30, 3.9, 13.6, 1.05);
     decor(m);
     return m;
   };
@@ -548,7 +589,7 @@
 
   // ---------- anciennes sauvegardes : position dans l'ancienne rue, porte de sortie des boutiques ----------
   const R = G.rue, ogo = R.go;
-  R.go = (x, z, yaw, instant) => { if (x != null) { const m = R.get(); if (!m.meta.rue3 || !(x > 4 && x < m.W - 4 && z > 5.6 && z < 20.8) || m.topAt(x, z) > .45) x = z = yaw = null; } return ogo(x, z, yaw, instant); };
+  R.go = (x, z, yaw, instant) => { if (x != null) { const m = R.get(); if (!m.meta.rue3 || !(x > 4 && x < m.W - 4 && z > 5.6 && z < (m.meta.exitZ || 20.9) - .1) || m.topAt(x, z) > .45) x = z = yaw = null; } return ogo(x, z, yaw, instant); };
   G.on('init', () => { const oex = G.act.exitHouse; G.act.exitHouse = () => { const im = G.map;
     if (im && im.interior && im.meta.fromId === 'rue' && G.rueMap) { const o = [...G.rueMap.list].find(q => q.iid && q.iid === im.id), d = o && G.OBJ[o.t];
       if (d) { const [cx, cz] = G.rueMap.center(o), F = G.FR[o.r]; im.meta.door = { x: cx + F[0] * (d.fp[1] / 2 + .7), z: cz + F[1] * (d.fp[1] / 2 + .7), yaw: o.r * PI / 2 }; } }

@@ -7,6 +7,7 @@
   const MD = G.MODELS, F = G.feat, TAU = Math.PI * 2, PI = Math.PI, V3 = THREE.Vector3, UP = new V3(0, 1, 0);
   const RED = 0xc8372d, CRM = 0xf3e7c9, ALU = 0xc9ced6, NAVY = 0x2b3442, TIRE = 0x1d1f22, WOOD = 0x8a5a34, GLASS = 0xcfe8f5, DARK = 0x2a2d33, RIB = 0xe4d6b2;
   const AXY = .22, AXZ = .78, TG = .22, UY = 1.62; // essieu (hauteur, position) ; assiette au sol (cabré) ; aile haute
+  const SC = .85; // l'avion, un peu plus petit qu'avant (garé comme en vol)
   const groundOff = th => AXY * Math.cos(th) + AXZ * Math.sin(th) - AXY; // de combien l'essieu remonte quand l'avion se cabre
   const seg = (b, a, c, r, col, n = 6, mat = 0) => { const d = new V3(c[0] - a[0], c[1] - a[1], c[2] - a[2]), L = d.length(); if (L < 1e-4) return; const g = new THREE.CylinderGeometry(r, r, L, n, 1, false); g.translate(0, L / 2, 0);
     b.add(g, col, new THREE.Matrix4().compose(new V3(a[0], a[1], a[2]), new THREE.Quaternion().setFromUnitVectors(UP, d.normalize()), new V3(1, 1, 1)), mat, true); };
@@ -70,7 +71,7 @@
     seg(b, [1.75, UY - .03, .95], [1.75, UY - .03, 1.25], .008, ALU, 4); b.box(.12, .02, .1, NAVY, .38, .75, -.05); seg(b, [.32, .8, -.05], [.38, .75, -.05], .012, NAVY, 4);
     if (full) prop(b, 0, .95, 1.53);
   }
-  MD.avion = v => { const b = G.mb(345); airframe(b, v !== 1); const g = b.done(); if (v !== 1) { g.applyMatrix4(new THREE.Matrix4().makeRotationX(-TG)); g.translate(0, -groundOff(TG), 0); } return g; };
+  MD.avion = v => { const b = G.mb(345); airframe(b, v !== 1); const g = b.done(); if (v !== 1) { g.applyMatrix4(new THREE.Matrix4().makeRotationX(-TG)); g.translate(0, -groundOff(TG), 0); g.scale(SC, SC, SC); } return g; };
   MD.avion_helice = () => { const b = G.mb(346); prop(b, 0, 0, 0); return b.done(); };
   MD.avion_aileron = () => { const b = G.mb(347); aileron(b, 0, 0, 0); return b.done(); };
   MD.avion_profondeur = () => { const b = G.mb(348); elevator(b, 0, 0, 0); return b.done(); };
@@ -126,7 +127,7 @@
     // poursuite : derrière l'avion, un peu au-dessus ; à la souris, on vise avec la caméra
     p.root.visible = true; const k = 1 - Math.exp(-dt * (mouse ? 6 : 2.6));
     if (mouse) C.yaw = G.angLerp(C.yaw, C.tyaw, k); else { C.yaw = G.angLerp(C.yaw, v.h + PI, k); C.tyaw = C.yaw; }
-    const dist = 8.2 + v.spd * .16, pitch = mouse ? G.clamp(C.mp * .7, -.15, .8) + .12 : (v.cp = (v.cp == null ? .4 : v.cp) + ((v.ground ? .42 : .22) - (v.cp == null ? .4 : v.cp)) * Math.min(1, 1.5 * dt)), fx = Math.sin(v.h), fz = Math.cos(v.h);
+    const dist = 7.2 + v.spd * .14, pitch = mouse ? G.clamp(C.mp * .7, -.15, .8) + .12 : (v.cp = (v.cp == null ? .4 : v.cp) + ((v.ground ? .42 : .22) - (v.cp == null ? .4 : v.cp)) * Math.min(1, 1.5 * dt)), fx = Math.sin(v.h), fz = Math.cos(v.h);
     const tx = v.x + fx * 1.6, ty = v.y + 1.35, tz = v.z + fz * 1.6, kk = Math.min(1, 9 * dt);
     if (!C.cx) { C.cx = tx; C.cy = ty; C.cz = tz; } C.cx += (tx - C.cx) * kk; C.cy += (ty - C.cy) * kk; C.cz += (tz - C.cz) * kk;
     const hd = Math.cos(pitch) * dist; camera.position.set(C.cx + Math.sin(C.yaw) * hd, C.cy + Math.sin(pitch) * dist, C.cz + Math.cos(C.yaw) * hd);
@@ -141,7 +142,7 @@
   const SEAT = new V3();
   const ob = F.board; F.board = o => { if (!G.OBJ[o.t].plane) return ob(o);
     const p = G.player, m = G.map; if (m.interior) return; const [cx, cz] = m.center(o);
-    const root = new THREE.Group(); root.rotation.order = 'YXZ'; G.scene.add(root);
+    const root = new THREE.Group(); root.rotation.order = 'YXZ'; root.scale.setScalar(SC); G.scene.add(root);
     const mk = (geo, x, y, z, mat = G.MATS) => { const me = new THREE.Mesh(geo, mat); me.castShadow = true; me.frustumCulled = false; me.position.set(x, y, z); root.add(me); return me; };
     const parts = { body: mk(G.getGeo('avion', 1), 0, 0, 0), prop: mk(G.getGeo('avion_helice'), 0, .95, 1.53), disc: mk(new THREE.CircleGeometry(.82, 40), 0, .95, 1.56, DISC),
       ail: [mk(G.getGeo('avion_aileron'), 1.5, UY, .58), mk(G.getGeo('avion_aileron'), -1.5, UY, .58)], elev: mk(G.getGeo('avion_profondeur'), 0, 1.0, -1.75), rud: mk(G.getGeo('avion_direction'), 0, 0, -1.76),
@@ -168,7 +169,7 @@
     L.r = Math.max(4, Math.hypot(v.x - L.x, v.z - L.z)); L.a = Math.atan2(v.z - L.z, v.x - L.x); L.y0 = v.y; L.r0 = L.r; v.auto = L; G.ui.toast('Atterrissage automatique… 🛬'); }
 
   // ---------- vol ----------
-  const GRAV = 6, STALL = 6.8, VR = 8.6, THR = 9, DRAG = .018, RAINBOW = [0xff5a5a, 0xffa53a, 0xffe14a, 0x5fd16b, 0x5bb3ff, 0xb583e6];
+  const GRAV = 6, STALL = 6.0, VR = 7.6, THR = 9.5, DRAG = .018, RAINBOW = [0xff5a5a, 0xffa53a, 0xffe14a, 0x5fd16b, 0x5bb3ff, 0xb583e6];
   const groundY = (m, x, z) => { const tx = Math.floor(x), tz = Math.floor(z); return m.isWaterT(tx, tz) ? m.waterSurf(tx, tz) : m.terrainH(x, z); };
   const ou = F.updVehicle; F.updVehicle = (p, dt) => { const v = p.vehicle; if (!v || !v.plane2) return ou(p, dt);
     const I = G.input, m = G.map, free = G.ui.canPlay(), P = v.parts, mouse = G.mouseMode(); dt = Math.min(dt, .05); v.t += dt; v.warnT = Math.max(0, v.warnT - dt);
@@ -178,13 +179,13 @@
       if (I.down('Space')) pull += 1; if (I.down('ShiftLeft', 'ShiftRight', 'KeyC', 'ControlLeft')) pull -= 1;
       if (I.gp.on) { steer += I.gp.lx; pull -= I.gp.ly; if (I.gp.b[0] || I.gp.b[7]) gas += 1; if (I.gp.b[1] || I.gp.b[6]) gas -= 1; }
       steer += I.touch.mx; pull -= I.touch.my;
-      if (mouse && !v.ground) { let d = (v.h - (G.cam.tyaw + PI)) % TAU; d = Math.atan2(Math.sin(d), Math.cos(d)); steer += G.clamp(d * 1.6, -1, 1); pull += G.clamp((.3 - G.cam.mp) * 2.2, -1, 1); }
+      if (mouse && !v.ground) { let d = (v.h - (G.cam.tyaw + PI)) % TAU; d = Math.atan2(Math.sin(d), Math.cos(d)); steer += G.clamp(d * 2.4, -1, 1); pull += G.clamp((.3 - G.cam.mp) * 2.2, -1, 1); }
       steer = G.clamp(steer, -1, 1); pull = G.clamp(pull, -1, 1); gas = G.clamp(gas, -1, 1);
       if (I.hit('KeyV')) { v.view = (v.view + 1) % 3; G.sfx('ui'); G.ui.toast(['Vue de poursuite', 'Vue du cockpit', 'Vue d\'ensemble'][v.view]); }
       if (I.hit('KeyF')) { v.smoke = (v.smoke + 1) % 3; G.sfx('ui'); G.ui.toast(['Fumée coupée', 'Fumée blanche ☁️', 'Fumée arc-en-ciel 🌈'][v.smoke]); }
       if (I.hit('KeyE')) { if (v.ground) { if (v.spd < 2.5) { park(p, v); if (!p.vehicle) return; } else G.ui.toast('Ralentis (S) avant de te garer.'); } else autoLand(v); }
     }
-    v.thr = G.clamp(v.thr + gas * dt * .65, 0, 1);
+    v.thr = G.clamp(v.thr + gas * dt * 1.1, 0, 1);
     // le bord du monde : l'avion fait demi-tour tout seul
     const W = m.W, H = m.H, mg = 16; if (!v.ground && !v.auto && (v.x < mg || v.z < mg || v.x > W - mg || v.z > H - mg)) { let d = (v.h - Math.atan2(W / 2 - v.x, H / 2 - v.z)) % TAU; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) > .35) steer = d > 0 ? 1 : -1; else steer = G.clamp(d * 3, -1, 1); pull = Math.max(pull, 0); if ((v.edgeT = (v.edgeT || 0) - dt) < 0) { v.edgeT = 6; G.ui.toast('↩️ Demi-tour : c\'est le bout du monde !'); } }
     if (v.y > 40) pull = Math.min(pull, -.4);
@@ -199,7 +200,7 @@
     else if (v.ground) { // roulage, course au décollage
       const brake = gas < 0 && v.thr < .02 ? 1 : 0, fr = .45 + brake * 5;
       v.spd += (v.thr * THR - DRAG * v.spd * v.spd) * dt; v.spd = Math.max(0, v.spd - fr * dt);
-      v.h -= steer * (Math.min(v.spd, 6) * .22 + .5) * dt;
+      v.h -= steer * (Math.min(v.spd, 6) * .3 + .9) * dt;
       v.bank += (0 - v.bank) * Math.min(1, 6 * dt);
       const tail = G.clamp((v.spd - 4) / 5, 0, 1), base = TG * (1 - tail);
       v.pitch += ((pull > 0 && v.spd > VR ? .2 : base) - v.pitch) * Math.min(1, 3 * dt); v.off += (groundOff(v.pitch) - v.off) * Math.min(1, 8 * dt);
@@ -210,10 +211,10 @@
       if (pull > 0 && v.spd > VR && v.pitch > .12) { v.ground = false; v.vy = 1.6; G.sfx('swing', .5); G.ui.toast('Décollage ! 🛫'); }
       v.stall = false; }
     else { // en l'air
-      v.bank += (steer * .8 - v.bank) * Math.min(1, 2.4 * dt);
-      v.stall = v.spd < STALL; const tp = pull * .38;
-      v.pitch += ((v.stall ? Math.min(tp, -.28) : tp) - v.pitch) * Math.min(1, 1.8 * dt);
-      v.h -= GRAV * Math.tan(v.bank) / Math.max(v.spd, 5) * 1.3 * dt;
+      v.bank += (steer * .95 - v.bank) * Math.min(1, 5 * dt);
+      v.stall = v.spd < STALL; const tp = pull * .48;
+      v.pitch += ((v.stall ? Math.min(tp, -.28) : tp) - v.pitch) * Math.min(1, 3.4 * dt);
+      v.h -= (GRAV * Math.tan(v.bank) / Math.max(v.spd, 5) * 2.1 + steer * .45) * dt; // virage serré + palonnier : plus maniable
       v.spd = Math.max(0, v.spd + (v.thr * THR - DRAG * v.spd * v.spd - GRAV * Math.sin(v.pitch)) * dt);
       const lift = Math.min(1, v.spd / STALL), vyT = v.spd * Math.sin(v.pitch) - (1 - lift) * 5.5 - Math.abs(v.bank) * .35;
       v.vy += (vyT - v.vy) * Math.min(1, 2.5 * dt); v.off += (0 - v.off) * Math.min(1, 3 * dt);
@@ -225,13 +226,13 @@
         else if (v.vy < -3.4 || Math.abs(v.bank) > .55) { v.y = gy; v.vy = Math.min(3, -v.vy * .35); v.bank *= .3; G.sfx('thud'); G.cam.shake(.3); G.fx.puff(v.x, gy + .1, v.z, 12, 0xd9c9a8, .9); G.ui.toast('Atterrissage un peu musclé ! 😅'); }
         else { v.y = gy; v.vy = 0; v.ground = true; v.bank = 0; G.sfx('land'); G.fx.puff(v.x, gy + .1, v.z, 8, 0xe8dcc0, .7); if (v.spd > 3) G.ui.toast('Joli atterrissage ! S pour freiner, E pour te garer.'); } } }
     // pose de l'appareil et des gouvernes
-    v.mesh.position.set(v.x, v.y - v.off, v.z); v.mesh.rotation.set(-v.pitch, v.h, v.bank);
+    v.mesh.position.set(v.x, v.y - v.off * SC, v.z); v.mesh.rotation.set(-v.pitch, v.h, v.bank);
     P.ail[0].rotation.x = -steer * .35; P.ail[1].rotation.x = steer * .35; P.elev.rotation.x = pull * .35; P.rud.rotation.y = steer * .3;
     v.rpm += ((v.thr < .02 ? .14 : .22 + .78 * v.thr) - v.rpm) * Math.min(1, 2.5 * dt); P.prop.rotation.z += dt * (6 + v.rpm * 75); P.disc.visible = v.rpm > .42; DISC.opacity = .08 + v.rpm * .14;
     if (v.ground) for (const w of P.wheels) w.rotation.x += v.spd * dt / AXY;
     P.beacon.visible = (v.t % 1.3) < .16;
     // ombre douce, pilote assis
-    v.sh.position.set(v.x, gy + .04, v.z); const s = G.clamp(3.6 - (v.y - gy) * .07, 1.4, 3.6); v.sh.scale.set(s, 1, s * 1.1); v.sh.visible = !water && (v.y - gy) > .15;
+    v.sh.position.set(v.x, gy + .04, v.z); const s = G.clamp(3.6 - (v.y - gy) * .07, 1.4, 3.6); v.sh.scale.set(s * SC, 1, s * 1.1 * SC); v.sh.visible = !water && (v.y - gy) > .15;
     v.mesh.updateMatrixWorld(); const st = v.mesh.localToWorld(SEAT.set(0, .36, -.15)); p.x = st.x; p.z = st.z; p.y = st.y; p.yaw = v.h; p.onGround = true; p.swim = false;
     p.animate(dt, 0); const C = p.C; C.legL.rotation.x = C.legR.rotation.x = -1.45; C.body.position.y = -.3; C.armR.rotation.x = -.75 + steer * .1; C.armL.rotation.x = -.55 - gas * .15; C.armR.rotation.z = .12 - steer * .15;
     p.place(); p.root.quaternion.copy(v.mesh.quaternion); p.blob.visible = false;

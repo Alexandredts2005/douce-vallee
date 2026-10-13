@@ -49,8 +49,8 @@
       g.userData.sk = this.sk != null ? this.sk : G.surfKind ? G.surfKind(col, mat) : 0;
       this.parts[mat].push(g); return this;
     }
-    // les pièces très fines (lattes, croisillons, barreaux) n'ont pas besoin d'arrondi : 12 triangles au lieu de 300
-    box(w, h, d, col, x, y, z, rx, ry, rz, mat = 0) { const thin = Math.min(w, h, d) < .06; return this.add(thin ? new THREE.BoxGeometry(w, h, d) : roundedBox(w, h, d), col, this.M(x, y, z, rx, ry, rz), mat, !thin); }
+    // les pièces fines (lattes, cadres, croisillons, barreaux, moins de 8 cm) n'ont pas besoin d'arrondi : 12 triangles au lieu de 300
+    box(w, h, d, col, x, y, z, rx, ry, rz, mat = 0) { const thin = Math.min(w, h, d) < .081; return this.add(thin ? new THREE.BoxGeometry(w, h, d) : roundedBox(w, h, d), col, this.M(x, y, z, rx, ry, rz), mat, !thin); }
     cyl(rt, rb, h, seg, col, x, y, z, rx, ry, rz, mat = 0, smooth = false) { return this.add(new THREE.CylinderGeometry(rt, rb, h, Math.max(12, seg)), col, this.M(x, y, z, rx, ry, rz), mat, smooth); }
     cone(r, h, seg, col, x, y, z, rx, ry, rz, mat = 0) { return this.add(new THREE.ConeGeometry(r, h, Math.max(10, seg)), col, this.M(x, y, z, rx, ry, rz), mat); }
     sph(r, col, x, y, z, sx = 1, sy = 1, sz = 1, mat = 0, ws = 10, hs = 8, smooth = true) { return this.add(new THREE.SphereGeometry(r, Math.max(14, ws), Math.max(10, hs)), col, this.M(x, y, z, 0, 0, 0, sx, sy, sz), mat, smooth); }

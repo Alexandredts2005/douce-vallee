@@ -160,6 +160,11 @@
   // ---------- acres & structures ----------
   Object.assign(G.ACRES, { gare: { n: 'Gare', col: '#c9846b', ico: '🚉', lvl: 0, struct: 'gare' }, mairie: { n: 'Mairie', col: '#b8c8e8', ico: '🏛️', lvl: 0, struct: 'mairie' }, rue: { n: 'Rue commerçante', col: '#e9b8a0', ico: '🏬', lvl: 0, struct: 'rue' } });
   G.DEFAULT_LAYOUT[0][3] = 'gare'; G.DEFAULT_LAYOUT[1][3] = 'mairie'; G.DEFAULT_LAYOUT[1][4] = 'verger'; G.DEFAULT_LAYOUT[2][4] = 'place';  const npc = (meta, role, x, z, yaw = 0) => (meta.npcs = meta.npcs || []).push({ role, x, z, yaw });
+  // le musée est dans la rue commerçante : à sa place dans le village, un petit square (fontaine, bancs, fleurs)
+  G.squareMusee = (m, x, z) => { const P = (t, xx, zz, r = 0) => m.canPlace(t, xx, zz, r) ? m.addObj(t, xx, zz, r) : null;
+    P('fontaine', x + 1, z); P('banc', x, z + 2, 2); P('banc', x + 2, z + 2, 2); P('pot_fleurs', x, z); P('pot_fleurs', x + 3, z);
+    P('tulipe_rouge', x, z + 1); P('tulipe_jaune', x + 3, z + 1); };
+  G.on('load', () => { const m = G.world; if (!m) return; for (const o of [...m.list]) if (o.t === 'musee') { const x = o.x, z = o.z; m.removeObj(o); G.squareMusee(m, x, z); } });
   G.STRUCT = {
     gare(c) { const { ox, oz, put, flat, targets, meta, surf, I: ix } = c; flat(ox + 1, oz + 1, 14, 9);
       for (let x = ox; x < ox + 16; x++) put('rails', x, oz + 1, 1); put('gare', ox + 5, oz + 3); put('montgolfiere', ox + 12, oz + 7); put('horloge', ox + 3, oz + 7); put('banc', ox + 2, oz + 4); put('lampadaire', ox + 4, oz + 6); put('lampadaire', ox + 11, oz + 6);
@@ -170,9 +175,9 @@
       meta.mairie = { x: ox + 8, z: oz + 8.6 }; targets.push([ox + 8, oz + 8, 4]); },
     rue(c) { const { ox, oz, put, flat, targets, meta, surf, I: ix } = c; flat(ox + 1, oz + 3, 14, 10);
       for (let x = ox + 1; x < ox + 15; x++) for (const z of [oz + 9, oz + 10]) surf[ix(x, z)] = 4;
-      put('musee', ox + 2, oz + 4); put('couturiere', ox + 10, oz + 5);
+      G.squareMusee(c.map, ox + 2, oz + 4); put('couturiere', ox + 10, oz + 5);
       for (const x of [ox + 1, ox + 7, ox + 14]) put('lampadaire', x, oz + 11); put('banc', ox + 7, oz + 7); put('pot_fleurs', ox + 6, oz + 7); put('pot_fleurs', ox + 9, oz + 7);
-      meta.musee = { x: ox + 4, z: oz + 7.6 }; meta.couture = { x: ox + 11.5, z: oz + 8.6 }; targets.push([ox + 4, oz + 8, 4]); targets.push([ox + 11, oz + 9, 4]); }
+      meta.couture = { x: ox + 11.5, z: oz + 8.6 }; targets.push([ox + 4, oz + 8, 4]); targets.push([ox + 11, oz + 9, 4]); }
   };
   G.npcHost = npc;
 })();
