@@ -144,21 +144,34 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .ctrl-table td:last-child{border-radius:0 12px 12px 0}
 /* ---------- Éditeur d'acres ---------- */
 #editor{position:absolute;inset:0;z-index:45;background:linear-gradient(#bfe7f7,#d9f2cf);display:flex;flex-direction:column;padding:12px 16px;gap:10px;overflow:auto}
-.ed-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ed-top h2{margin:0 10px 0 0;font-family:var(--f-display);font-weight:600;color:var(--bark);font-size:26px}
-.ed-body{display:flex;gap:14px;flex:1;min-height:0;flex-wrap:wrap}
-.ed-pal{width:220px;display:flex;flex-direction:column;gap:5px;overflow:auto;max-height:100%;padding-right:4px}
-.pal{border:none;display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:6px 8px;font-family:var(--f-body);font-weight:700;font-size:13px;color:var(--ink);text-align:left;box-shadow:0 2px 0 var(--paper-d)}
-.pal i{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:14px;flex:none}
-.pal.on{box-shadow:0 0 0 3px var(--leaf)}
-.ed-grid-wrap{flex:1;min-width:280px;display:flex;flex-direction:column;gap:8px;align-items:center}
-#ed-grid{display:grid;gap:4px;background:#2f7fb0;padding:10px;border-radius:20px;box-shadow:0 6px 18px var(--shade);width:min(100%,640px)}
-.acre{aspect-ratio:1;border-radius:10px;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);padding:2px;min-width:0;overflow:hidden}
-.acre small{font-size:9px;font-family:var(--f-body);font-weight:800;line-height:1.1;text-align:center}
-.acre .lb{position:absolute;font-size:9px}
+.ed-top{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.ed-top h2{margin:0;font-family:var(--f-display);font-weight:600;color:var(--bark);font-size:28px}
+.ed-steps{margin:0;padding:8px 14px 8px 34px;background:rgba(255,255,255,.8);border-radius:14px;color:var(--ink);font-size:14px;line-height:1.5;flex:1;min-width:260px}
+.ed-body{display:flex;gap:14px;flex:1;min-height:0;flex-wrap:wrap;align-items:flex-start}
+.ed-pal{width:230px;display:flex;flex-direction:column;gap:4px;overflow:auto;max-height:calc(100vh - 150px);padding-right:4px}
+.ed-cat{font-family:var(--f-display);font-weight:600;color:var(--bark);font-size:16px;margin:6px 0 2px}
+.pal{border:none;display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:6px 8px;font-family:var(--f-body);font-weight:700;font-size:14px;color:var(--ink);text-align:left;box-shadow:0 2px 0 var(--paper-d);cursor:pointer}
+.pal i{width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:16px;flex:none}
+.pal.on{box-shadow:0 0 0 3px var(--leaf);background:#f1ffe8}
+.pal.off{opacity:.45}
+.ed-brush{background:#fff;border-radius:14px;padding:8px 10px;font-size:13px;color:var(--ink);box-shadow:0 2px 0 var(--paper-d);line-height:1.35}
+.ed-brush b{font-size:15px}
+.ed-grid-wrap{flex:1;min-width:300px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.ed-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ed-seed{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--bark);font-size:13px}
+.ed-seed input{width:90px}
+.ed-north,.ed-sea{text-align:center;font-weight:800;font-size:13px;border-radius:12px;padding:4px}
+.ed-north{color:#5d564a;background:rgba(255,255,255,.55)}
+.ed-sea{color:#fff;background:#2f86c9}
+#ed-grid{display:grid;gap:3px;background:#5e9c4c;padding:6px;border-radius:14px;box-shadow:0 6px 18px var(--shade);grid-template-columns:repeat(var(--cols,22),minmax(0,1fr))}
+.acre{aspect-ratio:1;border-radius:7px;border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:clamp(11px,1.6vw,22px);padding:0;min-width:0;overflow:hidden;cursor:pointer;user-select:none}
+.acre:hover{border-color:#fff;transform:scale(1.08);z-index:1}
+.acre.sea-row{border-color:rgba(47,134,201,.8)}
 .ed-side{width:300px;display:flex;flex-direction:column;gap:8px}
 #ed-preview{width:100%;border-radius:16px;background:#4fa3d1;box-shadow:0 6px 18px var(--shade);image-rendering:pixelated;display:block}
-.ed-note{font-size:13px;color:var(--bark);background:rgba(255,255,255,.75);border-radius:14px;padding:8px 12px;line-height:1.4}
+.ed-note{font-size:13px;color:var(--bark);background:rgba(255,255,255,.75);border-radius:14px;padding:8px 12px;line-height:1.45}
+.ed-actions{display:flex;gap:8px;justify-content:flex-end}
+@media (max-width:900px){.ed-pal{width:100%;max-height:none;flex-direction:row;flex-wrap:wrap}.ed-cat{width:100%}.ed-side{width:100%}}
 /* ---------- Confirmation / fondu / chargement / tactile ---------- */
 #confirm{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);padding:16px}
 #confirm .form{width:min(440px,100%);text-align:center}
@@ -348,24 +361,29 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
   <div id="editor" hidden>
     <div class="ed-top">
-      <h2>Éditeur d'acres</h2>
-      <button class="btn alt" id="ed-classic">Vallée classique</button>
-      <button class="btn alt" id="ed-random">Aléatoire</button>
-      <button class="btn alt" id="ed-clear">Tout en prairie</button>
-      <label class="fld" style="flex:none;min-width:0;flex-direction:row;align-items:center">GRAINE <input type="text" id="ed-seed" class="search" style="width:90px" value="1234"></label>
-      <span style="flex:1"></span>
-      <button class="btn alt" id="ed-back">Retour</button>
-      <button class="btn" id="ed-play">Jouer sur cette carte</button>
+      <h2>🗺️ Éditeur de carte</h2>
+      <ol class="ed-steps"><li><b>Choisis un terrain</b> dans la liste à gauche.</li><li><b>Clique ou glisse</b> sur les cases de la carte pour le poser.</li><li>Regarde l'<b>aperçu</b> à droite, puis <b>« Jouer sur cette carte »</b>.</li></ol>
     </div>
     <div class="ed-body">
       <div class="ed-pal" id="ed-pal"></div>
       <div class="ed-grid-wrap">
+        <div class="ed-tools">
+          <button class="btn alt" id="ed-undo" type="button">↩️ Annuler</button>
+          <button class="btn alt" id="ed-classic" type="button">🏡 Vallée classique</button>
+          <button class="btn alt" id="ed-random" type="button">🎲 Au hasard</button>
+          <button class="btn alt" id="ed-clear" type="button">🧹 Tout effacer</button>
+          <label class="ed-seed">Graine <input type="text" id="ed-seed" class="search" value="1234" maxlength="10"></label>
+        </div>
+        <div class="ed-north">⛰️ Nord (montagnes)</div>
         <div id="ed-grid"></div>
-        <div class="ed-note">Clique ou glisse pour peindre une acre. Clic droit : pipette. Les rivières se relient toutes seules aux acres d'eau voisines, et une cascade se forme dès qu'une rivière descend d'un niveau. La rangée du bas touche la mer.</div>
+        <div class="ed-sea">🌊 La mer</div>
+        <div class="ed-note" id="ed-hover">Survole une case pour voir ce qu'elle contient. Clic droit sur une case : reprendre son terrain.</div>
       </div>
       <div class="ed-side">
         <canvas id="ed-preview" width="240" height="220"></canvas>
         <div class="ed-note" id="ed-info">Aperçu de la carte générée.</div>
+        <div class="ed-note">💧 Les rivières se relient toutes seules entre elles et jusqu'à la mer.<br>🏖️ La rangée du bas touche la mer : on n'y met que des plages, un ponton, un phare ou un port.<br>🌍 Dans le jeu, la taille du monde choisie (moyen, grand, immense) ajoute des terres tout autour de ton village.</div>
+        <div class="ed-actions"><button class="btn alt" id="ed-back" type="button">Retour</button><button class="btn" id="ed-play" type="button">▶ Jouer sur cette carte</button></div>
       </div>
     </div>
   </div>
