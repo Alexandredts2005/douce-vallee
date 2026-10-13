@@ -146,10 +146,10 @@
       }
       const ox = this.x, oz = this.z, nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
       if (!this.blocked(nx, nz, this.y)) { this.x = nx; this.z = nz; }
-      else { // contre un obstacle on s'arrête ; on ne longe un mur que si on l'aborde nettement de biais
+      else { // contre un obstacle on s'arrête de face ; dès qu'on tourne un peu, on glisse le long
         let sx = 0, sz = 0; for (const [ox, oz] of PTS9) { if (!ox && !oz) continue; if (m.topAt(nx + ox, nz + oz) > this.y + (m._nf ? .06 : G.STEP)) { sx += ox; sz += oz; } }
         const sl = Math.hypot(sx, sz), v = Math.hypot(this.vx, this.vz); let moved = false;
-        if (sl > 1e-6 && v > 1e-6) { const kx = -sx / sl, kz = -sz / sl, dn = this.vx * kx + this.vz * kz; if (dn / v > -.6) { const px = this.vx - dn * kx, pz = this.vz - dn * kz, tx = this.x + px * dt, tz = this.z + pz * dt; if (!this.blocked(tx, tz, this.y)) { this.x = tx; this.z = tz; this.vx = px; this.vz = pz; moved = true; } } }
+        if (sl > 1e-6 && v > 1e-6) { const kx = -sx / sl, kz = -sz / sl, dn = this.vx * kx + this.vz * kz; if (dn / v > -.985) { const px = this.vx - dn * kx, pz = this.vz - dn * kz, tx = this.x + px * dt, tz = this.z + pz * dt; if (!this.blocked(tx, tz, this.y)) { this.x = tx; this.z = tz; this.vx = px; this.vz = pz; moved = true; } } }
         if (!moved) { this.vx = 0; this.vz = 0; } }
       const g = this.groundAt(this.x, this.z);
       if (this.onGround) { if (g < this.y - .35) { this.onGround = false; this.vy = 0; this.airTop = this.y; } else this.y = g; }
