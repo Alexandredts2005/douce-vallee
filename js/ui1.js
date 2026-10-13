@@ -36,14 +36,16 @@
   // ---------- barre d'objets ----------
   U.buildHotbar = () => {
     const hb = $('hotbar'); hb.innerHTML = '';
+    { const g = document.createElement('button'); g.className = 'slot gear'; g.hidden = true; g.setAttribute('aria-label', 'Matériel de la partie'); g.onclick = () => G.gear && G.gear.draw(); hb.appendChild(g); } // matériel prêté pendant un jeu
     for (let k = 0; k < 10; k++) { const b = document.createElement('button'); b.className = 'slot'; b.dataset.k = k; b.setAttribute('aria-label', 'Emplacement ' + (k + 1)); b.onclick = () => G.act.select(k); hb.appendChild(b); }
     U.hotDirty = true;
   };
   U.updHotbar = () => {
-    if (!U.hotDirty) return; U.hotDirty = false; const cr = G.mode === 'creatif';
-    [...$('hotbar').children].forEach((b, k) => {
+    if (!U.hotDirty) return; U.hotDirty = false; const cr = G.mode === 'creatif', P = G.player, gt = P && P.tempTool, gon = gt && !P.gearOff, gb = $('hotbar').querySelector('.gear');
+    if (gb) { gb.hidden = !gt; if (gt) { gb.className = 'slot gear' + (gon ? ' sel' : '') + (U.gearPop ? ' pop' : ''); gb.innerHTML = '<span class="k">🎮</span>' + U.icon(gt); gb.title = G.ITEMS[gt].n + ' (pour la partie)'; } U.gearPop = false; }
+    [...$('hotbar').querySelectorAll('.slot[data-k]')].forEach((b, k) => {
       const id = cr ? G.inv.hot[k] : (G.inv.slots[k] && G.inv.slots[k].id), n = cr ? 0 : (G.inv.slots[k] && G.inv.slots[k].n);
-      b.className = 'slot' + (k === G.sel ? ' sel' : ''); b.innerHTML = `<span class="k">${(k + 1) % 10}</span>` + (id ? U.icon(id) : '') + (n > 1 ? `<span class="n">${n}</span>` : '');
+      b.className = 'slot' + (k === G.sel && !gon ? ' sel' : ''); b.innerHTML = `<span class="k">${(k + 1) % 10}</span>` + (id ? U.icon(id) : '') + (n > 1 ? `<span class="n">${n}</span>` : '');
       b.title = id ? G.ITEMS[id].n : 'Vide';
     });
     const it = G.inv.held(); G.player && G.player.setTool(it && it.kind === 'tool' ? it.tool : null);
@@ -100,6 +102,7 @@
       if (it.kind === 'tool') { f = VERB[it.tool]; if (it.tool === 'axe' && !(d && d.chop)) f = null; if (it.tool === 'pick' && !(d && d.mine)) f = null; }
       else if (it.food) f = 'Manger'; else if (it.kind === 'place') f = 'Poser · <kbd>R</kbd>Tourner'; else if (it.kind === 'bridge') f = 'Poser le pont'; else if (it.kind === 'surf') f = 'Peindre le sol'; else if (it.kind === 'terra') f = it.n; else if (it.id === 'cadeau') f = 'Ouvrir';
       if (f) out.push(`<kbd>F</kbd>${f}`); }
+    if (p.tempTool) out.push('<kbd>T</kbd>' + (p.gearOff ? 'Ressortir ' : 'Ranger ') + G.ITEMS[p.tempTool].n.toLowerCase());
     if (d && !d.fixed && (G.mode === 'creatif' || d.take) && !['maison_hab', 'boutique', 'paillasson'].includes(o.t)) out.push('<kbd>X</kbd>' + (G.mode === 'creatif' ? 'Retirer' : 'Ranger')); if (d && G.map === G.world && (d.enter || d.fp[0] * d.fp[1] >= 4) && !['grande_porte', 'tunnel', 'tunnel2', 'ponton'].includes(o.t)) out.push('<kbd>B</kbd>Déplacer');
     return out.length ? out.join('&nbsp;&nbsp; ') : null;
   }

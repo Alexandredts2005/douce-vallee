@@ -10,7 +10,7 @@
   G.inv = {
     slots: new Array(30).fill(null), hot: new Array(10).fill(null),
     creative() { return G.mode === 'creatif'; },
-    held() { if (G.player && G.player.tempTool) return G.ITEMS[G.player.tempTool]; const id = this.creative() ? this.hot[G.sel] : (this.slots[G.sel] && this.slots[G.sel].id); return id ? G.ITEMS[id] : null; },
+    held() { if (G.player && G.player.tempTool && !G.player.gearOff) return G.ITEMS[G.player.tempTool]; const id = this.creative() ? this.hot[G.sel] : (this.slots[G.sel] && this.slots[G.sel].id); return id ? G.ITEMS[id] : null; },
     count(id) { if (this.creative()) return 999; let n = 0; for (const s of this.slots) if (s && s.id === id) n += s.n; return n; },
     add(id, n = 1) { if (this.creative() || !G.ITEMS[id]) return 0; const left = stackOps(this.slots).add(id, n); G.ui && G.ui.dirtyHot(); return left; },
     remove(id, n = 1) {
@@ -18,7 +18,7 @@
       for (let i = this.slots.length - 1; i >= 0 && n > 0; i--) { const s = this.slots[i]; if (s && s.id === id) { const k = Math.min(n, s.n); s.n -= k; n -= k; if (!s.n) this.slots[i] = null; } }
       G.ui && G.ui.dirtyHot(); return true;
     },
-    useHeld(n = 1) { if (this.creative() || (G.player && G.player.tempTool)) return true; const s = this.slots[G.sel]; if (!s || s.n < n) return false; s.n -= n; if (!s.n) this.slots[G.sel] = null; G.ui && G.ui.dirtyHot(); return true; },
+    useHeld(n = 1) { if (this.creative() || (G.player && G.player.tempTool && !G.player.gearOff)) return true; const s = this.slots[G.sel]; if (!s || s.n < n) return false; s.n -= n; if (!s.n) this.slots[G.sel] = null; G.ui && G.ui.dirtyHot(); return true; },
     free() { return this.slots.filter(s => !s).length; }
   };
   G.storage = new Array(120).fill(null); G.storeAdd = (id, n) => stackOps(G.storage).add(id, n);

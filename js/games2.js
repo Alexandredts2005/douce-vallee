@@ -2,13 +2,20 @@
 // ===== Nouveaux jeux de Filou (cache-cache, concours de pêche, safari insectes, attrape-étoiles), seul ou à deux, et excursions de l'île =====
 (function () {
   const $ = G.el, TAU = Math.PI * 2;
-  const NAMES = { cache: 'Cache-cache', peche: 'Concours de pêche', safari: 'Safari insectes', etoiles2: 'Attrape-étoiles', cueillette: 'Cueillette tropicale', papillons: 'Safari papillons', gros: 'Pêche au gros', tresor: 'Chasse au trésor' };
+  const NAMES = { cache: 'Cache-cache', peche: 'Concours de pêche', safari: 'Safari insectes', etoiles2: 'Attrape-étoiles', ballons2: 'Tir aux ballons', anneaux2: 'Course des anneaux', cueillette: 'Cueillette tropicale', papillons: 'Safari papillons', gros: 'Pêche au gros', tresor: 'Chasse au trésor' };
   const GM = G.games2 = { a: null, invited: {} };
   const hud = show => { let el = $('mini'); if (!el) { el = document.createElement('div'); el.id = 'mini'; el.className = 'card'; el.style.cssText = 'position:absolute;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-family:var(--f-display);font-size:20px;display:flex;gap:16px;align-items:center;padding:8px 20px;z-index:12'; $('hud').appendChild(el); } el.hidden = !show; return el; };
   const say = (v, l, c) => v ? G.npcSay(v, l, c) : G.ui.dialog('Filou', l, { pitch: 1.25, color: '#e8a23a', choices: c });
   const surv = () => G.mode === 'survie', NET = () => G.net;
   const mesh = (geo, mats) => { const m = new THREE.Mesh(geo, mats || G.MATS); m.frustumCulled = false; m.castShadow = true; G.scene.add(m); return m; };
   const center = m => m.meta.games || m.meta.plaza || m.meta.spawn || { x: G.player.x, z: G.player.z };
+  // ---------- matériel de la partie : il apparaît dans la barre (case dorée), déjà en main ; T pour le ranger / le ressortir ----------
+  G.gear = {
+    give(id) { const p = G.player, it = G.ITEMS[id]; if (!p || !it) return; p.tempTool = id; p.gearOff = false; G.ui.gearPop = true; G.ui.dirtyHot(); G.ui.showHeld(); G.sfx('pickup'); G.ui.toast(it.ico + ' ' + it.n + ' : en main pour la partie !'); },
+    drop() { const p = G.player; if (!p || !p.tempTool) return; if (p.fish && G.act.stopFish) G.act.stopFish(); p.tempTool = null; p.gearOff = false; G.ui.dirtyHot(); },
+    draw() { const p = G.player; if (!p || !p.tempTool || !p.gearOff) return; p.gearOff = false; G.ui.gearPop = true; G.ui.dirtyHot(); G.ui.showHeld(); G.sfx('ui'); },
+    toggle() { const p = G.player; if (!p || !p.tempTool) return; if (p.gearOff) return G.gear.draw(); p.gearOff = true; if (p.fish && G.act.stopFish) G.act.stopFish(); G.ui.dirtyHot(); G.ui.showHeld(); G.sfx('ui'); } };
+  G.on('update', () => { const I = G.input; if (I && G.player && G.player.tempTool && G.ui.canPlay() && I.ch('t')) G.gear.toggle(); });
   // ---------- cachettes (identiques pour les deux joueurs : même graine, même village) ----------
   function hideSpots(m, cx, cz, seed, n) {
     const r = G.rng(seed), cand = [];
@@ -30,28 +37,31 @@
   // ---------- démarrer / finir ----------
   GM.start = (id, o = {}) => {
     if (GM.a || (G.mini && G.mini.active)) return G.ui.toast('Une partie est déjà en cours !'); const m = G.map; if (!m || m.interior) return;
-    const c = center(m), seed = o.seed || (1 + Math.floor(Math.random() * 1e9)), dur = o.dur || ({ cache: 120, peche: 150, safari: 120, etoiles2: 50, cueillette: 120, papillons: 120, gros: 150, tresor: 150 }[id]);
-    const a = GM.a = { id, map: m, seed, dur, t0: o.t0 || Date.now(), duo: !!o.duo, host: o.host || (G.net && G.net.me ? G.net.me() : null), hostName: o.hostName || G.playerName, score: 0, got: [], items: [], objs: [], cx: c.x, cz: c.z, isle: !!o.isle };
+    const c = center(m), seed = o.seed || (1 + Math.floor(Math.random() * 1e9)), dur = o.dur || ({ cache: 120, peche: 150, safari: 120, etoiles2: 50, ballons2: 40, anneaux2: 70, cueillette: 120, papillons: 120, gros: 150, tresor: 150 }[id]);
+    const a = GM.a = { id, map: m, seed, dur, t0: o.t0 || Date.now(), duo: !!o.duo, host: o.host || (G.net && G.net.me ? G.net.me() : null), hostName: o.hostName || G.playerName, score: 0, got: [], items: [], objs: [], cx: c.x, cz: c.z, isle: !!o.isle, np: o.joined ? 1 : 0 };
     if (id === 'cache') { const sp = hideSpots(m, c.x, c.z, seed, 3); a.items = sp.map((s, k) => makeHider((seed + k) % 5, s)); hideVillagers(true); if (!a.items.length) { GM.a = null; return G.ui.toast('Pas de cachette par ici…'); } }
     if (id === 'etoiles2') { a.spots = starSpots(m, c.x, c.z, seed); a.stars = new Map(); }
-    if (id === 'peche' || id === 'gros') G.player.tempTool = 'canne';
-    if (id === 'safari' || id === 'papillons') G.player.tempTool = 'filet';
-    if (id === 'tresor') { G.player.tempTool = 'pelle'; const r = G.rng(seed); let n = 0; for (let t = 0; t < 400 && n < 3; t++) { const x = 3 + Math.floor(r() * (m.W - 6)), z = 3 + Math.floor(r() * (m.H - 6)); if (m.canPlace('tresor_sol', x, z) && Math.hypot(x - G.player.x, z - G.player.z) > 6) { a.objs.push(m.addObj('tresor_sol', x, z)); n++; } } }
-    G.ui.dirtyHot(); G.sfx('fanfare'); G.ui.toast((a.duo ? '👥 ' : '') + 'C\'est parti : ' + NAMES[id] + ' !');
+    if (id === 'anneaux2') { a.rings = []; a.ring = 0; for (let k = 0; k < 8; k++) { const ang = k / 8 * TAU, r = 7 + (k % 3) * 3; let x = c.x + Math.cos(ang) * r, z = c.z + Math.sin(ang) * r; if (m.isWaterAt(x, z) || m.topAt(x, z) > 30) { x = c.x + Math.cos(ang) * 4; z = c.z + Math.sin(ang) * 4; }
+        const y = m.topAt(x, z) + (k % 3 === 2 ? 1.9 : 1.0), me = mesh(G.getGeo('ring', k === 0 ? 1 : 0)); me.position.set(x, y, z); me.rotation.y = ang + Math.PI / 2; a.rings.push({ m: me, x, y, z }); } }
+    if (id === 'ballons2') { a.bal = new Map(); G.gear.give('lance_pierre'); }
+    if (id === 'peche' || id === 'gros') G.gear.give('canne');
+    if (id === 'safari' || id === 'papillons') G.gear.give('filet');
+    if (id === 'tresor') { G.gear.give('pelle'); const r = G.rng(seed); let n = 0; for (let t = 0; t < 400 && n < 3; t++) { const x = 3 + Math.floor(r() * (m.W - 6)), z = 3 + Math.floor(r() * (m.H - 6)); if (m.canPlace('tresor_sol', x, z) && Math.hypot(x - G.player.x, z - G.player.z) > 6) { a.objs.push(m.addObj('tresor_sol', x, z)); n++; } } }
+    G.ui.dirtyHot(); G.sfx('fanfare'); G.ui.toast(o.joined ? '👥 ' + o.hostName + ' a lancé « ' + NAMES[id] + ' » : tu joues aussi !' : (a.duo ? '👥 ' : '') + 'C\'est parti : ' + NAMES[id] + ' !', o.joined ? 4200 : 0);
     if (a.duo) pushDuo(true);
   };
   const pushDuo = open => { const a = GM.a; if (!a || !a.duo || !NET()) return; NET().setGame({ id: a.id, seed: a.seed, t0: a.t0, dur: a.dur, host: a.host, hn: G.playerName, open: !!open, got: a.got.slice(-60), sc: a.score }); };
   const partners = () => { const a = GM.a, out = []; if (!a || !a.duo || !NET()) return out; for (const p of NET().peersHere()) { const g = p.pr.g; if (g && g.seed === a.seed && g.id === a.id) out.push({ n: p.pr.n || 'Ami', g }); } return out; };
   const allGot = () => { const s = new Set(GM.a.got); for (const p of partners()) for (const i of (p.g.got || [])) s.add(i); return s; };
   GM.end = (why) => {
-    const a = GM.a; if (!a) return; GM.a = null; hud(false); G.player.tempTool = null; G.ui.dirtyHot(); hideVillagers(false);
-    for (const h of a.items || []) G.scene.remove(h.C.root); if (a.stars) for (const s of a.stars.values()) G.scene.remove(s); for (const o of a.objs) if (o && a.map.list.has(o)) a.map.removeObj(o);
+    const a = GM.a; if (!a) return; GM.a = null; hud(false); G.gear.drop(); G.ui.dirtyHot(); hideVillagers(false);
+    for (const h of a.items || []) G.scene.remove(h.C.root); if (a.stars) for (const s of a.stars.values()) G.scene.remove(s); for (const r of a.rings || []) G.scene.remove(r.m); if (a.bal) for (const b of a.bal.values()) G.scene.remove(b.m); for (const o of a.objs) if (o && a.map.list.has(o)) a.map.removeObj(o);
     const pts = partners(); if (a.duo && NET()) NET().setGame(null);
     let coins = 0, lines = [];
     if (a.isle) { const need = { cueillette: 6, papillons: 4, gros: 3, tresor: 3 }[a.id], left = Math.max(0, a.dur - (Date.now() - a.t0) / 1000), ok = a.score >= need, med = !ok ? null : left / a.dur > .5 ? ['or', '🥇', 2500] : left / a.dur > .25 ? ['argent', '🥈', 1500] : ['bronze', '🥉', 800];
       if (med) { coins = med[2]; G.flags.medals = (G.flags.medals || 0) + 1; lines = ['Bravo ! Excursion réussie : ' + a.score + '/' + need + '.', 'Médaille d\'' + med[0] + ' ' + med[1] + ' ! Tu gagnes ' + coins + ' clochettes. (Médailles : ' + G.flags.medals + ')']; }
       else lines = ['Le temps est écoulé… ' + a.score + '/' + need + '.', 'Ce n\'est pas grave, reviens essayer quand tu veux !']; }
-    else { const k = { cache: 400, peche: 150, safari: 150, etoiles2: 25 }[a.id]; coins = a.score * k; if (a.id === 'cache' && why === 'all') coins += Math.round(Math.max(0, a.dur - (Date.now() - a.t0) / 1000)) * 10;
+    else { const k = { cache: 400, peche: 150, safari: 150, etoiles2: 25, ballons2: 25, anneaux2: 4 }[a.id]; coins = a.score * k; if (a.id === 'cache' && why === 'all') coins += Math.round(Math.max(0, a.dur - (Date.now() - a.t0) / 1000)) * 10;
       const rec = G.mini.best[a.id] || 0, nb = a.score > rec; if (nb) G.mini.best[a.id] = a.score;
       lines = [why === 'all' ? 'Tout est trouvé ! Ton score : ' + a.score + '.' : 'Terminé ! Ton score : ' + a.score + '.'];
       if (pts.length) lines.push('Scores : toi ' + a.score + ' · ' + pts.map(p => p.n + ' ' + (p.g.sc || 0)).join(' · ') + (pts.every(p => a.score > (p.g.sc || 0)) ? ' — tu gagnes ! 🏆' : pts.some(p => a.score < (p.g.sc || 0)) ? ' — la prochaine fois !' : ' — égalité !'));
@@ -71,11 +81,26 @@
       for (const s of a.spots) { const has = a.stars.get(s.i); if (got.has(s.i)) { if (has) { G.scene.remove(has); a.stars.delete(s.i); } continue; } if (shown >= 7) { if (has) { G.scene.remove(has); a.stars.delete(s.i); } continue; } shown++;
         let me = has; if (!me) { me = mesh(G.getGeo('star', s.gold ? 1 : 0)); me.position.set(s.x, s.y, s.z); a.stars.set(s.i, me); } me.rotation.y += dt * 3; me.position.y = s.y + Math.sin(performance.now() / 300 + s.x) * .08;
         if (Math.hypot(s.x - p.x, s.y - (p.y + .55), s.z - p.z) < .85) { a.got.push(s.i); a.score += s.gold ? 3 : 1; G.sfx('coin'); G.fx.burst(s.x, s.y, s.z, 14, [0xffd23f, 0xffffff], 3, .6, 2); G.popup(s.gold ? '+3 ⭐' : '+1 ⭐', s.x, s.y + .4, s.z, 'gold'); G.scene.remove(me); a.stars.delete(s.i); if (a.duo) pushDuo(true); } } }
-    const pt = partners(), goal = { cache: ' 👀 ' + a.score + '/' + (a.items ? a.items.length : 3), cueillette: ' 🍎 ' + a.score + '/6', papillons: ' 🦋 ' + a.score + '/4', gros: ' 🐟 ' + a.score + '/3', tresor: ' 💎 ' + a.score + '/3' }[a.id] || ' ⭐ ' + a.score;
+    if (a.id === 'anneaux2') { a.rings.forEach((o, k) => { o.m.visible = k >= a.ring; o.m.rotation.z = Math.sin(performance.now() / 500 + k) * .1; o.m.scale.setScalar(k === a.ring ? 1 + Math.sin(performance.now() / 150) * .06 : .85); });
+      const o = a.rings[a.ring]; if (o && Math.hypot(o.x - p.x, o.y - (p.y + .6), o.z - p.z) < 1) { a.ring++; a.score += 10; G.sfx('coin'); G.fx.burst(o.x, o.y, o.z, 16, [0xff9a3c, 0xffffff], 3, .6, 2); const nx = a.rings[a.ring]; if (nx) nx.m.geometry = G.getGeo('ring', 1);
+        if (a.ring >= a.rings.length) { a.score += Math.max(0, Math.ceil(left)) * 10; if (a.duo) pushDuo(true); return GM.end('all'); } if (a.duo) pushDuo(true); } }
+    if (a.id === 'ballons2') { // mêmes ballons, au même moment, pour tout le monde (tirés de la graine) ; un ballon éclaté disparaît chez les deux
+      const el = (Date.now() - a.t0) / 1000, kmax = Math.floor(el / .75), got = allGot();
+      for (let k = Math.max(0, kmax - 10); k <= kmax; k++) { const age = el - k * .75; let b = a.bal.get(k); if (age < 0 || age > 7.2 || got.has(k)) { if (b) { G.scene.remove(b.m); a.bal.delete(k); } continue; }
+        if (!b) { const r = G.rng(a.seed + k * 7919), ang = r() * TAU, rr = 3 + r() * 7, x = a.cx + Math.cos(ang) * rr, z = a.cz + Math.sin(ang) * rr, gold = r() < .12; b = { k, x, z, gold, y0: a.map.topAt(x, z) + .4, m: mesh(G.getGeo('miniballoon', gold ? 3 : Math.floor(r() * 3))) }; a.bal.set(k, b); }
+        b.y = b.y0 + age * 1.25; b.m.position.set(b.x + Math.sin(b.y * 2) * .1, b.y, b.z); }
+      for (const [k, b] of a.bal) if (k < kmax - 10) { G.scene.remove(b.m); a.bal.delete(k); } }
+    const pt = partners(); if (a.duo && pt.length > (a.np || 0)) { G.ui.toast('👥 ' + pt.map(q => q.n).join(', ') + ' joue avec toi !'); G.sfx('pop'); } a.np = pt.length;
+    const goal = { cache: ' 👀 ' + a.score + '/' + (a.items ? a.items.length : 3), anneaux2: ' 🎯 ' + a.ring + '/' + (a.rings ? a.rings.length : 8), ballons2: ' 🎈 ' + a.score, cueillette: ' 🍎 ' + a.score + '/6', papillons: ' 🦋 ' + a.score + '/4', gros: ' 🐟 ' + a.score + '/3', tresor: ' 💎 ' + a.score + '/3' }[a.id] || ' ⭐ ' + a.score;
     el.innerHTML = '<span>' + (a.duo ? '👥 ' : '') + NAMES[a.id] + '</span><b>⏱ ' + Math.max(0, Math.ceil(left)) + ' s</b><b>' + goal + '</b>' + (pt.length ? '<span style="font-size:15px">' + pt.map(q => esc(q.n) + ' ' + (q.g.sc || 0)).join(' · ') + '</span>' : '');
     if (left <= 0) GM.end('time');
   });
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  // tir aux ballons à deux : le lance-pierre vise et éclate aussi ces ballons-là
+  const otg = G.mini.targets; G.mini.targets = () => { const a = GM.a; return a && a.id === 'ballons2' ? [...a.bal.values()].filter(b => b.y != null) : otg(); };
+  const ohit = G.mini.hit; G.mini.hit = (x, y, z) => { if (ohit(x, y, z)) return true; const a = GM.a; if (!a || a.id !== 'ballons2') return false;
+    for (const b of a.bal.values()) if (b.y != null && Math.hypot(b.x - x, b.y - y, b.z - z) < .65) { a.bal.delete(b.k); G.scene.remove(b.m); a.got.push(b.k); a.score += b.gold ? 5 : 1; G.sfx('pop'); G.fx.burst(b.x, b.y, b.z, 18, [0xe8434a, 0xffd23f, 0x5b8fd6, 0xffffff], 3.5, .8, 4); G.popup(b.gold ? '+5' : '+1', b.x, b.y + .5, b.z, 'gold'); if (a.duo) pushDuo(true); return true; }
+    return false; };
   // compteurs : poissons, insectes, fruits, trésors
   const pts = (sell, a, b) => sell >= a ? 3 : sell >= b ? 2 : 1;
   const ogive = G.act.give; G.act.give = (id, n, x, y, z) => { const r = ogive(id, n, x, y, z), a = GM.a, it = G.ITEMS[id];
@@ -89,24 +114,29 @@
   const odig = G.act.dig; G.act.dig = (tx, tz, o) => { const a = GM.a; if (o && o.t === 'tresor_sol') { const m = G.map, [cx, cz] = m.center(o); m.removeObj(o); G.sfx('dig'); G.sfx('fanfare'); G.fx.burst(cx, o.y + .4, cz, 20, [0xffd23f, 0xffffff, 0xbfe6fa], 3.5, .8, 6);
       const loot = G.pick(['or', 'or', 'coquillage', 'fossile', 'cadeau']); G.act.give(loot, 1, cx, o.y, cz); if (a && a.id === 'tresor') { a.score++; if (a.objs) a.objs = a.objs.filter(q => q !== o); if (a.score >= 3) setTimeout(() => GM.end('all'), 600); } return; }
     return odig(tx, tz, o); };
-  // ---------- invitations à jouer à deux ----------
-  function invitations() { const net = NET(); if (!net || !net.online()) return;
-    for (const p of net.peersHere()) { const g = p.pr.g; if (!g || !g.open || g.host !== p.pr.home || !NAMES[g.id] || Date.now() - g.t0 > g.dur * 1000) continue; if (GM.invited[g.seed]) continue; GM.invited[g.seed] = 1;
-      G.ui.toast('👥 ' + (p.pr.n || 'Un ami') + ' t\'invite à « ' + NAMES[g.id] + ' » ! Parle à Filou pour rejoindre la partie.'); G.sfx('pop'); } }
+  // ---------- parties à deux : quand un ami lance un jeu ici, on le rejoint tout de suite (avec son matériel) ----------
+  const join = og => GM.start(og.g.id, { seed: og.g.seed, t0: og.g.t0, dur: og.g.dur, duo: true, host: og.g.host, hostName: og.n, joined: true });
+  function invitations() { const net = NET(); if (!net || !net.online() || G.state !== 'play' || (G.mini && G.mini.active)) return;
+    for (const p of net.peersHere()) { const g = p.pr.g; if (!g || !g.open || g.host !== p.pr.home || !NAMES[g.id] || Date.now() - g.t0 > (g.dur - 4) * 1000 || GM.invited[g.seed]) continue;
+      if (!G.ui.canPlay()) return; // on rejoint dès que la fenêtre ou le dialogue est fermé
+      GM.invited[g.seed] = 1; G.sfx('pop'); join({ n: p.pr.n || 'Ton ami', g }); return; } }
   const openGame = () => { const net = NET(); if (!net) return null; for (const p of net.peersHere()) { const g = p.pr.g; if (g && g.open && g.host === p.pr.home && NAMES[g.id] && Date.now() - g.t0 < (g.dur - 5) * 1000) return { n: p.pr.n || 'Ami', g }; } return null; };
+  const friendsHere = () => { const net = NET(); return net && net.online() ? net.peersHere() : []; }, whoHere = () => friendsHere().map(p => p.pr.n || 'ton ami').join(', ');
   // ---------- Filou ----------
   const SOLO = [['etoiles', 'Attrape-étoiles'], ['ballons', 'Tir aux ballons'], ['anneaux', 'Course des anneaux'], ['cache', 'Cache-cache'], ['peche', 'Concours de pêche'], ['safari', 'Safari insectes']];
-  const DUO = [['etoiles2', 'Attrape-étoiles à deux'], ['cache', 'Cache-cache à deux'], ['peche', 'Pêche à deux']];
+  const DUO = [['etoiles2', 'Attrape-étoiles'], ['ballons2', 'Tir aux ballons'], ['anneaux2', 'Course des anneaux'], ['cache', 'Cache-cache'], ['peche', 'Concours de pêche'], ['safari', 'Safari insectes']];
   G.npcRoles.jeux = v => {
-    const og = openGame(), opts = [], acts = [];
-    if (og) { opts.push('Rejoindre « ' + NAMES[og.g.id] + ' » de ' + og.n); acts.push(() => GM.start(og.g.id, { seed: og.g.seed, t0: og.g.t0, dur: og.g.dur, duo: true, host: og.g.host, hostName: og.n })); }
-    opts.push('Jeux en solo', 'Jouer à deux', 'Non merci'); acts.push(() => solo(v), () => duo(v), () => { });
-    return say(v, ['Approche, approche, ' + G.playerName + ' ! Mes jeux rapportent des clochettes ! 🔔' + (og ? ' Et ' + og.n + ' t\'attend pour jouer !' : '')], opts).then(k => { if (k >= 0 && acts[k]) return acts[k](); });
+    const og = !GM.a && openGame(), here = friendsHere(), opts = [], acts = [];
+    if (og) { opts.push('Rejoindre « ' + NAMES[og.g.id] + ' » de ' + og.n); acts.push(() => join(og)); }
+    if (here.length) { opts.push('Jouer avec ' + whoHere(), 'Jouer seul·e'); acts.push(() => duo(v), () => solo(v)); }
+    else { opts.push('Jouer', 'Jouer à deux'); acts.push(() => solo(v), () => duo(v)); }
+    opts.push('Non merci'); acts.push(() => { });
+    return say(v, ['Approche, approche, ' + G.playerName + ' ! Mes jeux rapportent des clochettes ! 🔔' + (og ? ' Et ' + og.n + ' t\'attend pour jouer !' : here.length ? ' ' + whoHere() + ' est là : on joue ensemble ?' : '')], opts).then(k => { if (k >= 0 && acts[k]) return acts[k](); });
   };
   const solo = v => say(v, ['À quoi veux-tu jouer ?'], SOLO.map(x => x[1]).concat(['Retour'])).then(k => { const g = SOLO[k]; if (!g) return; if (['etoiles', 'ballons', 'anneaux'].includes(g[0])) return G.mini.start(g[0]); GM.start(g[0]); });
   const duo = v => { const net = NET(); if (!net || !net.online()) return say(v, ['Pour jouer à deux, il faut être en ligne avec un ami !', 'Invite-le dans ton village depuis la gare, ou rends-lui visite.']);
-    if (!net.peersHere().length) return say(v, ['Il n\'y a personne d\'autre ici pour l\'instant…', 'Quand ton ami sera sur la place avec toi, reviens me voir !']);
-    return say(v, ['Super ! Choisis le jeu, j\'envoie l\'invitation à tout le monde ici.'], DUO.map(x => x[1]).concat(['Retour'])).then(k => { const g = DUO[k]; if (g) GM.start(g[0], { duo: true }); }); };
+    if (!net.peersHere().length) return say(v, ['Il n\'y a personne d\'autre ici pour l\'instant…', 'Quand ton ami sera dans le village avec toi, reviens me voir !']);
+    return say(v, ['Super ! Choisis le jeu : ' + whoHere() + ' entre dans la partie tout de suite, et chacun reçoit son matériel.'], DUO.map(x => x[1]).concat(['Retour'])).then(k => { const g = DUO[k]; if (g) GM.start(g[0], { duo: true }); }); };
   // ---------- Papy Écaille : excursions sur l'île ----------
   G.npcRoles.ile = v => say(v, ['Bonjour jeune voyageur… Je suis Papy Écaille, gardien de cette île.', 'Une petite excursion ? Réussis-la vite pour gagner une médaille et des clochettes !'], ['Cueillette tropicale (6 fruits)', 'Safari papillons (4 insectes)', 'Pêche au gros (3 poissons)', 'Chasse au trésor (3 trésors)', 'Un souvenir ?', 'Au revoir']).then(k => {
     const ids = ['cueillette', 'papillons', 'gros', 'tresor']; if (k >= 0 && k < 4) { const tips = ['Secoue les arbres (E) et ramasse les fruits !', 'Ton filet t\'attend : attrape 4 insectes.', 'Voilà une canne : 3 poissons de la mer !', 'Voilà une pelle : cherche les croix rouges sur l\'île et creuse !']; return say(v, [tips[k]]).then(() => GM.start(ids[k], { isle: true })); }

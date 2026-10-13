@@ -33,7 +33,7 @@
     if (I.ch('u')) p.unstick(true);
     if (I.ch('g') && G.ui.openEmotes) G.ui.openEmotes();
   };
-  A.select = k => { if (k === G.sel) return; G.sel = k; G.ui.dirtyHot(); G.ui.showHeld(); G.sfx('ui'); if (P().fish) A.stopFish(); };
+  A.select = k => { const p = P(); if (p && p.tempTool && !p.gearOff) { p.gearOff = true; if (k === G.sel) { G.ui.dirtyHot(); G.ui.showHeld(); G.sfx('ui'); if (p.fish) A.stopFish(); return; } } if (k === G.sel) return; G.sel = k; G.ui.dirtyHot(); G.ui.showHeld(); G.sfx('ui'); if (P().fish) A.stopFish(); };
   A.hold = () => {
     const it = G.inv.held(); if (!it || !['place', 'surf', 'terra'].includes(it.kind) || A.cd > 0 || P().act) return;
     const [tx, tz] = P().target(), key = tx + ',' + tz; if (key === A.lastKey) return; A.use();

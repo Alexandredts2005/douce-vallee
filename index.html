@@ -48,6 +48,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .slot .n{position:absolute;right:4px;bottom:1px;font-family:var(--f-display);font-size:13px;font-weight:600;color:var(--ink);text-shadow:0 0 3px #fff,0 0 3px #fff}
 .slot .k{position:absolute;left:5px;top:2px;font-size:10px;font-weight:800;color:var(--bark);opacity:.6}
 .slot.sel{background:#fff;box-shadow:0 0 0 3px var(--leaf),0 4px 0 var(--leaf-d);transform:translateY(-4px)}
+.slot.gear{background:linear-gradient(#ffe58a,#f5c542);box-shadow:0 0 0 2px #e0a526;margin-right:6px}.slot.gear.sel{background:linear-gradient(#fff6c8,#ffd75e);box-shadow:0 0 0 3px #e8a23a,0 4px 0 #b97a14}.slot.gear.pop{animation:gearpop .6s cubic-bezier(.3,1.6,.5,1)}
+@keyframes gearpop{0%{transform:translateY(30px) scale(.2);opacity:0}60%{transform:translateY(-14px) scale(1.25);opacity:1}100%{transform:translateY(-4px) scale(1)}}
 #held-name{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);font-family:var(--f-display);font-size:15px;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,.45);transition:opacity .4s;white-space:nowrap}
 #popups{position:absolute;inset:0;overflow:hidden}
 .pop{position:absolute;font-family:var(--f-display);font-weight:600;font-size:18px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 6px rgba(0,0,0,.25);white-space:nowrap;transform:translate(-50%,-50%);will-change:transform}

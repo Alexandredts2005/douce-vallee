@@ -14,7 +14,7 @@
   M.start = id => {
     if (M.active || !G.map || G.map.interior) return; const w = G.map, c = w.meta.games || w.meta.plaza || G.player;
     const a = M.active = { id, map: w, t: id === 'anneaux' ? 70 : id === 'ballons' ? 40 : 45, score: 0, objs: [], cx: c.x, cz: c.z, spawn: 0, ring: 0 };
-    if (id === 'ballons') G.player.tempTool = 'lance_pierre';
+    if (id === 'ballons') G.gear.give('lance_pierre');
     if (id === 'anneaux') { const pts = []; for (let k = 0; k < 8; k++) { const ang = k / 8 * TAU, r = 7 + (k % 3) * 3; let x = a.cx + Math.cos(ang) * r, z = a.cz + Math.sin(ang) * r; if (w.isWaterAt(x, z) || w.topAt(x, z) > 30) { x = a.cx + Math.cos(ang) * 4; z = a.cz + Math.sin(ang) * 4; } pts.push([x, w.topAt(x, z) + (k % 3 === 2 ? 1.9 : 1.0), z, ang]); }
       pts.forEach((p, k) => { const m = mesh('ring', k === 0 ? 1 : 0); m.position.set(p[0], p[1], p[2]); m.rotation.y = p[3] + Math.PI / 2; a.objs.push({ m, x: p[0], y: p[1], z: p[2] }); }); }
     G.ui.dirtyHot(); G.sfx('fanfare'); G.ui.toast('C\'est parti : ' + NAMES[id] + ' !');
@@ -36,7 +36,7 @@
     if (a.t <= 0 || G.map !== a.map) M.end();
   };
   M.end = () => {
-    const a = M.active; if (!a) return; M.active = null; hud(false); for (const o of a.objs) G.scene.remove(o.m); G.player.tempTool = null; G.ui.dirtyHot();
+    const a = M.active; if (!a) return; M.active = null; hud(false); for (const o of a.objs) G.scene.remove(o.m); G.gear.drop(); G.ui.dirtyHot();
     const rec = M.best[a.id] || 0, nb = a.score > rec; if (nb) M.best[a.id] = a.score; const coins = a.score * (a.id === 'anneaux' ? 4 : 25);
     if (coins) { G.coins += coins; G.ui.dirtyHud(); } G.sfx(nb ? 'fanfare' : 'catch');
     const v = G.ents.villagers.find(x => x.npc === 'jeux');
