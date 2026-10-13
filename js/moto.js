@@ -75,6 +75,19 @@
   let lastToggle = 0;
   function leave(p, v) { lastToggle = performance.now(); G.scene.remove(v.mesh); p.vehicle = null; ENG.stop(); hud.hidden = true; G.clearPose && G.clearPose(p.C); if (p.toolMesh) p.toolMesh.visible = true; p.root.rotation.set(0, p.yaw, 0); p.root.rotation.order = 'XYZ'; p.blob.visible = true; G.cam.cx = 0; }
   G.motoLeave = () => { const p = G.player; if (p && p.vehicle && p.vehicle.moto) leave(p, p.vehicle); };
+  // ---------- ce qui arrête vraiment la moto : falaises, bâtiments, troncs d'arbres, gros rochers, habitants (pas les fleurs ni l'herbe) ----------
+  const small = (o, d) => d.walk || G.isFlowerObj(o) || (d.pick && !d.enter) || (!d.enter && !d.chop && (d.h || 0) < .55);
+  // hauteur du sol roulable (pont, ponton compris) ; null = pas de sol (eau)
+  function ground(m, x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return null; const o = m.objAt(tx, tz), d = o && O[o.t];
+    if (d && d.walk) return m.topAt(x, z); if (m.isWaterAt(x, z)) return null; return m.terrainH(x, z); }
+  // le sommet de ce qui se dresse en (x, z) (terrain ou objet), pour savoir si on bute ou si on peut sauter par-dessus
+  function obstacle(m, x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return 99; const o = m.objAt(tx, tz), d = o && O[o.t]; let top = m.terrainH(x, z);
+    if (o && !small(o, d)) { const fp = G.fpDims(d, o.r || 0); if (d.chop >= 3 || (fp[0] * fp[1] === 1 && !d.enter)) { if (Math.hypot(x - tx - .5, z - tz - .5) < .34) top = Math.max(top, o.y + Math.min(d.h || 3, 4)); } else top = Math.max(top, m.topAt(x, z)); }
+    for (const e of G.ents.villagers) if (e.map === m && e.visible && Math.hypot(e.x - x, e.z - z) < .42) top = Math.max(top, e.y + 3);
+    return top; }
+  // la moto (deux roues et le milieu, un peu de largeur) tient-elle en (x, z) à la hauteur y ?
+  function fits(m, x, z, h, y, air) { const fx = Math.sin(h), fz = Math.cos(h), lim = y + (air ? .15 : .62);
+    for (const [a, b] of [[.78, 0], [0, 0], [-.6, 0], [.4, .2], [.4, -.2], [-.3, .2], [-.3, -.2]]) { const px = x + fx * a + fz * b, pz = z + fz * a - fx * b; if (obstacle(m, px, pz) > lim || (!air && ground(m, px, pz) === null)) return false; } return true; }
   // ---------- caméra de poursuite ----------
   function camFn(camera, C, dt, mouse) { const v = G.player.vehicle, k = 1 - Math.exp(-dt * (mouse ? 7 : 3)); if (mouse) C.yaw = G.angLerp(C.yaw, C.tyaw, k); else { C.yaw = G.angLerp(C.yaw, v.h + PI, k); C.tyaw = C.yaw; }
     const dist = 5 + Math.abs(v.spd) * .16, pitch = mouse ? G.clamp(C.mp, .05, 1.1) : .36, tx = v.x, ty = v.y + 1.05, tz = v.z, kk = Math.min(1, 10 * dt);
@@ -96,13 +109,35 @@
         v.mesh.scale.setScalar(Math.max(.01, s)); gas = 0; steer = 0; if (a.k === 'out') v.spd = 0;
         if (u >= 1) { if (a.k === 'in') { v.anim = null; v.mesh.scale.setScalar(1); } else { stowDone(p, v); return; } } }
       const max = GEARS[v.gear].max, target = gas > 0 ? max * gas : gas < 0 ? (v.spd > .5 ? 0 : -2.5) : 0, acc = gas < 0 && v.spd > .5 ? 14 : 3 + v.gear * 1.6;
-      v.spd += G.clamp(target - v.spd, -acc * dt * (gas ? 1 : .7), acc * dt);
+      if (!v.air) v.spd += G.clamp(target - v.spd, -acc * dt * (gas ? 1 : .7), acc * dt);
       v.h -= steer * 2.3 * G.clamp(Math.abs(v.spd) / 3, .25, 1) / (1 + Math.abs(v.spd) * .05) * dt * (v.spd < -.1 ? -1 : 1);
-      const fx = Math.sin(v.h), fz = Math.cos(v.h), nx = v.x + fx * v.spd * dt, nz = v.z + fz * v.spd * dt, dir = v.spd >= 0 ? 1 : -1;
-      const hit = p.blocked(nx, nz, v.y, false, false) || p.blocked(nx + fx * .75 * dir, nz + fz * .75 * dir, v.y, true, false) || m.isWaterAt(nx + fx * .75 * dir, nz + fz * .75 * dir);
-      if (!hit) { v.x = nx; v.z = nz; } else { if (Math.abs(v.spd) > 5) { G.cam.shake && G.cam.shake(.25); G.sfx('hurt', .3); } v.spd = 0; }
-      p.x = v.x; p.z = v.z; p.y = v.y; const gy = p.groundAt(v.x, v.z);
-      if (gy < v.y - .05) { v.vy -= 22 * dt; v.y = Math.max(gy, v.y + v.vy * dt); } else { v.vy = 0; v.y = gy; }
+      const dir = v.spd >= 0 ? 1 : -1, aspd = Math.abs(v.spd);
+      // on s'écarte doucement de ce qui arrive devant
+      if (!v.air && aspd > 1.5) { const L = 1.3 + aspd * .16, ahead = a => { const hx = Math.sin(v.h + a) * dir, hz = Math.cos(v.h + a) * dir; return obstacle(m, v.x + hx * L, v.z + hz * L) > v.y + 1.7 || obstacle(m, v.x + hx * L * .55, v.z + hz * L * .55) > v.y + 1.7; };
+        if (ahead(0)) { for (const a of [.3, .55, .8]) { const l = !ahead(a), r = !ahead(-a); if (l || r) { const sg = l && r ? (steer >= 0 ? -1 : 1) : l ? 1 : -1; v.h += sg * Math.min(1.8 * dt * (1 + aspd * .05), .06); break; } } } }
+      const fx = Math.sin(v.h), fz = Math.cos(v.h), nx = v.x + fx * v.spd * dt, nz = v.z + fz * v.spd * dt;
+      if (fits(m, nx, nz, v.h, v.y, v.air)) { v.x = nx; v.z = nz; }
+      else if (!v.air && aspd > 1) {
+        const la = (1.0 + aspd * dt) * dir, tx = v.x + fx * la, tz = v.z + fz * la, wet = ground(m, tx, tz) === null, top = obstacle(m, tx, tz);
+        let jumped = false;
+        if (wet) { for (let d = 1.2; d <= 7; d += .3) { const gx = v.x + fx * d * dir, gz = v.z + fz * d * dir, g = ground(m, gx, gz); if (g === null) continue; const D = d + .95, cx = v.x + fx * D * dir, cz = v.z + fz * D * dir, cg = ground(m, cx, cz); if (g <= v.y + .7 && cg !== null && fits(m, cx, cz, v.h, Math.max(g, cg), false)) { v.vy = Math.sqrt(2 * 22 * (.8 + D * .07)); v.jspd = Math.max(aspd, (D + .3) / (2 * v.vy / 22)) * dir; jumped = true; } break; } } // l'eau : on saute jusqu'à l'autre rive
+        else if (top <= v.y + 1.7) { // un petit obstacle : on saute par-dessus, seulement si on peut retomber de l'autre côté
+          const lx = v.x + fx * (la + 1.1 * dir), lz = v.z + fz * (la + 1.1 * dir), lg = ground(m, lx, lz);
+          if (lg !== null && lg <= top + .2 && fits(m, lx, lz, v.h, lg, false)) { v.vy = Math.sqrt(2 * 22 * (top - v.y + .55)); v.jspd = Math.max(aspd, 3) * dir; jumped = true; } }
+        if (jumped) { v.air = true; v.spd = v.jspd; G.sfx('jump', .5); G.fx.puff(v.x, v.y + .1, v.z, 6, 0xf3ead2, .6); }
+        else { // un mur, une maison, un arbre : on glisse le long, ou de face on tourne vers le côté le plus libre
+          const ax = fits(m, nx, v.z, v.h, v.y, false), az = fits(m, v.x, nz, v.h, v.y, false), cx = Math.abs(fx), cz = Math.abs(fz), alongX = ax && cx > .25 && (!az || cz <= .25 || cx >= cz);
+          if (alongX || (az && cz > .25)) { if (alongX) v.x = nx; else v.z = nz; v.spd *= Math.pow(.55, dt); v.h = G.angLerp(v.h, alongX ? Math.atan2(Math.sign(fx) * dir, 0) : Math.atan2(0, Math.sign(fz) * dir), Math.min(1, 2.5 * dt)); }
+          else { const side = a => fits(m, v.x + Math.sin(v.h + a) * .7 * dir, v.z + Math.cos(v.h + a) * .7 * dir, v.h + a, v.y, false), sg = steer ? -Math.sign(steer) : side(1.1) ? 1 : side(-1.1) ? -1 : 1;
+            v.h += sg * 2.4 * dt; if (aspd > 6) { G.cam.shake && G.cam.shake(.2); G.sfx('hurt', .3); } v.spd *= Math.pow(.2, dt); } } }
+      else if (!v.air) v.spd *= .5;
+      p.x = v.x; p.z = v.z; p.y = v.y;
+      const gy = ground(m, v.x, v.z);
+      if (v.air || gy === null || gy < v.y - .08) { v.air = true; v.vy -= 22 * dt; v.y += v.vy * dt;
+        if (gy !== null && v.y <= gy && v.vy <= 0) { v.y = gy; v.vy = 0; v.air = false; G.sfx('land', .5); G.fx.puff(v.x, gy + .05, v.z, 5, 0xf3ead2, .5); }
+        else if (gy === null && v.vy < 0 && v.y < (m.waterSurf ? m.waterSurf(Math.floor(v.x), Math.floor(v.z)) : 0) + .1) { // tombée à l'eau : retour sur la rive
+          const s0 = v.safe || { x: v.x, z: v.z, y: 0 }; v.x = s0.x; v.z = s0.z; v.y = s0.y; v.vy = 0; v.spd = 0; v.air = false; G.sfx('splash', .6); } }
+      else { v.vy = 0; v.y = gy; if ((v.safeT = (v.safeT || 0) + dt) > .3) { v.safeT = 0; v.safe = { x: v.x, z: v.z, y: v.y }; } }
       v.lean += (-steer * G.clamp(Math.abs(v.spd) / 8, 0, 1) * .38 - v.lean) * Math.min(1, 6 * dt);
       const M = v.mesh; M.position.set(v.x, v.y, v.z); M.rotation.set(-v.lean, v.h - PI / 2, 0); const spin = v.spd * dt / .33; v.w1.rotation.z -= spin; v.w2.rotation.z -= spin;
       // le pilote : assis, pieds sur les repose-pieds, mains au guidon, il se penche dans les virages
