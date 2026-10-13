@@ -29,6 +29,8 @@
   // triangle tourné vers le haut
   const upTri = (buf, a, b, c, ca, cb, cc, ua, ub, uc) => { if ((b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]) >= 0) buf.tri(a, b, c, ca, cb, cc, ua, ub, uc); else buf.tri(a, c, b, ca, cc, cb, ua, uc, ub); };
 
+  // marches franchissables : perrons des bâtiments, ponts, scènes, kiosques et grandes constructions (pas les fontaines ni les rochers)
+  G.stepOK = d => d._st != null ? d._st : (d._st = !!(d.enter || (d.walk && !d.mine && d.fp[0] * d.fp[1] >= 4) || (d.fp[0] * d.fp[1] >= 9 && !/fontaine/.test(d.id))));
   G.objKey = o => { const d = G.OBJ[o.t]; let v = o.v != null ? o.v : d.v; if ((d.fruit || d.pickFruit) && o.f === 0) v += 10; if (d.light && o.off) v += 100; return d.model + ':' + v; };
   G.fpDims = (d, r) => (r & 1) ? [d.fp[1], d.fp[0]] : [d.fp[0], d.fp[1]];
   // fleurs au sol (pas les arbustes ni les pots) : elles s'effacent devant une maison, un bâtiment ou l'avion, mais bloquent les autres objets
@@ -143,8 +145,8 @@
     // hauteur de la surface marchable (terrain + objets solides)
     topAt(x, z) {
       const tx = Math.floor(x), tz = Math.floor(z); if (!this.inb(tx, tz)) return 50;
-      let h = this.terrainH(x, z); const o = this.objAt(tx, tz);
-      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (d.walk || !G.shapeTop) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) h = Math.max(h, o.y + (d.chop >= 3 && t < 1.5 ? 4 : t)); /* pas de marche sur les racines d'un arbre */ } } } // forme réelle de l'objet (shape.js)
+      let h = this.terrainH(x, z); const o = this.objAt(tx, tz); this._nf = false; // _nf : le point touche un bord arrondi d'objet (racine, buisson, rocher, margelle) : on ne monte pas dessus en marchant
+      if (o) { const d = G.OBJ[o.t]; if (d.h > 0 && !o.falling) { if (d.hAt) h = Math.max(h, o.y + d.hAt(o, x, z, this)); else if (!G.shapeTop || d.box) h = Math.max(h, o.y + d.h); else { const t = G.shapeTop(o, d, x, z); if (t >= 0) { const v = o.y + (d.chop >= 3 && t < 1.5 ? 4 : t); if (v > h) { h = v; this._nf = !G.shapeTop.flat && !G.stepOK(d); } } /* pas de marche sur les racines d'un arbre */ } } } // forme réelle de l'objet (shape.js)
       return h;
     }
     isWaterAt(x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!this.isWaterT(tx, tz)) return false; const o = this.objAt(tx, tz); return !(o && G.OBJ[o.t].walk); }

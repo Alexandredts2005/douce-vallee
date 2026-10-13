@@ -66,16 +66,16 @@
       if (tx === Math.floor(this.x) && tz === Math.floor(this.z)) { tx = Math.floor(this.x + fx * 1.3); tz = Math.floor(this.z + fz * 1.3); }
       return [tx, tz];
     }
-    blocked(x, z, feet, noV, noWater) { if (!PTS9) { PTS9 = []; for (const a of [-R, 0, R]) for (const b of [-R, 0, R]) PTS9.push([a, b]); PTS5 = [[0, 0], [-R * .7, -R * .7], [R * .7, -R * .7], [R * .7, R * .7], [-R * .7, R * .7]]; }
+    blocked(x, z, feet, noV, noWater) { if (!PTS9) { PTS9 = [[0, 0]]; for (let k = 0; k < 8; k++) PTS9.push([Math.cos(k * Math.PI / 4) * R, Math.sin(k * Math.PI / 4) * R]); /* corps rond : on va tout contre les objets */ PTS5 = [[0, 0], [-R * .7, -R * .7], [R * .7, -R * .7], [R * .7, R * .7], [-R * .7, R * .7]]; }
       const m = this.map, lim = m.interior ? .3 : 2.6;
       if (x < lim || z < lim || x > m.W - lim || z > m.H - (m.interior ? .05 : 1.5)) return true;
       const f = this.swim ? this.swimSurf + .14 : feet;
-      for (const [ox, oz] of PTS9) { const cx = x + ox, cz = z + oz; if (m.topAt(cx, cz) > f + G.STEP) return true; if (!noWater && (this.onGround || this.swim) && m.isWaterAt(cx, cz) && !G.canSwim(m, cx, cz)) return true; }
+      for (const [ox, oz] of PTS9) { const cx = x + ox, cz = z + oz; if (m.topAt(cx, cz) > f + (m._nf ? .06 : G.STEP)) return true; if (!noWater && (this.onGround || this.swim) && m.isWaterAt(cx, cz) && !G.canSwim(m, cx, cz)) return true; }
       if (!noV) for (const v of G.ents.villagers) if (v.map === m && v.visible && Math.hypot(v.x - x, v.z - z) < .55) return true;
       return false;
     }
     // on ne « grimpe » jamais sur ce qui dépasse d'une marche (troncs, barrières…) : seuls les points franchissables comptent
-    groundAt(x, z) { const m = this.map, lim = this.y + G.STEP + .05; let h = -1e9, hi = -1e9; for (const [ox, oz] of PTS5) { const t = m.topAt(x + ox, z + oz); hi = Math.max(hi, t); if (t <= lim) h = Math.max(h, t); } return h > -1e9 ? h : hi; }
+    groundAt(x, z) { const m = this.map, lim = this.y + G.STEP + .05; let h = -1e9, hi = -1e9; for (const [ox, oz] of PTS5) { const t = m.topAt(x + ox, z + oz); hi = Math.max(hi, t); if (t <= (m._nf ? this.y + .1 : lim)) h = Math.max(h, t); } return h > -1e9 ? h : hi; }
     // ---------- déblocage : cherche la case libre la plus proche ----------
     unstick(force) {
       const m = this.map, tx = Math.floor(this.x), tz = Math.floor(this.z), was = this.swim; this.swim = false;
@@ -143,8 +143,12 @@
         }
       }
       const ox = this.x, oz = this.z, nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
-      if (!this.blocked(nx, this.z, this.y)) this.x = nx; else this.vx = 0;
-      if (!this.blocked(this.x, nz, this.y)) this.z = nz; else this.vz = 0;
+      if (!this.blocked(nx, nz, this.y)) { this.x = nx; this.z = nz; }
+      else { // contre un obstacle on s'arrête ; on ne longe un mur que si on l'aborde nettement de biais
+        let sx = 0, sz = 0; for (const [ox, oz] of PTS9) { if (!ox && !oz) continue; if (m.topAt(nx + ox, nz + oz) > this.y + (m._nf ? .06 : G.STEP)) { sx += ox; sz += oz; } }
+        const sl = Math.hypot(sx, sz), v = Math.hypot(this.vx, this.vz); let moved = false;
+        if (sl > 1e-6 && v > 1e-6) { const kx = -sx / sl, kz = -sz / sl, dn = this.vx * kx + this.vz * kz; if (dn / v > -.6) { const px = this.vx - dn * kx, pz = this.vz - dn * kz, tx = this.x + px * dt, tz = this.z + pz * dt; if (!this.blocked(tx, tz, this.y)) { this.x = tx; this.z = tz; this.vx = px; this.vz = pz; moved = true; } } }
+        if (!moved) { this.vx = 0; this.vz = 0; } }
       const g = this.groundAt(this.x, this.z);
       if (this.onGround) { if (g < this.y - .35) { this.onGround = false; this.vy = 0; this.airTop = this.y; } else this.y = g; }
       if (!this.onGround) {

@@ -4,7 +4,7 @@
 // on passe autour d'une fontaine ronde, sous les branches d'un arbre, sous un avant-toit, entre deux poteaux,
 // on monte sur une marche ou un porche, mais un mur, un tronc ou une table bloquent. =====
 (function () {
-  const S = 4, BODY = 1.15, FLOOR = .04; // sous-cases par case ; hauteur du corps ; en dessous : simple décor au sol
+  const S = 8, BODY = 1.15, FLOOR = .04; // sous-cases par case ; hauteur du corps ; en dessous : simple décor au sol
   const cache = new Map();
   function build(d, key) {
     const i = key.lastIndexOf(':'), geo = G.getGeo(key.slice(0, i), +key.slice(i + 1)), fw = d.fp[0], fd = d.fp[1], W = fw * S, D = fd * S, N = W * D;
@@ -27,25 +27,25 @@
         const y = (ay + by + cy) / 3, list = ny > 0 ? ups : downs; each(ax, az, bx, bz, cx, cz, k => { (list[k] || (list[k] = [])).push(y); if (yt > top[k]) top[k] = yt; }, false);
       } else { const low = ymin < BODY; each(ax, az, bx, bz, cx, cz, k => { if (yt > top[k]) top[k] = yt; if (low && yt > side[k]) side[k] = yt; }, true); }
     }
-    const H = new Float32Array(N);
+    const H = new Float32Array(N), F = new Uint8Array(N); // F : dessus plat (marche, plancher) sur lequel on peut monter
     for (let k = 0; k < N; k++) {
       let h = side[k] >= BODY ? top[k] : side[k]; const U = ups[k], Dn = downs[k];
       if (U) for (const y of U) if (y > FLOOR && y < BODY && y > h) h = y; // marche, plancher, dessus d'un meuble bas
       if (Dn) for (const yb of Dn) { if (yb >= BODY) continue; let yu = Infinity; if (U) for (const y of U) if (y > yb + .002 && y < yu) yu = y; const m = yu === Infinity || yu >= BODY ? top[k] : yu; if (m > h) h = m; } // un volume posé : plein jusqu'à son dessus
-      H[k] = h;
+      H[k] = h; F[k] = U && U.some(y => Math.abs(y - h) < .03) ? 1 : 0;
     }
-    const mk = { W, D, H, hx, hz }; cache.set(key, mk); return mk;
+    const mk = { W, D, H, F, hx, hz }; cache.set(key, mk); return mk;
   }
   G.shapeMask = (d, key) => cache.get(key) || build(d, key);
   // hauteur du dessus de l'objet en (x, z), ou -1 si l'endroit est libre
   G.shapeTop = (o, d, x, z) => {
     const key = o._k || G.objKey(o), mk = cache.get(key) || build(d, key), [w, dd] = G.fpDims(d, o.r), dx = x - (o.x + w / 2), dz = z - (o.z + dd / 2);
     const r = o.r & 3, lx = r === 0 ? dx : r === 1 ? -dz : r === 2 ? -dx : dz, lz = r === 0 ? dz : r === 1 ? dx : r === 2 ? -dz : -dx;
-    const qx = Math.floor((lx + mk.hx) * S), qz = Math.floor((lz + mk.hz) * S); if (qx < 0 || qz < 0 || qx >= mk.W || qz >= mk.D) return -1;
-    return mk.H[qz * mk.W + qx];
+    const qx = Math.floor((lx + mk.hx) * S), qz = Math.floor((lz + mk.hz) * S); G.shapeTop.flat = 1; if (qx < 0 || qz < 0 || qx >= mk.W || qz >= mk.D) return -1;
+    G.shapeTop.flat = mk.F[qz * mk.W + qx]; return mk.H[qz * mk.W + qx];
   };
   // préparation tranquille des cartes des objets proches, pour éviter tout à-coup
   let qT = 0;
   G.on('frame', () => { const m = G.map, p = G.player; if (!m || !p || (qT = (qT + 1) % 20)) return; const x0 = Math.floor(p.x) - 12, z0 = Math.floor(p.z) - 12; let n = 0;
-    for (let z = z0; z < z0 + 24 && n < 3; z++) for (let x = x0; x < x0 + 24 && n < 3; x++) { const o = m.objAt(x, z); if (!o) continue; const d = G.OBJ[o.t]; if (!(d.h > 0) || d.walk || d.hAt) continue; const key = o._k || G.objKey(o); if (!cache.has(key)) { build(d, key); n++; } } });
+    for (let z = z0; z < z0 + 24 && n < 3; z++) for (let x = x0; x < x0 + 24 && n < 3; x++) { const o = m.objAt(x, z); if (!o) continue; const d = G.OBJ[o.t]; if (!(d.h > 0) || d.hAt) continue; const key = o._k || G.objKey(o); if (!cache.has(key)) { build(d, key); n++; } } });
 })();
