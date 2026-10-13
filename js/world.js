@@ -35,6 +35,8 @@
   const FLM = /^(flower|tulip|fl_)/;
   G.isFlowerObj = o => { const d = o && G.OBJ[o.t]; return !!d && !d.h && FLM.test(d.model); };
   G.clearsFlowers = d => !!(d.enter || d.plane || d.fp[0] * d.fp[1] >= 6);
+  // un passage à niveau se pose sur la voie ferrée (il remplace le bout de rail)
+  G.replaces = (d, q) => !!q && ((G.clearsFlowers(d) && G.isFlowerObj(q)) || (d.id === 'passage_niveau' && q.t === 'voie'));
 
   // ---------- rendu instancié des objets ----------
   // Chaque type d'objet = 1 InstancedMesh. Seuls les objets des cases visibles (et celles qui projettent une ombre dans le champ)
@@ -152,7 +154,7 @@
       if (d.ceil) { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (!this.inb(x, z) || this.ceil.has(z * this.W + x)) return false; return true; }
       for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
         if (x < m || z < m || x >= this.W - m || z >= this.H - m) return false;
-        const i = z * this.W + x; if (this.occ[i] && !(G.clearsFlowers(d) && G.isFlowerObj(this.objs[this.occ[i] - 1]))) return false;
+        const i = z * this.W + x; if (this.occ[i] && !G.replaces(d, this.objs[this.occ[i] - 1])) return false;
         if (d.onWater) { if (!this.water[i]) return false; } else if (this.water[i] || this.ramp[i]) return false;
         if (L === null) L = this.lvl[i]; else if (this.lvl[i] !== L) return false;
       }
@@ -161,7 +163,7 @@
     addObj(t, tx, tz, r = 0, extra = null) {
       const d = G.OBJ[t]; if (!d) return null; const [w, dd] = G.fpDims(d, r);
       // une maison, un bâtiment ou l'avion se posent par-dessus les fleurs : elles sont enlevées
-      if (G.clearsFlowers(d)) for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const q = this.objAt(x, z); if (q && G.isFlowerObj(q)) this.removeObj(q); }
+      for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const q = this.objAt(x, z); if (q && G.replaces(d, q)) this.removeObj(q); }
       const o = { t, x: tx, z: tz, r, hp: d.chop || d.mine || 0, f: (d.fruit || d.pickFruit) ? 3 : 0 };
       if (extra) Object.assign(o, extra);
       o.y = this.baseH(tx, tz); const own = tz * this.W + tx;

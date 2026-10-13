@@ -122,6 +122,43 @@
     const res = or(d);
     if (grown || shrunk) { setTimeout(() => G.ui.toast(grown ? '🗺️ Le monde s\'est agrandi ! Au nord, à l\'ouest et à l\'est : montagnes, lacs, forêts, rivières et hameaux t\'attendent. Ouvre la carte (M) !' : '🗺️ Le monde a été réduit de moitié : le village et ses alentours sont toujours là.', 9000), d.ville2 ? 9500 : 1800); setTimeout(() => G.state === 'play' && G.saveGame(true), 4000); }
     return res; }; });
+  // ===== voie ferrée d'un bout à l'autre du monde (on ne la traverse qu'aux passages à niveau) =====
+  const O = G.OBJ, MD = G.MODELS;
+  O.voie = { id: 'voie', n: 'Voie ferrée', model: 'rails', v: 0, fp: [1, 1], h: 1.6, fixed: 1 };
+  MD.passage_niveau = v => { const b = G.mb(612); b.box(1, .07, 1, 0x8a6a48, 0, .04, 0); for (let k = 0; k < 5; k++) b.box(.04, .075, 1, 0x5e4630, -.4 + k * .2, .045, 0);
+    for (const s of [-.3, .3]) b.box(1, .09, .07, 0x6b6f76, 0, .1, s); for (const s of [-1, 1]) for (let k = 0; k < 4; k++) b.box(.09, .22, .09, k % 2 ? 0xe8343a : 0xffffff, .46 * s, .11 + k * .22, .46 * s); return b.done(); };
+  O.passage_niveau = { id: 'passage_niveau', n: 'Passage à niveau', model: 'passage_niveau', v: 0, fp: [1, 1], h: .1, walk: 1, take: 1, cat: 'construction' };
+  G.ITEMS.passage_niveau = { id: 'passage_niveau', n: 'Passage à niveau', stack: 99, sell: 40, kind: 'place', obj: 'passage_niveau', cat: 'construction', thumb: 'obj:passage_niveau' };
+  if (G.SHOPLIST) G.SHOPLIST.push('passage_niveau');
+  const NAT = /^(mauvaise_herbe|rocher|buisson|champignon|coquillage|fissure|souche|fleur_|tulipe_)/;
+  const layTrack = m => { const t = m.meta.train; if (!t || m.meta.track || m.interior) return; const z = Math.floor(t.z); m.meta.track = { z };
+    for (let x = 2; x < m.W - 2; x++) { if (x >= t.x0 - 2 && x <= t.x1 + 1) continue; const i = m.idx(x, z); if (m.water[i]) continue; const o = m.objAt(x, z);
+      if (o) { const d = O[o.t]; if (o.t === 'voie' || o.t === 'passage_niveau' || !(d.chop || NAT.test(o.t) || G.isFlowerObj(o))) continue; m.removeObj(o); }
+      if (m.canPlace('voie', x, z, 1)) m.addObj('voie', x, z, 1); } };
+  // ramasser un passage à niveau remet le rail
+  const orm = G.GMap.prototype.removeObj; G.GMap.prototype.removeObj = function (o) { const r = orm.call(this, o); if (o && o.t === 'passage_niveau' && this.meta.track && o.z === this.meta.track.z && this.canPlace('voie', o.x, o.z, 1)) this.addObj('voie', o.x, o.z, 1); return r; };
+  // ===== grande entrée de la rue commerçante, toujours contre le bord nord du monde (si la gare n'y est pas collée) =====
+  MD.grande_porte = v => { const b = G.mb(733), S = 0xe9dfc9, S2 = 0xcfc3a8, GD = 0xd9b84a, IR = 0x2f3437;
+    for (const s of [-1, 1]) { b.box(1.1, 6.2, 1.1, S, s * 2.6, 3.1, 0); b.box(1.35, .45, 1.35, S2, s * 2.6, .22, 0); b.box(1.3, .35, 1.3, S2, s * 2.6, 6.35, 0); b.sph(.3, GD, s * 2.6, 6.8, 0);
+      b.box(.08, .08, .5, IR, s * 2.6, 4.3, .75); b.box(.36, .5, .36, 0xffe6a0, s * 2.6, 3.95, 1.0, 0, 0, 0, 1); b.box(.44, .08, .44, IR, s * 2.6, 4.24, 1.0);
+      b.box(.3, 3.4, .3, IR, s * 4.3, 1.7, .6); b.box(.5, .6, .5, 0xffe6a0, s * 4.3, 3.7, .6, 0, 0, 0, 1); b.box(.62, .1, .62, IR, s * 4.3, 4.05, .6); }
+    for (let k = 0; k <= 12; k++) { const a = Math.PI * k / 12; b.box(.62, .55, 1.05, S, Math.cos(a) * 2.05, 5.0 + Math.sin(a) * 1.55, 0, 0, 0, a - Math.PI / 2); }
+    b.box(5.5, .55, 1.2, S2, 0, 7.05, 0); b.box(3.6, .85, .12, 0x2f5f9a, 0, 7.8, .45); b.box(3.8, .1, .16, GD, 0, 8.26, .45); b.box(3.8, .1, .16, GD, 0, 7.34, .45);
+    for (let k = 0; k < 9; k++) b.box(.16, .16, .05, GD, -1.4 + k * .35, 7.8, .53, 0, 0, Math.PI / 4); return b.done(); };
+  O.grande_porte = { id: 'grande_porte', n: 'Entrée de la rue commerçante', model: 'grande_porte', v: 0, fp: [10, 1], h: 0, walk: 1, fixed: 1 };
+  const bigGate = m => { const g = m.meta.rueGate; if (!g || g.big || g.z < 10 || m.interior) return; const I = (x, z) => m.idx(x, z);
+    // l'endroit le plus bas du bord nord, près de la gare
+    let best = null; for (let cx = Math.max(8, Math.round(g.sx) - 70); cx < Math.min(m.W - 18, Math.round(g.sx) + 70); cx += 2) { let s = 0, w = 0; for (let z = 6; z < 16; z++) for (let x = cx; x < cx + 10; x++) { s += m.lvl[I(x, z)]; w += m.water[I(x, z)] ? 1 : 0; } const sc = s + w * 4 + Math.abs(cx - g.sx) * .05; if (!best || sc < best[1]) best = [cx, sc]; }
+    const gx = best[0], L = Math.max(0, Math.min(2, m.lvl[I(gx + 5, 16)]));
+    for (let z = 0; z < 15; z++) for (let x = gx - 4; x < gx + 14; x++) { const o = m.objAt(x, z); if (o && !O[o.t].enter) m.removeObj(o); const i = I(x, z), side = z < 4 && (x < gx || x >= gx + 10);
+      m.lvl[i] = side ? L + 3 : L; m.water[i] = 0; m.ramp[i] = 0; m.surf[i] = side ? 1 : z < 12 ? 11 : 4; m.markDirty(x, z); }
+    m.addObj('grande_porte', gx, 3, 0); for (const [x, z] of [[gx - 3, 6], [gx + 12, 6], [gx - 3, 11], [gx + 12, 11]]) if (m.canPlace('lampadaire', x, z)) m.addObj('lampadaire', x, z);
+    for (const x of [gx - 2, gx + 11]) for (const z of [8, 9]) if (m.canPlace('pot_fleurs', x, z)) m.addObj('pot_fleurs', x, z);
+    for (const o of [...m.list]) if (o.t === 'tunnel2' && Math.abs(o.x - g.x0) < 3) m.removeObj(o); // l'ancien petit tunnel derrière la gare
+    m.meta.rueGate = { x0: gx + 2, x1: gx + 8, z: 3.2, sx: gx + 5, sz: 5.2, y: L * G.TIER, big: 1 };
+    if (m._gateLbl && m.labels) m.labels.remove(m._gateLbl); m._gateLbl = G.mapLabel(m, '🏬 Rue commerçante', gx + 5, L * G.TIER + 9.4, 2.15, 1.7); };
+  G.on('worldgen', m => { layTrack(m); bigGate(m); });
+  G.on('load', () => { const m = G.world; if (!m) return; layTrack(m); bigGate(m); m.flush(); });
   // la grande carte montre les hameaux
   G.on('init', () => { const U = G.ui, om = U.openMap; if (!om) return; U.openMap = () => { om(); const m = G.world, M = m.meta, cv = document.getElementById('bigmap'), c = cv && cv.getContext('2d'); if (!c || !M.layout || M.layout.length <= 8) return; const sc = cv.width / m.W;
     c.save(); c.font = '13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; const L = M.layout;

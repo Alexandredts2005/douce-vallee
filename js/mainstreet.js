@@ -77,7 +77,7 @@
     }
   }
   G.STRUCT.gare = c => { station(c.map, c.ox, c.oz, false); c.targets.push([c.ox + 6, c.oz + 6, 4]); };
-  const labelGate = m => { const g = m.meta.rueGate; if (g && !m._gateLbl) { m._gateLbl = G.mapLabel(m, '🏬 Rue commerçante', g.sx, 3.25, g.z - 1.05, 1.1); } };
+  const labelGate = m => { const g = m.meta.rueGate; if (g && !m._gateLbl) { m._gateLbl = G.mapLabel(m, '🏬 Rue commerçante', g.sx, (g.y || 0) + (g.big ? 9.4 : 3.25), g.z - 1.05, g.big ? 1.7 : 1.1); } };
   G.on('worldgen', map => labelGate(map));
   G.on('load', () => { const m = G.world; if (m.meta.gare && !m.meta.rueGate) { const g = [...m.list].find(o => o.t === 'gare'); if (g) { station(m, g.x - 5, g.z - 3, true); m.flush(); } } labelGate(m); R.reset(); const s = loadRue; loadRue = null; if (s) R.go(s.x, s.z, s.yaw, true); });
   G.on('newGame', () => R.reset());
@@ -163,7 +163,7 @@
   };
   G.on('move', (p, m) => {
     if (G.ui.fading || p.vehicle || G.state !== 'play') return;
-    if (m === G.world || (G.net && G.net.visit && m === G.net.visit.map)) { const g = m.meta.rueGate; if (g && p.z < g.z && p.z > g.z - 3 && p.y < 2.5 && p.x >= g.x0 && p.x < g.x1) R.go(); }
+    if (m === G.world || (G.net && G.net.visit && m === G.net.visit.map)) { const g = m.meta.rueGate; if (g && p.z < g.z && p.z > g.z - 3 && p.y < (g.y || 0) + 2.5 && p.x >= g.x0 && p.x < g.x1) R.go(); }
     else if (m === G.rueMap && p.z > m.meta.exitZ && Math.abs(p.x - (m.meta.exitX != null ? m.meta.exitX : RX + 1)) < 1.4) R.back();
   });
   const oex = G.act.exitHouse; G.act.exitHouse = () => {
