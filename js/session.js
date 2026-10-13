@@ -108,6 +108,7 @@
   .ss-card:hover{background:#f6ffef} .ss-card b{font-family:var(--f-display);font-size:20px;font-weight:600;color:var(--bark)} .ss-card small{display:block;color:var(--bark);font-size:13px}
   .ss-card .faces{display:flex;margin-left:auto} .ss-card .faces img{width:44px;height:44px;margin-left:-10px;border-radius:50%;background:#fff7df;box-shadow:0 0 0 3px #fff}
   .ss-empty{color:var(--bark);text-align:center;padding:18px;font-weight:700}
+  .ss-row{display:flex;gap:8px;align-items:stretch} .ss-row .ss-card{flex:1;min-width:0} .ss-del{border:none;border-radius:20px;background:#fff;box-shadow:0 4px 0 var(--paper-d);font-size:22px;padding:0 14px;cursor:pointer} .ss-del:hover{background:#ffe3df}
   .rs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px} @media (max-width:640px){.rs-grid{grid-template-columns:repeat(2,1fr)}}
   .rs-slot{border:none;background:#fff;border-radius:22px;padding:10px 6px 12px;box-shadow:0 4px 0 var(--paper-d);display:flex;flex-direction:column;align-items:center;gap:4px;font-family:var(--f-body);color:var(--ink);cursor:pointer;min-height:170px}
   .rs-slot:hover{background:#f6ffef;transform:translateY(-2px)} .rs-slot img{width:104px;height:104px} .rs-slot b{font-family:var(--f-display);font-size:18px;font-weight:600;color:var(--bark)} .rs-slot small{font-size:12px;color:var(--bark)}
@@ -123,6 +124,9 @@
   host.appendChild(mk(`<div id="screen-login" class="screen dim" hidden><div class="form" style="width:min(460px,100%)"><h2 id="lg-title">Connexion</h2><p id="lg-sub" style="margin:0;color:var(--bark);font-weight:700"></p>
     <label class="fld">MOT DE PASSE<input type="password" id="lg-pass" maxlength="40" autocomplete="current-password"></label><label class="fld" id="lg-new-wrap" hidden>CONFIRME LE NOUVEAU MOT DE PASSE<input type="password" id="lg-pass2" maxlength="40" autocomplete="new-password"></label><div id="lg-err" class="err"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn alt" id="lg-back">Retour</button><button class="btn" id="lg-go">Se connecter</button></div></div></div>`));
+  host.appendChild(mk(`<div id="screen-delsess" class="screen dim" hidden><div class="form" style="width:min(460px,100%)"><h2 id="ds-title">🗑️ Supprimer la session</h2><p style="margin:0;color:var(--bark);font-weight:700">Le village et tous ses habitants seront effacés de ce navigateur. C'est définitif !</p>
+    <label class="fld">MOT DE PASSE DE LA SESSION<input type="password" id="ds-pass" maxlength="40" autocomplete="off"></label><p id="ds-hint" style="margin:0;color:var(--bark);font-size:13px;font-weight:700"></p><div id="ds-err" class="err"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn alt" id="ds-back">Annuler</button><button class="btn warn" id="ds-go">Supprimer définitivement</button></div></div></div>`));
   host.appendChild(mk(`<div id="screen-residents" class="screen dim" hidden><div class="form" style="width:min(760px,100%)"><h2 id="rs-title">Qui joue ?</h2><p style="margin:0;color:var(--bark);font-weight:700">Code ami du village : <span class="code-chip" id="rs-code"></span> <button class="btn alt" id="rs-copy" style="padding:4px 10px;font-size:13px">Copier</button> <button class="btn alt" id="rs-newcode" style="padding:4px 10px;font-size:13px" title="L'ancien code ne marchera plus">🔁 Nouveau code</button></p><p style="margin:0;color:var(--bark);font-size:13px;font-weight:700">🔒 Seuls ceux qui ont ce code peuvent trouver ton village et y entrer. Ne le donne qu'à tes amis.</p>
     <div id="rs-list" class="rs-grid"></div><div class="row" style="justify-content:space-between"><button class="btn alt" id="rs-back">Changer de session</button><button class="btn warn" id="rs-del">Supprimer cette session</button></div></div></div>`));
   host.appendChild(mk(`<div id="screen-resnew" class="screen dim" hidden><div class="form" style="width:min(560px,100%)"><h2>🏡 Nouvel habitant</h2>
@@ -138,7 +142,7 @@
   // écran titre : « Jouer » remplace « Nouvelle partie / Continuer »
   const tb = $('btn-new').parentNode, play = mk(`<button class="mbtn main" id="btn-play"><span class="e">🌿</span>Jouer</button>`), cont = mk(`<button class="mbtn main" id="btn-cont2" hidden><span class="e">▶️</span><span id="btn-cont2-t">Continuer</span></button>`);
   tb.insertBefore(cont, $('btn-continue')); tb.insertBefore(play, $('btn-continue')); $('btn-new').style.setProperty('display', 'none', 'important'); $('btn-continue').style.setProperty('display', 'none', 'important');
-  const SCR = ['screen-sessions', 'screen-login', 'screen-residents', 'screen-resnew'];
+  const SCR = ['screen-sessions', 'screen-login', 'screen-residents', 'screen-resnew', 'screen-delsess'];
   const oshow = G.ui.show, ohide = G.ui.hideScreens;
   G.ui.show = id => { oshow(SCR.includes(id) ? '__none' : id); SCR.forEach(s => $(s).hidden = s !== id); }; G.ui.hideScreens = () => { ohide(); SCR.forEach(s => $(s).hidden = true); };
   const UI = { rec: null, newLook: null, newG: 'f' };
@@ -148,7 +152,9 @@
     if (!l.length) box.innerHTML = '<div class="ss-empty">Aucune session pour l\'instant. Crée ton premier village !</div>';
     for (const rec of l) { const b = document.createElement('button'); b.className = 'ss-card';
       b.innerHTML = `<div><b>${esc(rec.village)}</b><small>${(rec.residents || []).filter(Boolean).map(r => esc(r.name)).join(' · ') || 'Aucun habitant'} — ${rec.mode === 'survie' ? 'Survie' : 'Créatif'}${rec.hash ? ' · 🔒' : ''}</small><small>${rec.closed ? '🔒 Portes fermées' : '🚉 Visites avec code ami'}</small></div><div class="faces">${(rec.residents || []).filter(Boolean).map(r => `<img src="${portrait(r.look)}" alt="">`).join('')}</div>`;
-      b.onclick = () => { G.sfx('ui'); UI.rec = rec; showLogin(); }; box.appendChild(b); }
+      b.onclick = () => { G.sfx('ui'); UI.rec = rec; showLogin(); };
+      const row = document.createElement('div'), del = document.createElement('button'); row.className = 'ss-row'; del.className = 'ss-del'; del.title = 'Supprimer cette session'; del.textContent = '🗑️';
+      del.onclick = () => { G.sfx('ui'); askDelete(rec, showSessions); }; row.appendChild(b); row.appendChild(del); box.appendChild(row); }
     G.ui.show('screen-sessions');
   }
   function showLogin() { const rec = UI.rec; $('lg-title').textContent = '🔒 ' + rec.village; $('lg-pass').value = ''; $('lg-pass2').value = ''; $('lg-err').textContent = '';
@@ -187,7 +193,18 @@
   $('rs-back').onclick = () => showSessions();
   $('rs-copy').onclick = () => { const t = $('rs-code').textContent; try { navigator.clipboard.writeText(t); G.ui.toast('Code ami copié : ' + t); } catch (e) { G.ui.toast(t); } };
   $('rs-newcode').onclick = async () => { const rec = UI.rec; const k = await G.ui.confirm('Nouveau code ami ?', 'L\'ancien code ne marchera plus : tes amis auront besoin du nouveau pour venir.', [{ t: 'Changer de code' }, { t: 'Annuler', alt: 1 }]); if (k !== 0) return; const c = G.net && G.net.newCode ? G.net.newCode(rec) : (rec.code = S.newCode(), S.put(rec), rec.code); $('rs-code').textContent = c; G.ui.toast('Nouveau code ami : ' + c); };
-  $('rs-del').onclick = async () => { const rec = UI.rec; const k = await G.ui.confirm('Supprimer « ' + rec.village + ' » ?', 'Le village et ses habitants seront effacés de ce navigateur. C\'est définitif !', [{ t: 'Supprimer', warn: 1 }, { t: 'Annuler', alt: 1 }]); if (k !== 0) return; S.del(rec.sid); if (G.session && G.session.sid === rec.sid) { G.session = null; G.saveKey = null; } refreshTitle(); showSessions(); };
+  $('rs-del').onclick = () => { G.sfx('ui'); askDelete(UI.rec, showResidents); };
+  // ---------- supprimer une session : il faut son mot de passe, ou le code secret si on l'a oublié ----------
+  const SECRET = '24d9aca70e4cf034b47f20c8f668570cf335961b756f2b58d83c0d6bb766471f'; // empreinte du code secret (il n'est pas écrit en clair)
+  function askDelete(rec, back) { UI.del = { rec, back }; $('ds-title').textContent = '🗑️ Supprimer « ' + rec.village + ' » ?'; $('ds-pass').value = ''; $('ds-err').textContent = '';
+    $('ds-hint').textContent = rec.hash ? 'Mot de passe oublié ? Entre le code secret à la place.' : 'Cette partie n\'a pas de mot de passe : clique simplement sur « Supprimer définitivement ».'; G.ui.show('screen-delsess'); setTimeout(() => $('ds-pass').focus(), 50); }
+  function doDelete() { const D = UI.del, rec = D && S.get(D.rec.sid); if (!rec) return showSessions(); const pw = $('ds-pass').value;
+    if (rec.hash && !S.check(rec, pw) && sha256('dv-efface:' + pw.trim()) !== SECRET) { $('ds-pass').value = ''; return fail('ds-err', 'Mot de passe incorrect.'); }
+    try { if (G.net && G.net.unpublish && rec.code) G.net.unpublish(rec.code, rec.sid); } catch (e) { }
+    S.del(rec.sid); G.store.del('dv_admin_' + rec.sid); if (G.session && G.session.sid === rec.sid) { G.session = null; G.saveKey = null; }
+    UI.del = null; G.sfx('pop'); refreshTitle(); showSessions(); G.ui.toast('🗑️ La session « ' + rec.village + ' » a été supprimée.'); }
+  $('ds-go').onclick = doDelete; $('ds-back').onclick = () => { const D = UI.del; UI.del = null; G.sfx('ui'); ((D && D.back) || showSessions)(); };
+  $('ds-pass').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doDelete(); } e.stopPropagation(); });
   // ---------- menu pause : code ami et changement d'habitant ----------
   const pm = $('p-resume').parentNode, chip = mk(`<p id="p-code" style="margin:0;text-align:center;color:#fff;font-weight:800;text-shadow:0 2px 0 rgba(0,0,0,.25)"></p>`), sw = mk(`<button class="mbtn" id="p-switch"><span class="e">👥</span>Changer d'habitant</button>`);
   const vis = mk(`<button class="mbtn" id="p-visit"><span class="e">🚂</span>Visiter un ami (code)</button>`); pm.insertBefore(chip, $('p-resume')); pm.insertBefore(vis, $('p-quit')); pm.insertBefore(sw, $('p-quit'));
