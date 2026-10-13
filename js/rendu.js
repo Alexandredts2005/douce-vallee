@@ -14,7 +14,7 @@
     uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3(.3, .8, .4) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uNight: { value: 0 },
     uSkyTop: { value: new THREE.Color(0x4aa3ee) }, uSkyHor: { value: new THREE.Color(0xaee0ff) }, uSkyGnd: { value: new THREE.Color(0x8f9a6a) },
     uSunK: { value: 1.55 }, uAmbK: { value: 1.25 }, uEnvK: { value: .85 }, uSpecK: { value: 1 }, uPointK: { value: 3.2 }, uGlowK: { value: .15 }, uFireK: { value: 2.2 },
-    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }
+    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }
   };
   // ---------- matières ----------
   const SK = G.SK = { gold: 1, iron: 2, steel: 3, glass: 4, leaf: 5, petal: 6, wood: 7, paint: 8, fabric: 9, skin: 10, hair: 11, stone: 12, ceramic: 13, plastic: 14, velvet: 15, gem: 16, bark: 17 };
@@ -38,7 +38,7 @@
   };
   // ---------- morceaux de shader communs ----------
   const FRAG_DECL = `
-uniform vec3 uSkyTop, uSkyHor, uSkyGnd, uSunDir, uSunCol; uniform float uSunK, uAmbK, uEnvK, uSpecK, uPointK, uWet, uTime, uGlowK, uBumpK;
+uniform vec3 uSkyTop, uSkyHor, uSkyGnd, uSunDir, uSunCol; uniform float uSunK, uAmbK, uEnvK, uSpecK, uPointK, uWet, uTime, uGlowK, uBumpK, uWarmK;
 uniform sampler2D uCloudTex; uniform vec2 uCloudOff; uniform float uCloudAmt;
 uniform sampler2D uBio; uniform vec4 uBioSz;
 varying vec3 vWP; varying float vSk;
@@ -254,7 +254,7 @@ ${o.bump ? 'normal = prBump( -vViewPosition, normal, vec2( dFdx( gLum ), dFdy( g
 { float nv = saturate( dot( geometry.normal, geometry.viewDir ) );
   if ( gSheen > 0. ) reflectedLight.indirectDiffuse += material.diffuseColor * irradiance * RECIPROCAL_PI * gSheen * pow( 1. - nv, 3. ) * 1.4;
   if ( vSk > 3.5 && vSk < 4.5 ) diffuseColor.a = mix( diffuseColor.a, 1., pow( 1. - nv, 4. ) * .75 ); }
-${o.glow ? 'totalEmissiveRadiance += s2l( vColor ) * uGlowK;' : ''}`);
+${o.glow ? '{ vec3 ec = vColor; ec = mix( ec, vec3( .66, .52, .33 ), smoothstep( .01, .1, ec.b - ec.r ) * ( 1. - smoothstep( .3, .45, max( ec.r, max( ec.g, ec.b ) ) - min( ec.r, min( ec.g, ec.b ) ) ) ) * uWarmK ); totalEmissiveRadiance += s2l( ec ) * uGlowK; } // vitres : la nuit, une lumière blanc très chaud comme les lampadaires' : ''}`);
       fs = fs.replace('#include <tonemapping_fragment>', 'gl_FragColor.rgb = l2s( gl_FragColor.rgb );');
       sh.fragmentShader = fs;
     };
@@ -376,7 +376,7 @@ void main() {
     } else { SU.uSkyTop.value.copy(si.top); SU.uSkyHor.value.copy(si.hor); SU.uSkyGnd.value.copy(L.hemi.groundColor); }
     // calibrage : jour, nuit, intérieur
     const day = 1 - n; SU.uSunK.value = inside ? 1.35 : 1.5 + .15 * day; SU.uAmbK.value = inside ? (m.meta.sunny ? .85 : 1.3) : 1.15 + .25 * n; SU.uEnvK.value = inside ? .5 : .8;
-    SU.uPointK.value = inside ? 3.4 : 3.4; SU.uGlowK.value = inside ? .9 : G.lerp(.12, 2.6, Math.min(1, n * 1.3));
+    SU.uPointK.value = inside ? 3.4 : 3.4; SU.uGlowK.value = inside ? .9 : G.lerp(.12, 2.6, Math.min(1, n * 1.3)); SU.uWarmK.value = inside ? 0 : Math.min(1, n * 1.5);
     SU.uWet.value += ((G.weather && G.weather.wet ? G.weather.wet : 0) - SU.uWet.value) * Math.min(1, dt * .25); wetT += dt;
     SU.uWind.value = G.weather && G.weather.wind != null ? G.weather.wind : 1;
   });
