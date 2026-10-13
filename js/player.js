@@ -76,21 +76,6 @@
     }
     // on ne « grimpe » jamais sur ce qui dépasse d'une marche (troncs, barrières…) : seuls les points franchissables comptent
     groundAt(x, z) { const m = this.map, lim = this.y + G.STEP + .05; let h = -1e9, hi = -1e9; for (const [ox, oz] of PTS5) { const t = m.topAt(x + ox, z + oz); hi = Math.max(hi, t); if (t <= lim) h = Math.max(h, t); } return h > -1e9 ? h : hi; }
-    // ---------- aide au déplacement (créatif) : saute les ruisseaux et les petits obstacles, glisse vers les passages ----------
-    assist(dx, dz, sp) {
-      const m = this.map, y = this.y, px = this.x + dx * .45, pz = this.z + dz * .45; if (!this.blocked(px, pz, y, true)) return;
-      const jump = (h, d) => { this.vy = Math.sqrt(2 * GRAV * h); const T = 2 * this.vy / GRAV + .05; this.vx = dx * Math.max(sp * .8, d / T); this.vz = dz * Math.max(sp * .8, d / T); this.noDrag = T; this.onGround = false; this.airTop = y; G.sfx('jump', .6); G.fx.puff(this.x, y + .05, this.z, 4, 0xf3ead2, .45); };
-      // un ruisseau devant : on cherche l'autre rive et on saute
-      if (m.isWaterAt(px, pz) && !G.canSwim(m, px, pz)) { for (let d = 1; d <= 5.5; d += .25) { const lx = this.x + dx * d, lz = this.z + dz * d; if (m.isWaterAt(lx, lz)) continue; const t = m.topAt(lx, lz);
-          if (t <= y + G.STEP && !this.blocked(lx, lz, t, true, true)) { jump(1.05 + d * .08, d + .6); return; } break; } return; }
-      // une marche ou un petit obstacle (moins d'un niveau et demi) : petit saut automatique
-      let top = -1e9; for (const [ox, oz] of [[0, 0], [-.2, 0], [.2, 0], [0, -.2], [0, .2]]) top = Math.max(top, m.topAt(px + ox, pz + oz));
-      if (top > y + G.STEP && top <= y + 1.65) { const lx = this.x + dx * .8, lz = this.z + dz * .8, lt = m.topAt(lx, lz); if (lt <= top + .05 && !this.blocked(lx, lz, lt, true, true)) { jump(lt - y + .5, .8); return; } }
-      // sinon on glisse sur le côté libre : on contourne l'obstacle et on entre dans les passages d'une case
-      const nx = -dz, nz = dx;
-      for (const s of [.18, .32, .46]) for (const sg of [1, -1]) { const qx = this.x + nx * s * sg, qz = this.z + nz * s * sg;
-        if (!this.blocked(qx, qz, y, true) && !this.blocked(qx + dx * .4, qz + dz * .4, y, true)) { this.vx = nx * sg * sp * .85 + dx * sp * .15; this.vz = nz * sg * sp * .85 + dz * sp * .15; return; } }
-    }
     // ---------- déblocage : cherche la case libre la plus proche ----------
     unstick(force) {
       const m = this.map, tx = Math.floor(this.x), tz = Math.floor(this.z), was = this.swim; this.swim = false;
@@ -126,7 +111,7 @@
       if (this.fish && len > .3) G.act.stopFish();
       const busy = this.act || this.fish || this.lock > 0 || this.show; this.lock -= dt;
       const sp = this.swim ? (running ? SWIMR : SWIM) : (running ? RUN : WALK) * (this.charging ? .72 : 1);
-      const tvx = busy ? 0 : mx * sp, tvz = busy ? 0 : mz * sp, k = this.swim ? 4 : this.onGround ? 14 : (this.noDrag > 0 ? 0 : 3.2); this.noDrag = (this.noDrag || 0) - dt;
+      const tvx = busy ? 0 : mx * sp, tvz = busy ? 0 : mz * sp, k = this.swim ? 4 : this.onGround ? 14 : 3.2;
       this.vx += (tvx - this.vx) * Math.min(1, k * dt); this.vz += (tvz - this.vz) * Math.min(1, k * dt);
       if (mouse && !busy) this.yaw = G.cam.yaw + Math.PI;
       else if (len > .1 && !busy) this.yaw = G.angLerp(this.yaw, Math.atan2(mx, mz), Math.min(1, 15 * dt));
@@ -157,10 +142,9 @@
           this.charge = 0;
         }
       }
-      if (G.mode === 'creatif' && this.onGround && !busy && !this.charging && len > .3 && G.settings.assist !== false) this.assist(mx / (len || 1), mz / (len || 1), running ? RUN : WALK);
-      const ox = this.x, oz = this.z, nx = this.x + this.vx * dt, nz = this.z + this.vz * dt, keep = this.noDrag > 0 && !this.onGround;
-      if (!this.blocked(nx, this.z, this.y)) this.x = nx; else if (!keep) this.vx = 0;
-      if (!this.blocked(this.x, nz, this.y)) this.z = nz; else if (!keep) this.vz = 0;
+      const ox = this.x, oz = this.z, nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
+      if (!this.blocked(nx, this.z, this.y)) this.x = nx; else this.vx = 0;
+      if (!this.blocked(this.x, nz, this.y)) this.z = nz; else this.vz = 0;
       const g = this.groundAt(this.x, this.z);
       if (this.onGround) { if (g < this.y - .35) { this.onGround = false; this.vy = 0; this.airTop = this.y; } else this.y = g; }
       if (!this.onGround) {

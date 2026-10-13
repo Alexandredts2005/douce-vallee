@@ -32,8 +32,6 @@
   G.on('init', () => {
     const back = $('o-back'), row = back && back.parentNode; if (row && !$('o-autosave')) { const d = document.createElement('div'); d.className = 'opt'; d.innerHTML = 'Sauvegarde automatique (tout ce que tu fais est enregistré tout seul)<input type="checkbox" id="o-autosave">'; row.parentNode.insertBefore(d, row);
       $('o-autosave').checked = on(); $('o-autosave').addEventListener('change', () => { G.settings.autosave = $('o-autosave').checked; G.ui.saveSettings(); G.ui.toast(on() ? '💾 Sauvegarde automatique activée.' : 'Sauvegarde automatique désactivée : pense à sauvegarder dans le menu.'); }); }
-    if (row && !$('o-assist')) { const d = document.createElement('div'); d.className = 'opt'; d.innerHTML = 'Aide au déplacement en créatif (saute les ruisseaux et les marches, passe entre les obstacles)<input type="checkbox" id="o-assist">'; row.parentNode.insertBefore(d, row);
-      $('o-assist').checked = G.settings.assist !== false; $('o-assist').addEventListener('change', () => { G.settings.assist = $('o-assist').checked; G.ui.saveSettings(); }); }
     const pm = $('p-save') && $('p-save').parentNode; if (pm && !$('p-autosave')) { const b = document.createElement('button'); b.className = 'mbtn'; b.id = 'p-autosave'; pm.insertBefore(b, $('p-save').nextSibling);
       const label = () => b.innerHTML = '<span class="e">' + (on() ? '💾' : '⏸️') + '</span>Sauvegarde auto : ' + (on() ? 'oui' : 'non');
       b.onclick = () => { G.settings.autosave = !on(); G.ui.saveSettings(); if ($('o-autosave')) $('o-autosave').checked = on(); label(); G.sfx('ui'); if (on()) save(); }; label();
