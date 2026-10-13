@@ -19,7 +19,7 @@
   const PAINTS = { peinture_lin: [0xf1ebe0, 'Peinture lin & moulures'], peinture_ivoire: [0xf7f3ea, 'Blanc ivoire & moulures'], peinture_sauge: [0xc9d4c2, 'Vert sauge & moulures'], peinture_bleu: [0xbfcad6, 'Bleu gris & moulures'], peinture_rose: [0xead2cf, 'Rose poudré & moulures'], peinture_empire: [0x3f5a4a, 'Vert Empire & moulures'], peinture_nuit: [0x2c3548, 'Bleu nuit & moulures'] };
   for (const k in PAINTS) G.WALLS.unshift([k, PAINTS[k][1], x => { const c = '#' + PAINTS[k][0].toString(16).padStart(6, '0'); x.fillStyle = c; x.fillRect(0, 0, S, S); x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 3; x.strokeRect(16, 12, 96, 64); x.strokeRect(16, 92, 96, 26); x.strokeStyle = 'rgba(0,0,0,.12)'; x.strokeRect(19, 15, 90, 58); }]);
   // ---------- quelles pièces ? ----------
-  const special = m => { if (!G.world) return false; for (const q of G.world.list) if (q.iid === m.id && (/^chateau/.test(q.t) || (O[q.t] && O[q.t].floors))) return true; return false; };
+  const special = m => { const w = G.outsideOf(m); if (!w) return false; for (const q of w.list) if (q.iid === m.id && (/^chateau/.test(q.t) || (O[q.t] && O[q.t].floors))) return true; return false; };
   const isGrand = m => m && m.interior && m.kind === 'maison' && !/_e\d|_a\d/.test(m.id) && !(m.W >= 22) && !special(m);
   G.isGrandHome = isGrand;
   // ---------- outils de géométrie ----------

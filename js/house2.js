@@ -53,7 +53,7 @@
       const [tx,tz]=p.target();let o=m.objAt(tx,tz),here=m.objAt(Math.floor(p.x),Math.floor(p.z));
       if(!(o&&G.OBJ[o.t].portal)&&here&&G.OBJ[here.t].portal)o=here;
       if(!(o&&G.OBJ[o.t].portal)){let best=Infinity;for(const q of m.list){if(!G.OBJ[q.t].portal||!q.iid)continue;const [cx,cz]=m.center(q),d=Math.hypot(p.x-cx,p.z-cz),limit=q.t==='escalier'?1.65:1.2;if(d<limit&&d<best){best=d;o=q;}}}
-      if(o&&G.OBJ[o.t].portal&&o.iid){const to=G.interiors[o.iid]||(G.net&&G.net.visit&&G.net.visit.interiors[o.iid]);if(!to)return G.ui.toast('Cette porte est fermée.');
+      if(o&&G.OBJ[o.t].portal&&o.iid){const to=m.isVisit&&G.net&&G.net.visit?G.net.room(o.iid):G.interiors[o.iid];if(!to&&m.isVisit&&G.net.homesStale()){G.ui.toast('Toc toc…');G.net.refreshHomes().then(()=>{if(G.map===m)G.act.interact();});return;}if(!to)return G.ui.toast('Cette porte est fermée.');
         const back=[...to.list].find(q=>G.OBJ[q.t].portal&&q.iid===m.id),F=back?G.FR[back.r]:[0,1];let x=to.W/2,z=to.H/2,yaw=Math.atan2(F[0],F[1]);
         if(back){const [cx,cz]=to.center(back);if(back.t==='escalier'){x=cx+F[0]*.15;z=cz+F[1]*1.25;yaw=Math.atan2(-F[0],-F[1]);}else{x=cx+F[0]*1.1;z=cz+F[1]*1.15;}}
         G.sfx('door');G.ui.fade(()=>G.enterMap(to,x,z,yaw));return;}}

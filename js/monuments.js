@@ -449,7 +449,7 @@
   G.on('load', () => { if (G.world) upMairie(G.world);
     for (const id in G.interiors) { const im = G.interiors[id]; if (im.kind === 'gare' && im.W < GW && G.map !== im) { G.scene.remove(im.group); delete G.interiors[id]; } } });
   // ===================== 6. INTÉRIEUR DES CHÂTEAUX : immense salon, parquet en chevron, murs blancs à fleurs de lys dorées, lustres, soleil par les fenêtres =====================
-  const isCh = m => { if (!m || !m.interior || !G.world) return null; for (const q of G.world.list) if (q.iid === m.id && /^chateau/.test(q.t)) return q; return null; };
+  const isCh = m => { const w = G.outsideOf(m); if (!m || !m.interior || !w) return null; for (const q of w.list) if (q.iid === m.id && /^chateau/.test(q.t)) return q; return null; };
   let parq = null, lys = null;
   const cnv = (n, draw) => { const c = document.createElement('canvas'); c.width = c.height = n; draw(c.getContext('2d'), n); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; };
   function texs() { if (parq) return;
@@ -487,7 +487,7 @@
     gx.pm = pm; gx.t = 0; g.traverse(c => { if (c.isMesh) c.frustumCulled = false; }); m.shell = g; m.group.add(g); m._cx = gx; m.meta.bright = 1; delete m.meta.sunny; }
   const ob2 = G.buildShell; G.buildShell = m => { const o = m.kind === 'maison' && isCh(m); if (!o) return ob2(m); castleShell(m, o); };
   // un château a toujours un immense salon (les meubles sont gardés)
-  G.on('enterMap', m => { if (!isCh(m) || m.W >= 22) return; setTimeout(() => { if (G.map !== m) return; const nm = G.makeInterior('maison', m.id, { W: 22, H: 16, empty: true }); nm.meta.stage = G.HOME_STAGES.length;
+  G.on('enterMap', m => { if (m.isVisit || !isCh(m) || m.W >= 22) return; setTimeout(() => { if (G.map !== m) return; const nm = G.makeInterior('maison', m.id, { W: 22, H: 16, empty: true }); nm.meta.stage = G.HOME_STAGES.length;
     for (const q of m.list) { if (q.t === 'paillasson') continue; const ex = {}; for (const k of ['v', 'f', 'g', 'iid', 'off', 'txt']) if (q[k] != null) ex[k] = q[k]; if (nm.canPlace(q.t, q.x, q.z, q.r)) nm.addObj(q.t, q.x, q.z, q.r, ex); }
     for (const k of ['door', 'title', 'fromId']) nm.meta[k] = m.meta[k]; G.scene.remove(m.group); G.interiors[m.id] = nm; G.scene.add(nm.group); nm.group.visible = false; G.enterMap(nm, 11.5, 14.6, PI); }, 0); });
   // taches de soleil sur le parquet, selon l'heure

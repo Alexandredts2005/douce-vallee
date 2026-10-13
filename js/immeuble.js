@@ -11,7 +11,7 @@
   const mk = (id, o) => { const m = G.makeInterior('maison', id, o); m.group.visible = false; G.scene.add(m.group); G.interiors[id] = m; return m; };
   // première visite : on construit les étages, l'escalier et les appartements (avec leurs habitants)
   G.on('enterMap', m => {
-    if (!m.interior || m.meta.immOk || !G.world) return; const o = [...G.world.list].find(q => q.iid === m.id && O[q.t].floors); if (!o) return; m.meta.immOk = 1;
+    if (!m.interior || m.isVisit || m.meta.immOk || !G.world) return; const o = [...G.world.list].find(q => q.iid === m.id && O[q.t].floors); if (!o) return; m.meta.immOk = 1;
     let prev = m, vi = 0;
     for (let f = 0; f < O[o.t].floors; f++) {
       const fm = f ? mk(m.id + '_e' + f, { W: m.W, H: m.H, noMat: true, empty: true }) : m; fm.meta.title = f ? 'Étage ' + f : 'Rez-de-chaussée'; fm.meta.fromId = 'world'; fm.meta.door = m.meta.door;

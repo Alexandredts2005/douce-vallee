@@ -124,15 +124,19 @@
   setInterval(() => { if (NET.online() && NET.curRoom) sendPresence(); }, 5000);
   // ---------- publication du village (chiffré avec le code ami) ----------
   const ownerTag = (sid, code) => G.sha256('dv-own:' + sid + ':' + code).slice(0, 40);
+  // le village est republié dès que quelque chose change dehors… ou dans un intérieur
+  const pubRevNow = () => { let r = G.world ? G.world.rev : 0; for (const id in G.interiors) r += G.interiors[id].rev * 7 + 1; return r; };
   NET.publish = async () => {
     const s = G.session; if (!s || !s.code || !G.world || NET.visit || !NET.online() || NET.pubBusy) return; const I = ids(s.code);
-    NET.pubBusy = true; NET.pubRev = G.world.rev; NET.pubClosed = NET.closed();
+    NET.pubBusy = true; NET.pubRev = pubRevNow(); NET.pubClosed = NET.closed();
     try {
       if (NET.pubClosed) { await unpublish(s.code, s.sid); return; }
-      const homes = {}; for (const r of s.residents || []) { const h = r && r.home && G.interiors[r.home]; if (h) homes[r.home] = h.serialize(); }
+      // tous les intérieurs sont partagés (maisons, mairie, boutiques, musée…) : le visiteur voit exactement les mêmes pièces
+      const homes = {}, mine = {}; for (const r of s.residents || []) { const h = r && r.home && G.interiors[r.home]; if (h) homes[r.home] = mine[r.home] = h.serialize(); }
+      for (const id in G.interiors) if (!homes[id] && G.interiors[id].meta.fromId !== 'rue') try { homes[id] = G.interiors[id].serialize(); } catch (e) { }
       const snap = { v: 2, vil: clean(G.villageName, 24), who: (s.residents || []).filter(Boolean).map(r => clean(r.name, 16)), ses: NET.ses, seq: NET.seq, at: Date.now(), day: G.clock.day, world: G.world.serialize(), homes };
       const LIM = NET.mode === 'server' ? 2800000 : 240000; // le serveur accepte les grands villages (jusqu'à 3 millions de caractères)
-      let rec = await seal(s.code, snap); if (rec.d.length > LIM) { snap.homes = {}; rec = await seal(s.code, snap); }
+      let rec = await seal(s.code, snap); if (rec.d.length > LIM) { snap.homes = mine; rec = await seal(s.code, snap); } if (rec.d.length > LIM) { snap.homes = {}; rec = await seal(s.code, snap); }
       if (rec.d.length > LIM) { if (!NET.bigWarn) { NET.bigWarn = 1; G.ui.toast('Ton village est trop grand pour être publié en ligne.'); } return; }
       if (NET.mode === 'claude' && NET.db && NET.uid) {
         const idx = NET.db.doc('towns/' + NET.uid), cur = await idx.get(), d = cur.exists ? cur.data() : {};
@@ -180,7 +184,7 @@
     if (last === undefined) last = NET.visit && m === NET.visit.map && isHost(pr) && pr.ops.ses === NET.visit.ses ? NET.visit.seq : 0;
     NET.applying = true;
     const ints = m === G.world ? G.interiors : NET.visit && m === NET.visit.map ? NET.visit.interiors : {};
-    try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; const op = op0, m = op.m ? ints[op.m] : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
+    try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; const op = op0, m = op.m ? (NET.visit && ints === NET.visit.interiors ? NET.room(op.m) : ints[op.m]) : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
       if (op.k === 't') { last = op.s; if (m.interior || op.x < 2 || op.z < 2 || op.x >= m.W - 2 || op.z >= m.H - 2) continue; const i = m.idx(op.x | 0, op.z | 0); m.lvl[i] = Math.max(0, Math.min(4, op.l | 0)); m.water[i] = Math.max(0, Math.min(2, op.w | 0)); m.ramp[i] = Math.max(0, Math.min(255, op.p | 0)); if (G.SURF[op.f | 0]) m.surf[i] = op.f | 0; m.markDirty(op.x | 0, op.z | 0); continue; }
       if (!G.OBJ[op.t]) continue; last = op.s;
       if (op.k === 'r') { const o = m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
@@ -270,7 +274,7 @@
       if (hp) { if (typeof hp.ck === 'number' && Math.abs(hp.ck - G.clock.min) > 2) { G.clock.min = hp.ck; if (hp.dy) G.clock.day = hp.dy; }
         if (Array.isArray(hp.vg)) { const byVi = new Map(); for (const e of hp.vg) if (Array.isArray(e)) byVi.set(e[0], e);
           for (const e of G.ents.villagers) if (e.map === NET.visit.map && !e.fixed && e.home) { const q = byVi.get(e.home.vi); e.net = q ? { x: +q[1], z: +q[2], r: +q[3], mv: !!q[4] } : null; } } } }
-    if (G.state === 'play' && !NET.visit && G.session && (NET.pubT -= dt) < 0) { NET.pubT = NET.peers.size ? 8 : 20; if (G.world.rev !== NET.pubRev || NET.pubClosed !== NET.closed()) NET.publish(); }
+    if (G.state === 'play' && !NET.visit && G.session && (NET.pubT -= dt) < 0) { NET.pubT = NET.peers.size ? 8 : 20; if (pubRevNow() !== NET.pubRev || NET.pubClosed !== NET.closed()) NET.publish(); }
   });
   // à l'écran titre, on quitte la salle du village
   G.on('frame', () => { if (NET.online() && G.state === 'title' && NET.curRoom && !NET.roomBusy) { sendPresence(true); switchRoom(null); } });
@@ -329,22 +333,35 @@
     m.id = 'world'; m.kind = 'world'; m.visit = true; G.scene.add(m.group); m.buildAll(); m.group.visible = false;
     if (m.meta.rueGate && G.mapLabel) G.mapLabel(m, '🏬 Rue commerçante', m.meta.rueGate.sx, (m.meta.rueGate.y || 0) + (m.meta.rueGate.big ? 9.4 : 3.25), m.meta.rueGate.z - 1.05, m.meta.rueGate.big ? 1.7 : 1.1);
     const old = NET.visit; if (old) cleanupVisit(old); seen.clear();
-    NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses, myClock: { min: G.clock.min, day: G.clock.day } };
+    NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, homesAt: Date.now(), ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses, myClock: { min: G.clock.min, day: G.clock.day } };
     G.ents.spawnVillagers(m); trainSfx();
     G.ui.fade(() => { const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start(0); G.ui.toast('🚂 Bienvenue à ' + NET.visit.vil + ' ! Rentre quand tu veux avec 🏠 ou par la gare.'); sendPresence(true); }, 1.6);
     return {};
   };
-  function cleanupVisit(v) { for (const im of [v.map, ...Object.values(v.interiors)]) { G.scene.remove(im.group); for (const a of G.ents.villagers.slice()) if (a.map === im) { G.scene.remove(a.root); G.scene.remove(a.blob); G.ents.villagers.splice(G.ents.villagers.indexOf(a), 1); } } }
+  function dropMap(im) { G.scene.remove(im.group); for (const a of G.ents.villagers.slice()) if (a.map === im) { G.scene.remove(a.root); G.scene.remove(a.blob); G.ents.villagers.splice(G.ents.villagers.indexOf(a), 1); } }
+  function cleanupVisit(v) { for (const im of [v.map, ...Object.values(v.interiors)]) dropMap(im); }
+  // les pièces que l'hôte a ouvertes ou décorées depuis notre arrivée : on relit son village publié
+  const refreshHomes = () => { const v = NET.visit; if (!v) return Promise.resolve(); v.homesAt = Date.now();
+    return v.refP || (v.refP = (async () => { try { const r = await NET.findTown(v.code), h = r && r.snap && r.snap.homes; if (NET.visit !== v || !h || typeof h !== 'object') return;
+      for (const id in h) { const im = v.interiors[id]; if (im && im.gen && G.map !== im) { dropMap(im); delete v.interiors[id]; } if (!v.interiors[id]) v.homes[id] = h[id]; } } catch (e) { } finally { v.refP = null; } })()); };
+  NET.refreshHomes = refreshHomes; NET.homesStale = () => !!NET.visit && Date.now() - (NET.visit.homesAt || 0) > 4000;
   function leaveVisit(silent) { const v = NET.visit; if (!v) return; cleanupVisit(v); NET.visit = null; if (v.myClock) { G.clock.min = v.myClock.min; G.clock.day = v.myClock.day; } if (!silent) sendPresence(true); }
   NET.goHome = () => { if (!NET.visit) return; trainSfx(); G.ui.fade(() => { const g = G.world.meta.gare || G.world.meta.spawn; G.enterMap(G.world, g.x, (g.z || 0) + .4, 0); leaveVisit(); G.train && G.train.start(0); G.ui.toast('🏠 De retour à ' + G.villageName + ' !'); }, 1.6); };
   function trainSfx() { const A = G.audio; if (!A || !A.ok) return; try { const C = A.ctx, t = C.currentTime; for (let i = 0; i < 2; i++) for (const f of [740, 932]) { const o = C.createOscillator(), g = C.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.0001, t + i * .6); g.gain.linearRampToValueAtTime(.05, t + i * .6 + .04); g.gain.exponentialRampToValueAtTime(.0001, t + i * .6 + .5); o.connect(g); g.connect(A.sfxG); o.start(t + i * .6); o.stop(t + i * .6 + .6); } } catch (e) { } }
   // entrer dans les maisons du village visité (maisons des habitants publiées, boutiques générées)
+  // le dehors d'une pièce : le village visité pendant une visite, sinon le nôtre
+  G.outsideOf = m => m && m.isVisit && NET.visit ? NET.visit.map : G.world;
+  // une pièce du village visité : celle publiée par l'hôte (même déco, mêmes habitants), chargée à la demande
+  NET.room = id => { const v = NET.visit; if (!v || !id) return null; let im = v.interiors[id]; if (im) return im; const src = v.homes[id]; if (!src) return null;
+    try { im = G.GMap.deserialize(src); im.isVisit = true; G.buildShell(im); im.buildAll(); G.ents.spawnVillagers(im); } catch (e) { return null; }
+    im.isVisit = true; G.scene.add(im.group); im.group.visible = false; return v.interiors[id] = im; };
   const oenter = G.act.enterHouse; G.act.enterHouse = o => {
     const v = NET.visit, cur = G.map; if (!v || !cur.visit) return oenter(o); const d = G.OBJ[o.t], h = G.clock.min / 60; if (d.enter === 'habitant' && (h >= 22 || h < 6)) return G.ui.toast('Chut… tout le monde dort.');
     const key = o.iid || ('b' + o.t + '_' + o.x + '_' + o.z); let im = v.interiors[key];
-    if (!im) { const src = o.iid && v.homes[o.iid]; try { if (src) { im = G.GMap.deserialize(src); G.buildShell(im); im.buildAll(); G.ents.spawnVillagers(im); } else im = G.makeInterior(d.enter, key, {}); } catch (e) { return G.ui.toast('Cette porte est fermée.'); }
-      im.isVisit = true; G.scene.add(im.group); im.group.visible = false; v.interiors[key] = im; }
-    const [cx, cz] = cur.center(o), F = G.FR[o.r]; im.meta.door = { x: cx + F[0] * (d.fp[1] / 2 + .7), z: cz + F[1] * (d.fp[1] / 2 + .7), yaw: o.r * Math.PI / 2 }; im.meta.title = (o.iid && v.homes[o.iid] ? 'Chez un habitant de ' + v.vil : d.n); im.meta.fromId = 'world';
+    if (!im) im = NET.room(key); if (!im && NET.homesStale()) { G.ui.toast('Toc toc…'); NET.refreshHomes().then(() => { if (NET.visit === v && G.map === cur) G.act.enterHouse(o); }); return; }
+    if (!im) { try { im = G.makeInterior(d.enter, key, {}); } catch (e) { return G.ui.toast('Cette porte est fermée.'); }
+      im.isVisit = im.gen = true; G.scene.add(im.group); im.group.visible = false; v.interiors[key] = im; }
+    const [cx, cz] = cur.center(o), F = G.FR[o.r]; im.meta.door = { x: cx + F[0] * (d.fp[1] / 2 + .7), z: cz + F[1] * (d.fp[1] / 2 + .7), yaw: o.r * Math.PI / 2 }; im.meta.title = (v.homes[key] && v.homes[key].meta && v.homes[key].meta.title) || (d.enter === 'habitant' || d.enter === 'maison' ? 'Chez un habitant de ' + v.vil : d.n); im.meta.fromId = 'world';
     if (d.enter === 'musee') G.buildMuseum(im); G.sfx('door'); G.ui.fade(() => G.enterMap(im, Math.floor(im.W / 2) + .5, im.H - 1.4, Math.PI));
   };
   const oexit = G.act.exitHouse; G.act.exitHouse = () => { const im = G.map, v = NET.visit; if (!v || !im.isVisit || G.ui.fading || G.act._exiting) return oexit(); G.act._exiting = true; const b = im.meta.door; G.sfx('door'); G.ui.fade(() => { G.enterMap(v.map, b.x, b.z, b.yaw); G.act._exiting = false; }); };

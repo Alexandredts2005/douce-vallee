@@ -115,7 +115,7 @@
   Object.assign(G.ROOMNPC, { galerie: ['galerie', 6, 6.2], melimelo: ['melimelo', 5.5, .6] });
   Object.assign(G.NPCS, { galerie: { n: 'Céleste', sp: 'hibou', col: 0xf3b6d0, shirt: 0x8d6fd1, neckwear: 0xffd23f, accent: 0xfaf7f0, eyeCol: 0x9270bf, pitch: 1.2, eyes: 'doux' }, melimelo: { n: 'Mélo', sp: 'alpaga', col: 0xf3e6c8, shirt: 0xe8a23a, apron: 0x6b4426, neckwear: 0x4fb35f, accent: 0xfaf7f0, eyeCol: 0x655449, pitch: 1.1 } });
   // la galerie se met à jour à chaque visite
-  const oenter = G.act.enterHouse; G.act.enterHouse = o => { const r = oenter(o); if (G.OBJ[o.t].enter === 'galerie') setTimeout(() => { const im = G.interiors[o.iid] || (G.net && G.net.visit && G.net.visit.interiors[o.iid]); if (im) fillGallery(im); }, 450); return r; };
+  const oenter = G.act.enterHouse; G.act.enterHouse = o => { const r = oenter(o); if (G.OBJ[o.t].enter === 'galerie') setTimeout(() => { const im = (G.net && G.net.visit && G.net.visit.interiors[o.iid]) || G.interiors[o.iid]; if (im) fillGallery(im); }, 450); return r; };
   // ---------- personnages ----------
   const say = (v, l, c) => G.npcSay(v, l, c), ART = ['La Joconde', 'Nuit étoilée', 'Nymphéas', 'Le Cri', 'Tournesols', 'La Grande Vague', 'Jeune fille à la perle', 'Coucher de soleil'];
   G.npcRoles.galerie = v => { const art = (G.dex.art = G.dex.art || {}), n = Object.keys(art).length;
