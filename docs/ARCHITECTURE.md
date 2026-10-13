@@ -11,7 +11,7 @@ core, rendu, audio, data, models1, models2, decorplus, models3, avatar, humains,
 interiors2, island, player, actions, features, entities, minigames, ui1, ui2, ui3, ui4, editor, fences, bridges, shops,
 mainstreet, plaza2, rue2, house2, archi, maisons, chateau, immeuble, extra, mobilier, meubles, avion2, arbres, monuments,
 garelyon, manoir, rue3, ville2, tentes, plantes, nature, sea2, ambiance, perf, perf2, session, net, games2,
-**[new module files go here]**, game.
+bateaux, monde10, entree_rue, **[new module files go here]**, game.
 `game.js` boots the game at load time, so new modules must only *register* things at load time.
 
 Read the relevant source files before coding — this doc is a map, the code is the truth.
@@ -87,6 +87,10 @@ stage, wallPat, floorPat}`; `G.buildShell(map)` draws textured walls/floor/windo
 `G.map` is the current map. Switch with `G.enterMap(map, x, z, yaw)` (adds `map.group` to the scene if needed); wrap it in
 `G.ui.fade(callback, holdSeconds)` for a black fade. Entering buildings: `G.act.enterHouse(o)` (uses `o.iid` and `OBJ.enter`),
 leaving: walking onto the bottom doormat calls `G.act.exitHouse()` (returns to `map.meta.door` on G.world or G.island).
+Shopping street entrance: `map.meta.rueGate {x0, x1, z, sx, sz, y, big, v2}` — walking north between x0 and x1 past z enters the
+street (mainstreet.js), coming back spawns at (sx, sz). entree_rue.js replaces monde10's `grande_porte` with `porte_marquise`
+(glass hall, wrought-iron marquise, 10×5 footprint, collisions through `hAt`) and lays out the square in front once per world
+(`rueGate.v2`); the painted sign, the clock hands and the stone retaining walls are per-map meshes built on the first frame (`map._pmDeco`).
 
 ## World generation (worldgen.js)
 `G.ACRES[id] = {n, col, ico, lvl, struct?, water?, beach?...}`; default layout `G.DEFAULT_LAYOUT` (rows top→bottom):
