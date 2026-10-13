@@ -566,7 +566,7 @@
   // la caméra n'est jamais bloquée : ce qui se trouve entre elle et le joueur disparaît
   const Z0 = new THREE.Matrix4().makeScale(0, 0, 0), hid = new Map();
   G.on('frame', () => { const m = G.map, p = G.player, cp = G.camera && G.camera.position, now = new Set();
-    if (m && p && cp && !m.interior && m.objr && G.state === 'play') { const ty = p.y + 1, po = m.objAt(Math.floor(p.x), Math.floor(p.z)); for (let i = 1; i <= 18; i++) { const t = i / 18, x = p.x + (cp.x - p.x) * t, y = ty + (cp.y - ty) * t, z = p.z + (cp.z - p.z) * t, o = m.objAt(Math.floor(x), Math.floor(z)); if (!o || o === po || now.has(o)) continue; const d = G.OBJ[o.t]; if (d.h >= 1.6 && !d.walk && o.y + d.h > y - .3) now.add(o); } }
+    if (m && p && cp && !m.interior && m.objr && G.state === 'play') { const ty = p.y + 1, po = m.objAt(Math.floor(p.x), Math.floor(p.z)); for (let i = 1; i <= 18; i++) { const t = i / 18, x = p.x + (cp.x - p.x) * t, y = ty + (cp.y - ty) * t, z = p.z + (cp.z - p.z) * t, o = m.objAt(Math.floor(x), Math.floor(z)); if (!o || o === po || now.has(o)) continue; const d = G.OBJ[o.t]; if (d.h >= 1.6 && !d.walk && !d.seeThru && o.y + d.h > y - .3) now.add(o); } }
     for (const [o, mm] of hid) if (!now.has(o) || mm !== m) { if (o._anim === Z0) o._anim = null; mm.refresh(o); hid.delete(o); }
     for (const o of now) if (!hid.has(o)) { o._anim = Z0; m.refresh(o); hid.set(o, m); } });
   // ===================== 8. MUR DE DEVANT (avec sa porte) dans toutes les pièces : visible de l'intérieur, invisible dès que la caméra passe derrière =====================

@@ -26,9 +26,11 @@
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g;
   }
   class MB {
-    constructor(seed = 1) { this.parts = [[], [], [], [], []]; this.r = G.rng(seed); this.j = 0; this.pat = 0; }
+    constructor(seed = 1) { this.parts = [[], [], [], [], []]; this.r = G.rng(seed); this.j = 0; this.pat = 0; this.sk = null; }
     // motif procédural (briques, pierre, tuiles…) pour les pièces suivantes : 0 = aucun
     P(id = 0) { this.pat = id; return this; }
+    // matière (rendu premium : or, fer, verre, feuillage, peau…) des pièces suivantes ; null = devinée d'après la couleur
+    S(k = null) { this.sk = k; return this; }
     jit(a) { this.j = a; return this; }
     M(x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
       return new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(sx, sy, sz));
@@ -44,6 +46,7 @@
       }
       g.setAttribute('color', new THREE.BufferAttribute(c, 3));
       if (this.pat && mat === 0) { g.userData.pat = this.pat; mat = 4; }
+      g.userData.sk = this.sk != null ? this.sk : G.surfKind ? G.surfKind(col, mat) : 0;
       this.parts[mat].push(g); return this;
     }
     // les pièces très fines (lattes, croisillons, barreaux) n'ont pas besoin d'arrondi : 12 triangles au lieu de 300
@@ -57,11 +60,11 @@
     blob(r, det, col, x, y, z, sx = 1, sy = 1, sz = 1, mat = 0) { return this.add(new THREE.IcosahedronGeometry(r, det), col, this.M(x, y, z, 0, 0, 0, sx, sy, sz), mat, true); }
     done() {
       const geos = [], groups = []; let start = 0;
-      let anyPat = false; for (let m = 0; m < 5; m++) { let cnt = 0; for (const g of this.parts[m]) { geos.push(g); cnt += g.attributes.position.count; if (g.userData.pat) anyPat = true; } if (cnt) { groups.push([start, cnt, m]); start += cnt; } }
-      const N = start, pos = new Float32Array(N * 3), nor = new Float32Array(N * 3), col = new Float32Array(N * 3), pat = anyPat ? new Float32Array(N) : null; let o = 0;
-      for (const g of geos) { const n = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); if (pat && g.userData.pat) pat.fill(g.userData.pat, o, o + n); o += n; }
+      let anyPat = false, anySk = false; for (let m = 0; m < 5; m++) { let cnt = 0; for (const g of this.parts[m]) { geos.push(g); cnt += g.attributes.position.count; if (g.userData.pat) anyPat = true; if (g.userData.sk) anySk = true; } if (cnt) { groups.push([start, cnt, m]); start += cnt; } }
+      const N = start, pos = new Float32Array(N * 3), nor = new Float32Array(N * 3), col = new Float32Array(N * 3), pat = anyPat ? new Float32Array(N) : null, sk = anySk ? new Float32Array(N) : null; let o = 0;
+      for (const g of geos) { const n = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); if (pat && g.userData.pat) pat.fill(g.userData.pat, o, o + n); if (sk && g.userData.sk) sk.fill(g.userData.sk, o, o + n); o += n; }
       const out = new THREE.BufferGeometry();
-      out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3)); if (pat) out.setAttribute('pat', new THREE.BufferAttribute(pat, 1));
+      out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3)); if (pat) out.setAttribute('pat', new THREE.BufferAttribute(pat, 1)); if (sk) out.setAttribute('sk', new THREE.BufferAttribute(sk, 1));
       groups.forEach(([s, c, m]) => out.addGroup(s, c, m)); out.computeBoundingSphere(); out.computeBoundingBox();
       return out;
     }
@@ -72,7 +75,7 @@
   G.getGeo = (name, v = 0) => {
     const k = name + ':' + v; if (cache[k]) return cache[k];
     if (v >= 100) { const g = G.getGeo(name, v - 100).clone(); g.groups = g.groups.map(gr => ({ start: gr.start, count: gr.count, materialIndex: gr.materialIndex === 1 || gr.materialIndex === 3 ? 0 : gr.materialIndex })); return cache[k] = g; } // lampe éteinte
-    const f = G.MODELS[name]; cache[k] = f ? f(v) : G.MODELS._missing(); return cache[k];
+    const f = G.MODELS[name], prev = G._mdl; G._mdl = name; try { cache[k] = f ? f(v) : G.MODELS._missing(); } finally { G._mdl = prev; } return cache[k];
   };
   const MD = G.MODELS;
   MD._missing = () => G.mb().box(.6, .6, .6, 0xff00ff, 0, .3, 0).done();

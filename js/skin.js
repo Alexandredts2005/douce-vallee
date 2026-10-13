@@ -11,7 +11,7 @@
     const std = G.toon({ vertexColors: true, skinning: true }), glow = G.curveMat(new THREE.MeshBasicMaterial({ vertexColors: true, skinning: true }));
     const trans = G.toon({ vertexColors: true, transparent: true, opacity: .62, depthWrite: false, skinning: true }), fire = G.curveMat(new THREE.MeshBasicMaterial({ vertexColors: true, skinning: true }));
     SK = { mats: [std, glow, trans, fire, std],
-      outline: G.curveMat(new THREE.MeshBasicMaterial({ color: 0x3a2619, side: THREE.BackSide, skinning: true }), { outline: .016 }),
+      outline: G.curveMat(new THREE.MeshBasicMaterial({ color: 0x3a2619, side: THREE.BackSide, skinning: true }), { outline: .008 }),
       xray: G.curveMat(new THREE.MeshBasicMaterial({ color: 0xbfefff, transparent: true, opacity: .5, depthWrite: false, depthFunc: THREE.GreaterDepth, skinning: true })),
       hurt: G.toon({ vertexColors: true, color: 0xff7a7a, emissive: 0x661010, skinning: true }, {}) };
     G.M.outlineSk = SK.outline; G.M.xraySk = SK.xray; G.M.hurtSk = SK.hurt; return SK;
@@ -30,9 +30,9 @@
       else { const m = o.material; m.skinning = true; m.needsUpdate = true; ranges.push([0, n, slot(m)]); }
       const ol = o.children.find(c => c.isMesh && c.material === G.M.outline);
       const og = ol ? G.outlineGeo(g) : null; // coque calculée sur la géométrie dépliée (un cylindre indexé donnait des triangles décalés)
-      chunks.push({ g, n, rel, b, ranges, ol: og }); total += n; if (og) olTotal += og.attributes.position.count; drop.push(o); }
+      chunks.push({ g, n, rel, b, ranges, ol: og, sk: o.userData.sk || 0 }); total += n; if (og) olTotal += og.attributes.position.count; drop.push(o); }
     // une géométrie, triée par matériau (un groupe = un appel de dessin)
-    const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), col = new Float32Array(total * 3).fill(1), uv = new Float32Array(total * 2), si = new Float32Array(total * 4), sw = new Float32Array(total * 4);
+    const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), col = new Float32Array(total * 3).fill(1), uv = new Float32Array(total * 2), si = new Float32Array(total * 4), sw = new Float32Array(total * 4), skA = new Float32Array(total);
     const geo = new THREE.BufferGeometry(); let w = 0;
     for (let s = 0; s < mats.length; s++) { const start = w;
       for (const c of chunks) { NM.getNormalMatrix(c.rel); const A = c.g.attributes;
@@ -41,10 +41,11 @@
             if (A.normal) { V.fromBufferAttribute(A.normal, i).applyMatrix3(NM).normalize(); nor[w * 3] = V.x; nor[w * 3 + 1] = V.y; nor[w * 3 + 2] = V.z; }
             if (A.color) { col[w * 3] = A.color.getX(i); col[w * 3 + 1] = A.color.getY(i); col[w * 3 + 2] = A.color.getZ(i); }
             if (A.uv) { uv[w * 2] = A.uv.getX(i); uv[w * 2 + 1] = A.uv.getY(i); }
+            if (A.sk) skA[w] = A.sk.getX(i); else if (c.sk) skA[w] = c.sk;
             si[w * 4] = c.b; sw[w * 4] = 1; } } }
       if (w > start) geo.addGroup(start, w - start, s); }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4)); geo.computeBoundingSphere();
+    geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4)); geo.setAttribute('sk', new THREE.BufferAttribute(skA, 1)); geo.computeBoundingSphere();
     for (const o of drop) o.parent.remove(o);
     const skel = new THREE.Skeleton(bones), mesh = new THREE.SkinnedMesh(geo, mats); mesh.castShadow = true; mesh.receiveShadow = false; mesh.frustumCulled = false; root.add(mesh); mesh.bind(skel); mesh.userData.mat0 = mats;
     // contour (coque inversée) commun à tout le personnage

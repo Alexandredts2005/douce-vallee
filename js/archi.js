@@ -68,7 +68,7 @@ vec3 dvPat(vec3 c) {
 }
 `;
   function patMat() {
-    const m = G.toon({ vertexColors: true }); const base = m.onBeforeCompile; m.extensions = { derivatives: true };
+    const m = G.toon({ vertexColors: true }, { cloud: true, bump: 1, pat: 1 }); const base = m.onBeforeCompile; m.extensions = { derivatives: true };
     m.onBeforeCompile = sh => { base(sh);
       sh.vertexShader = 'attribute float pat;\nvarying float vPat;\nvarying vec3 vOP;\nvarying vec3 vON;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPat = pat; vOP = position; vON = normal;');
       sh.fragmentShader = PAT_FS + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = dvPat(diffuseColor.rgb);'); };
@@ -202,7 +202,7 @@ vec3 dvPat(vec3 c) {
         if (!s.japon) for (const [a, sg] of f < 2 ? [[-.84, 1], [.84, -1]] : [[-.55, 1], [.55, -1]]) beam(b, H, f, a, (y0 + ym) / 2, Math.hypot(lo, .5), sg * Math.atan2(.5, lo), c);
         if (f > 1 && !s.japon) for (const [a, sg] of [[-.75, -1], [.75, 1]]) beam(b, H, f, a, (ym + y1) / 2, Math.hypot(up, .36), sg * Math.atan2(.36, up), c); } }
     // toit
-    const R = s.Z ? toitZ(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, over: .12 }) : toitX(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, genoise: s.genoise, og: .1 });
+    const R = s.roofFn ? s.roofFn(b, H, s) : s.Z ? toitZ(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, over: .12 }) : toitX(b, H, { col: s.roof, pat: s.rp, wall: s.wall, wallPat: s.wp, pitch: s.pitch, fascia: s.trim, genoise: s.genoise, og: .1 });
     // porche à colonnes (avant de la porte, pour que le toit du porche passe au-dessus)
     if (s.porch) { const zf = H.zc + H.d / 2, pd = s.porch === 2 ? .62 : .58, py = H.fh + 1.42;
       b.P(PT.planches); b.box(H.w + .1, .08, pd, 0xc9a16e, 0, H.fh - .04, zf + pd / 2); b.P(0);
@@ -230,11 +230,11 @@ vec3 dvPat(vec3 c) {
     if (s.oeil) { const y = R.yT + (R.yR - R.yT) * .42; disc(b, H, 0, 0, y, .01, .19, .03, GLASS, 1); ring(b, H, 0, 0, y, .045, .2, .035, FR); wb(b, H, 0, 0, y, .05, .025, .38, .02, FR); wb(b, H, 0, 0, y, .05, .38, .025, .02, FR); }
     if (s.Z && s.colombage == null && !s.balcon && !s.oeil) fenetre(b, H, 0, 0, R.yT + .32, { w: .36, h: .34, frame: FR, pane: 'petits' });
     // lucarnes
-    if (s.dormer && !s.Z) { const xs = s.dormer === 2 ? [-.7, .7] : [0], o = { w: .66, col: s.roof, pat: s.rp, wall: s.colombage != null ? s.wall : s.trim, wallPat: s.colombage != null ? PT.crepi : 0, frame: FR };
+    if (s.dormer && !s.Z && R.roofY) { const xs = s.dormer === 2 ? [-.7, .7] : [0], o = { w: .66, col: s.roof, pat: s.rp, wall: s.colombage != null ? s.wall : s.trim, wallPat: s.colombage != null ? PT.crepi : 0, frame: FR };
       for (const x of xs) lucarne(b, H, R, x, o); for (const x of s.dormer === 2 ? [-.85, .2] : [-.3]) lucarne(b, H, R, x, Object.assign({ back: 1 }, o)); }
     // cheminée
     if (s.bigChim) { b.P(PT.moellons); b.box(.5, R.top - H.fh + .45, .5, s.base, H.w / 2 - .15, (R.top + H.fh + .45) / 2 - .02, H.zc - .35); b.P(0); b.P(PT.pierre); b.box(.58, .08, .58, STONEC, H.w / 2 - .15, R.top + .47, H.zc - .35); b.P(0); }
-    else if (s.japon) { } // pas de cheminée sur la maison japonaise
+    else if (s.japon || s.noChim) { } // pas de cheminée (maison japonaise, toits plats…)
     else if (s.Z) cheminee(b, -H.w / 2 + .45, H.zc - .5, R.yT, R.top + .35);
     else cheminee(b, H.w / 2 - .45, H.zc - .45, R.yT + .2, R.top + .38);
     // lierre, massifs, petits détails

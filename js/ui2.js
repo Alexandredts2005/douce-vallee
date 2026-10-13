@@ -91,7 +91,7 @@
     c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1; c.font = '600 12px Fredoka, sans-serif'; c.fillStyle = 'rgba(255,255,255,.85)';
     for (let a = 0; a <= G.AC; a++) { const x = (G.BORDER + a * G.ACRE) * sc; c.beginPath(); c.moveTo(x, G.BORDER * sc); c.lineTo(x, (G.BORDER + G.AR * G.ACRE) * sc); c.stroke(); }
     for (let a = 0; a <= G.AR; a++) { const y = (G.BORDER + a * G.ACRE) * sc; c.beginPath(); c.moveTo(G.BORDER * sc, y); c.lineTo((G.BORDER + G.AC * G.ACRE) * sc, y); c.stroke(); }
-    for (let az = 0; az < G.AR; az++) for (let ax = 0; ax < G.AC; ax++) c.fillText('ABCDEFG'[ax] + '-' + (az + 1), (G.BORDER + ax * G.ACRE + 1) * sc, (G.BORDER + az * G.ACRE + 2.2) * sc);
+    for (let az = 0; az < G.AR; az++) for (let ax = 0; ax < G.AC; ax++) c.fillText('ABCDEFGHIJKLMNOPQRSTUVWXYZ'[ax] + '-' + (az + 1), (G.BORDER + ax * G.ACRE + 1) * sc, (G.BORDER + az * G.ACRE + 2.2) * sc);
     c.font = '20px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; const M = m.meta, ic = (e, p) => p && c.fillText(e, p.x * sc, (p.z - 2) * sc);
     ic('🏠', M.home); ic('🛒', M.shop); ic('⛲', M.plaza); ic('⛺', M.tent); (M.homes || []).forEach(h => ic('🐾', h));
     const p = G.map === m ? G.player : { x: (G.map.meta.door || {}).x || 0, z: (G.map.meta.door || {}).z || 0 }; c.fillStyle = '#ff4d4d'; c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.arc(p.x * sc, p.z * sc, 7, 0, 7); c.fill(); c.stroke(); c.textAlign = 'left'; c.textBaseline = 'alphabetic';

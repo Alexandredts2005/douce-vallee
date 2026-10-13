@@ -5,6 +5,7 @@
   let renderer, scene, camera, hemi, sun, amb, sky, skyMat, stars, sunM, moonM, clouds = [], seaG = null, lamps = [], roomLight, lampT = 0, autoT = 0;
   G.clock = { min: 8 * 60, day: 1 }; G.interiors = {}; G.state = 'loading'; G.playerName = 'Pomme'; G.villageName = 'Douce Vallée'; G.mode = 'creatif';
   G.cam = { yaw: 0, tyaw: 0, dist: 13, tdist: 13, pitch: .72, boost: 0, sh: 0, orbit: 0, shake(a) { this.sh = Math.max(this.sh, a); } };
+  G.CH = { eye: .84, eyeSit: .62, eyeSwim: .5, mouse: 1.05, vil: .9 }; // hauteurs de caméra selon la taille du personnage
   // ---------- ciel : dégradé, soleil, lune, étoiles ----------
   const SKY = [ // heure, haut, horizon, lumière, intensité, ciel hémi, sol hémi, intensité hémi
     [0, 0x0a1030, 0x1c2550, 0x7c8cd6, .26, 0x34407a, 0x1c2438, .32], [4.6, 0x0f1840, 0x2a3164, 0x8a92d0, .26, 0x3a4680, 0x1e2638, .34],
@@ -26,9 +27,10 @@
     stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false })); stars.frustumCulled = false; scene.add(stars);
     sunM = new THREE.Mesh(new THREE.CircleGeometry(16, 24), new THREE.MeshBasicMaterial({ color: 0xfff3c4, fog: false, transparent: true, opacity: .95 })); moonM = new THREE.Mesh(new THREE.CircleGeometry(10, 24), new THREE.MeshBasicMaterial({ color: 0xf4f1ff, fog: false, transparent: true }));
     [sunM, moonM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    G.skyMesh = sky; G.sunMesh = sunM; G.moonMesh = moonM; G.stars = stars;
   }
   // ---------- nuages, mer et horizon ----------
-  function makeClouds() { const r = G.rng(5); for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(G.getGeo('cloud', i % 6), G.M.cloud); m.frustumCulled = false; m.userData = { s: .5 + r() * .7 }; const s = .8 + r() * .9; m.scale.set(s, s * .8, s); clouds.push(m); scene.add(m); } }
+  function makeClouds() { const r = G.rng(5); for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(G.getGeo('cloud', i % 6), G.M.cloud); m.frustumCulled = false; m.userData = { s: .5 + r() * .7 }; const s = .8 + r() * .9; m.scale.set(s, s * .8, s); clouds.push(m); scene.add(m); } G.cloudMeshes = clouds; }
   function placeClouds(m) { const r = G.rng(9); clouds.forEach(c => c.position.set(-30 + r() * (m.W + 60), 22 + r() * 10, -40 + r() * (m.H + 30))); }
   function makeSea(m) {
     if (seaG) { scene.remove(seaG); seaG.traverse(c => c.geometry && c.geometry.dispose()); }
@@ -46,9 +48,9 @@
     lampT -= dt; const m = G.map, p = G.player; if (!m || !p) return;
     if (lampT < 0) { lampT = .5; const near = [];
       let lit = 0; for (const o of m.lights) { if (o.off) continue; lit++; const [cx, cz] = m.center(o), d = Math.hypot(cx - (G.cam.cx || p.x), cz - (G.cam.cz || p.z)); if (d < 60) near.push([d, o, cx, cz]); }
-      near.sort((a, b) => a[0] - b[0]); lamps.forEach((l, i) => { const e = near[i]; l.userData.o = e ? e[1] : null; if (e) l.position.set(e[2], e[1].y + (G.OBJ[e[1].t].h > 1.5 ? 2.3 : .9), e[3]); });
+      near.sort((a, b) => a[0] - b[0]); lamps.forEach((l, i) => { const e = near[i]; l.userData.o = e ? e[1] : null; if (e) { const d = G.OBJ[e[1].t]; l.position.set(e[2], e[1].y + (typeof d.ly === 'function' ? d.ly(e[1]) : d.ly != null ? d.ly : d.h > 1.5 ? 2.3 : .9), e[3]); l.distance = d.ld || 8; } });
       roomLight.intensity = m.interior ? .08 + Math.min(.3, lit * .1) : 0; }
-    const on = m.interior ? .3 : n * .55, act = lamps.filter(l => l.userData.o); lamps.forEach(l => { const o = l.userData.o, k = o ? 1 / Math.sqrt(act.filter(q => q.position.distanceTo(l.position) < 9).length || 1) : 0; l.intensity = o ? on * k * (G.OBJ[o.t].fire ? 1.1 + Math.sin(performance.now() / 90 + l.id) * .12 : 1.2) : 0; }); // plusieurs lampes proches ne s'additionnent plus jusqu'à éblouir
+    const on = m.interior ? .3 : n * .55, act = lamps.filter(l => l.userData.o); lamps.forEach(l => { const o = l.userData.o, k = o ? 1 / Math.sqrt(act.filter(q => q.position.distanceTo(l.position) < 9).length || 1) : 0; l.intensity = o ? on * k * (G.OBJ[o.t].fire ? 1.1 + Math.sin(performance.now() / 90 + l.id) * .12 : 1.2) * (G.OBJ[o.t].li || 1) : 0; }); // plusieurs lampes proches ne s'additionnent plus jusqu'à éblouir
   }
   G.lampRefresh = () => { lampT = 0; };
   G.setOutlines = mode => { if (mode === 'tout' && G.settings.quality === 'low') mode = 'perso'; G.M.outline.visible = mode !== 'aucun'; G.M.outlineI.visible = mode === 'tout'; for (const mp of [G.world, G.island, ...Object.values(G.interiors)]) if (mp) mp.objr.setOutlines(mode === 'tout'); };
@@ -104,16 +106,17 @@
     G.U.curve.value = !m.interior && G.settings.curve && !mouse ? G.CURVE : 0;
     let tx, ty, tz, dist = C.dist, pitch = C.pitch, k = Math.min(1, 8 * dt);
     if (G.state === 'title' || G.state === 'loading') { C.orbit += dt * .05; const s = m.meta.plaza || { x: m.W / 2, z: m.H / 2 }; tx = s.x; tz = s.z - 4; ty = 1; C.yaw = C.orbit; dist = 24; pitch = .5; }
+    else if (playing && p.vehicle && p.vehicle.camFn && p.vehicle.camFn(camera, C, dt, mouse)) { finishCam(C, p, m, dt); return; } // l'avion règle sa caméra (poursuite, cockpit)
     else if (fp) { // vue à la première personne (style Minecraft)
-      C.yaw = C.tyaw; const ey = p.y + (p.swim ? .5 : p.sit ? .62 : .84);
+      C.yaw = C.tyaw; const H = G.CH, ey = p.y + (p.swim ? H.eyeSwim : p.sit ? H.eyeSit : H.eye);
       camera.position.set(p.x, ey, p.z); camera.lookAt(p.x - Math.sin(C.yaw) * Math.cos(C.mp), ey - Math.sin(C.mp), p.z - Math.cos(C.yaw) * Math.cos(C.mp));
       C.cx = p.x; C.cy = ey; C.cz = p.z; p.root.visible = false; finishCam(C, p, m, dt); return;
     }
-    else if (mouse) { C.yaw = C.tyaw; tx = p.x; ty = p.y + 1.05; tz = p.z; dist = p.vehicle ? 16 : (C.mdist || 5.5); pitch = C.mp; k = 1; }
+    else if (mouse) { C.yaw = C.tyaw; tx = p.x; ty = p.y + G.CH.mouse; tz = p.z; dist = p.vehicle ? 16 : (C.mdist || 5.5); pitch = C.mp; k = 1; }
     else if (m.interior) { const cm = m.meta.cam; tx = G.lerp(m.W / 2, p.x, cm ? cm.fx : .35); tz = G.lerp(m.H / 2, p.z, cm ? cm.fz : .35) + (cm ? cm.dz : .5); ty = cm ? cm.ty : .6; C.yaw = 0; dist = cm ? cm.dist : Math.max(9, m.W * 1.15); pitch = cm ? cm.pitch : .9; C.tyaw = 0; }
     else if (p.vehicle) { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + .5; tz = p.z; dist = 24; pitch = .78; }
-    else { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); C.dist += (C.tdist - C.dist) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + .9; tz = p.z; dist = C.dist;
-      const hd = Math.cos(pitch) * dist; let need = pitch; for (const t of [.12, .25, .4, .55, .7]) { const sx = tx + Math.sin(C.yaw) * hd * t, sz = tz + Math.cos(C.yaw) * hd * t, h = m.terrainH(sx, sz); if (h < 40) need = Math.max(need, Math.atan2(h + .9 - ty + .4, hd * t)); }
+    else { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); C.dist += (C.tdist - C.dist) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + G.CH.vil; tz = p.z; dist = C.dist;
+      const hd = Math.cos(pitch) * dist; let need = pitch; for (const t of [.12, .25, .4, .55, .7]) { const sx = tx + Math.sin(C.yaw) * hd * t, sz = tz + Math.cos(C.yaw) * hd * t, h = m.camH ? m.camH(sx, sz) : m.terrainH(sx, sz); if (h < 40) need = Math.max(need, Math.atan2(h + .9 - ty + .4, hd * t)); }
       C.boost += (Math.min(1.25, need) - pitch - C.boost) * Math.min(1, 3 * dt); pitch += Math.max(0, C.boost); }
     if (playing && !p.root.visible && G.state !== 'title') p.root.visible = true;
     TGT.set(tx, ty, tz); if (!C.cx) { C.cx = tx; C.cy = ty; C.cz = tz; }
@@ -130,7 +133,7 @@
   function finishCam(C, p, m, dt) {
     if (C.sh > 0) { C.sh = Math.max(0, C.sh - dt * .8); camera.position.x += (Math.random() - .5) * C.sh; camera.position.y += (Math.random() - .5) * C.sh; }
     G.U.cc.value.set(C.cx, C.cy, C.cz); G.U.cf.value.set(-Math.sin(C.yaw), -Math.cos(C.yaw));
-    if (p && p.xray) { let occ = false; if (G.state === 'play' && !p.swim && !G.firstPerson()) { const py = p.y + .5, cp = camera.position, lx = Math.cos(C.yaw), lz = -Math.sin(C.yaw);
+    if (p && p.xray) { let occ = false; if (G.state === 'play' && !p.swim && !G.firstPerson() && !G.mouseMode()) { const py = p.y + .5, cp = camera.position, lx = Math.cos(C.yaw), lz = -Math.sin(C.yaw);
         for (const t of [.06, .12, .19, .26, .34, .44, .55]) for (const o of [0, -.75, .75]) { const sx = p.x + (cp.x - p.x) * t + lx * o, sz = p.z + (cp.z - p.z) * t + lz * o, th = m.topAt(sx, sz); if (th < 40 && th > py + (cp.y - py) * t) { occ = true; break; } } }
       if (occ !== p._occ) { p._occ = occ; p.xray.forEach(x => x.visible = occ); } }
     sky.position.copy(camera.position); stars.position.copy(camera.position);
@@ -243,7 +246,7 @@
       G.TEX.water.offset.set(wt * .02, wt * .013); G.TEX.fall.offset.y = wt * 1.3;
       for (const c of clouds) { c.position.x += dt * c.userData.s; if (G.world && c.position.x > G.world.W + 40) c.position.x = -40; }
       const p = G.player, m = G.map; G.amb.update(dt, { fall: G.ents.fallDist || 99, sea: m && !m.interior ? Math.max(0, (m.meta.seaZ || 999) - 4 - p.z) : 99, night: G.night(), inside: !!(m && m.interior) });
-      if (G.state !== 'editor') renderer.render(scene, camera);
+      if (G.state !== 'editor') { if (G.renderFrame) G.renderFrame(); else renderer.render(scene, camera); }
     } catch (e) { if (!G._err) console.error(e); G._err = e; }
     G.input.endFrame();
   }

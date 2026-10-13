@@ -55,7 +55,7 @@
     teleport(x, z, yaw) {
       const m = this.map; this.x = x; this.z = z; this.vx = this.vz = this.vy = 0; if (yaw != null) this.yaw = yaw;
       this.sit = null; this.fish && G.act.stopFish(); this.charging = false; this.charge = 0; this.vault = null; this.emote = null; this.stuckT = 0;
-      if (m.isWaterAt(x, z) && G.canSwim(m, x, z)) { this.swim = true; this.swimSurf = m.waterSurf(Math.floor(x), Math.floor(z)); this.y = this.swimSurf - .5; this.onGround = false; }
+      if (m.isWaterAt(x, z) && G.canSwim(m, x, z)) { this.swim = true; this.swimSurf = m.waterSurf(Math.floor(x), Math.floor(z)); this.y = this.swimSurf - .82; this.onGround = false; }
       else { this.swim = false; this.y = m.topAt(x, z); this.onGround = true; this.safe = { x, z, t: 0 }; }
     }
     facing() { return [Math.sin(this.yaw), Math.cos(this.yaw)]; }
@@ -123,7 +123,7 @@
         if (!this.blocked(this.x, nz, this.y)) this.z = nz; else this.vz = 0;
         if (!m.isWaterAt(this.x, this.z)) { this.swim = false; this.y = this.groundAt(this.x, this.z); this.onGround = true; this.vy = 0; G.sfx('splash', .4); G.fx.burst(this.x, this.y + .2, this.z, 8, [0xffffff, 0xbfe6fa], 2, .5, 8); }
         else {
-          this.swimSurf = m.waterSurf(Math.floor(this.x), Math.floor(this.z)); const ty = this.swimSurf - .5 + Math.sin(performance.now() / 300) * .03; this.y += (ty - this.y) * Math.min(1, 6 * dt);
+          this.swimSurf = m.waterSurf(Math.floor(this.x), Math.floor(this.z)); const ty = this.swimSurf - .82 + Math.sin(performance.now() / 300) * .03; this.y += (ty - this.y) * Math.min(1, 6 * dt);
           if (free && I.hit('Space') || (I.gp.on && I.gpHit(0))) { this.swim = false; this.onGround = false; this.vy = Math.sqrt(2 * GRAV * 1.05); this.airTop = this.y; G.sfx('splash', .6); G.fx.burst(this.x, this.swimSurf, this.z, 12, [0xffffff, 0xbfe6fa], 2.5, .6, 8); }
           this.stepT -= dt; const hs = Math.hypot(this.vx, this.vz); if (this.stepT < 0) { this.stepT = hs > .5 ? .28 : .7; { const a = Math.random() * 6.28; G.fx.one(this.x + Math.cos(a) * .3, this.swimSurf + .04, this.z + Math.sin(a) * .3, Math.cos(a) * .4, .05, Math.sin(a) * .4, .6, 0, 0xe8f6ff, .16, 1.2); } if (hs > .5) G.sfx('step', .6); }
         }

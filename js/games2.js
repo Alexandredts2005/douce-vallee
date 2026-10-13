@@ -19,7 +19,7 @@
       for (const [x, z] of [[o.x + Math.floor(w / 2), o.z - 1], [o.x - 1, o.z], [o.x + w, o.z], [o.x + Math.floor(w / 2), o.z + dd]]) { if (!free(x, z)) continue; const sx = x + .5, sz = z + .5; if (out.some(s => Math.hypot(s.x - sx, s.z - sz) < 6)) continue; out.push({ x: sx, z: sz, yaw: Math.atan2(o.x + w / 2 - sx, o.z + dd / 2 - sz) + Math.PI }); break; } }
     return out;
   }
-  function makeHider(k, s) { const D = G.VILLAGERS[k % G.VILLAGERS.length], C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.acc }); C.root.position.set(s.x, G.map.topAt(s.x, s.z), s.z); C.root.rotation.y = s.yaw; C.body.position.y = -.12; C.legL.rotation.x = C.legR.rotation.x = -1.2; G.scene.add(C.root); return { C, D, s }; }
+  function makeHider(k, s) { const D = G.VILLAGERS[k % G.VILLAGERS.length], C = G.makeChar({ n: D.n, pitch: D.pitch, sp: D.sp, col: D.col, shirt: D.shirt || D.acc }); C.root.position.set(s.x, G.map.topAt(s.x, s.z), s.z); C.root.rotation.y = s.yaw; C.body.position.y = -.12; C.legL.rotation.x = C.legR.rotation.x = -1.2; G.scene.add(C.root); return { C, D, s }; }
   // les vrais habitants se cachent aussi : on les rend invisibles pendant la partie
   const hideVillagers = on => { for (const v of G.ents.villagers) if (!v.fixed && v.map === G.map) { v.gameHidden = on; } };
   G.on('update', () => { if (!GM.a || GM.a.id !== 'cache') return; for (const v of G.ents.villagers) if (v.gameHidden) { v.root.visible = v.blob.visible = false; v.visible = false; } });

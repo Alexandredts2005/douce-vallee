@@ -200,7 +200,7 @@
     if (!a) { a = { id, x: pr.x, z: pr.z, y: pr.y, r: pr.r || 0, walkT: 0 }; NET.av.set(id, a); const b = new THREE.Mesh(G.getGeo('blob'), G.M.shadow); b.frustumCulled = false; b.renderOrder = 1; G.scene.add(b); a.blob = b; }
     if (a.lk !== lk) { if (a.C) G.scene.remove(a.C.root); a.C = G.makeChar({ look: unpackLook(pr.lk) }); G.scene.add(a.C.root); a.lk = lk; a.tagFor = null; }
     const label = clean(pr.n, 16) || 'Joueur', sub = pr.vis ? '✈ ' + clean(pr.vil, 20) : '';
-    if (a.tagFor !== label + sub) { if (a.tag) { a.C.root.remove(a.tag); a.tag.material.map.dispose(); } a.tag = sprite(tagTex(label, sub), 1.3, sub ? .49 : .33, 1.62 + (sub ? .08 : 0)); a.C.root.add(a.tag); a.tagFor = label + sub; }
+    if (a.tagFor !== label + sub) { if (a.tag) { a.C.root.remove(a.tag); a.tag.material.map.dispose(); } a.tag = sprite(tagTex(label, sub), 1.3, sub ? .49 : .33, 1.86 + (sub ? .08 : 0)); a.C.root.add(a.tag); a.tagFor = label + sub; }
     if (pr.say && pr.say.t !== a.sayT && typeof pr.say.txt === 'string') { a.sayT = pr.say.t; NET.bubble(a.C.root, clean(pr.say.txt, 90)); chatLog(label, clean(pr.say.txt, 90)); G.sfx('pop', .6); }
     return a;
   }

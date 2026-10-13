@@ -104,7 +104,10 @@
       this.group = new THREE.Group(); this.terrain = new THREE.Group(); this.group.add(this.terrain);
       this.cw = Math.ceil(W / CH); this.chh = Math.ceil(H / CH); this.chunks = new Array(this.cw * this.chh).fill(null); this.dirty = new Set();
       this.falls = new Map(); this.objr = new ObjR(this); this.meta = {}; this.rev = 0;
+      this.ceil = new Map(); // objets accrochés au plafond (lustres) : une case peut avoir un meuble au sol ET un lustre
     }
+    ceilAt(tx, tz) { return this.inb(tx, tz) ? this.ceil.get(tz * this.W + tx) || null : null; }
+    ceilH() { return this.meta.ceilH || (this.interior ? 3 : 4); }
     idx(x, z) { return z * this.W + x; }
     inb(x, z) { return x >= 0 && z >= 0 && x < this.W && z < this.H; }
     isWaterT(x, z) { return this.inb(x, z) && this.water[z * this.W + x] > 0; }
@@ -136,6 +139,7 @@
     canPlace(t, tx, tz, r = 0) {
       const d = G.OBJ[t]; if (!d) return false; const [w, dd] = G.fpDims(d, r); let L = null;
       const m = this.interior ? 0 : 2;
+      if (d.ceil) { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (!this.inb(x, z) || this.ceil.has(z * this.W + x)) return false; return true; }
       for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
         if (x < m || z < m || x >= this.W - m || z >= this.H - m) return false;
         const i = z * this.W + x; if (this.occ[i]) return false;
@@ -149,14 +153,17 @@
       const o = { t, x: tx, z: tz, r, hp: d.chop || d.mine || 0, f: (d.fruit || d.pickFruit) ? 3 : 0 };
       if (extra) Object.assign(o, extra);
       o.y = this.baseH(tx, tz); const own = tz * this.W + tx;
-      for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.occ[z * this.W + x] = own + 1;
-      this.objs[own] = o; this.list.add(o); if (d.light) this.lights.add(o);
+      if (d.ceil) { o.y += this.ceilH(); o.v = Math.round(this.ceilH() * 2); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.ceil.set(z * this.W + x, o); }
+      else { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.occ[z * this.W + x] = own + 1; this.objs[own] = o; }
+      this.list.add(o); if (d.light) this.lights.add(o);
       this.objr.add(o); this.rev++; return o;
     }
     removeObj(o) {
       const d = G.OBJ[o.t], [w, dd] = G.fpDims(d, o.r);
-      for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.inb(x, z) && this.occ[z * this.W + x] === o.z * this.W + o.x + 1) this.occ[z * this.W + x] = 0;
-      this.objs[o.z * this.W + o.x] = null; this.list.delete(o); this.lights.delete(o); this.objr.remove(o); this.rev++;
+      if (d.ceil) { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.ceil.get(z * this.W + x) === o) this.ceil.delete(z * this.W + x); }
+      else { for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) if (this.inb(x, z) && this.occ[z * this.W + x] === o.z * this.W + o.x + 1) this.occ[z * this.W + x] = 0;
+        this.objs[o.z * this.W + o.x] = null; }
+      this.list.delete(o); this.lights.delete(o); this.objr.remove(o); this.rev++;
     }
     setAnim(o, m) { o._anim = m; if (o._k) this.objr.write(o, m); }
     refresh(o) { this.objr.refresh(o); }

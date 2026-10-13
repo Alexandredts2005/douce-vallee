@@ -86,7 +86,7 @@
   // ----- habitants -----
   E.spawnVillagers = map => {
     for (const h of map.meta.homes || []) {
-      const D = G.VILLAGERS[h.vi]; if (!D) continue; const C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.shirt || D.acc, pants: D.pants || 0x5a4a3a, eyes: D.eyes, eyeCol: D.eyeCol, eyeSize: D.eyeSize, mouth: D.mouth, cheek: D.cheek, neckwear: D.neckwear, accent: D.accent, stripes: D.stripes });
+      const D = G.VILLAGERS[h.vi]; if (!D) continue; const C = G.makeChar({ n: D.n, pitch: D.pitch, sp: D.sp, col: D.col, shirt: D.shirt || D.acc, pants: D.pants || 0x5a4a3a, eyes: D.eyes, eyeCol: D.eyeCol, eyeSize: D.eyeSize, mouth: D.mouth, cheek: D.cheek, neckwear: D.neckwear, accent: D.accent, stripes: D.stripes });
       const v = { D, C, root: C.root, x: h.x, z: h.z + .4, y: 0, yaw: 0, home: h, st: 'idle', t: 1 + Math.random() * 3, walkT: 0, map, visible: true, blob: blob(), gift: -1 };
       scene.add(v.root); E.villagers.push(v);
     }
@@ -94,7 +94,7 @@
   };
   // personnages fixes : commerçants, guichetier, capitaine… (role → G.NPCS[role])
   E.addNPC = (role, map, x, z, yaw = 0) => {
-    const D = G.NPCS[role]; if (!D) return null; const C = G.makeChar({ sp: D.sp, col: D.col, shirt: D.shirt, pants: D.pants, apron: D.apron, eyes: D.eyes, eyeCol: D.eyeCol, eyeSize: D.eyeSize, mouth: D.mouth, cheek: D.cheek, neckwear: D.neckwear, accent: D.accent, stripes: D.stripes });
+    const D = G.NPCS[role]; if (!D) return null; const C = G.makeChar({ n: D.n, pitch: D.pitch, sp: D.sp, col: D.col, shirt: D.shirt, pants: D.pants, apron: D.apron, eyes: D.eyes, eyeCol: D.eyeCol, eyeSize: D.eyeSize, mouth: D.mouth, cheek: D.cheek, neckwear: D.neckwear, accent: D.accent, stripes: D.stripes });
     const v = { D, C, root: C.root, x, z, y: 0, yaw, home: { x, z, yaw }, st: 'npc', t: 0, walkT: 0, map, visible: true, blob: blob(), npc: role, shop: role === 'shop' ? 1 : 0, fixed: 1 };
     scene.add(v.root); E.villagers.push(v); return v;
   };

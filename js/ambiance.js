@@ -11,10 +11,39 @@
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('gc', new THREE.Float32BufferAttribute(col, 3)); return g; }
   const GR = { N: 9000, cx: 1e9, cz: 1e9, map: null, t: 0 };
   G.on('init', scene => {
-    const U = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 }, uTint: { value: new THREE.Color(1, 1, 1) } }]); U.uCurve = G.U.curve; U.uCC = G.U.cc; U.uCF = G.U.cf; GR.U = U;
-    const mat = new THREE.ShaderMaterial({ uniforms: U, fog: true, side: THREE.DoubleSide,
-      vertexShader: 'attribute vec3 gc; uniform float uT, uCurve; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; float sw = sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; ' + CURVE + ' vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc * (.82 + .3 * fract(sin(dot(floor(wp.xz * .7), vec2(12.9898, 78.233))) * 43758.5453)) * (.9 + .15 * sin(wp.x * .21 + wp.z * .17));\n#include <fog_vertex>\n}',
-      fragmentShader: 'uniform vec3 uTint; varying vec3 vC;\n#include <fog_pars_fragment>\nvoid main(){ gl_FragColor = vec4(vC * uTint, 1.0);\n#include <fog_fragment>\n}' });
+    // rendu premium : lumière physique, ombres portées (arbres, maisons) lues dans la carte d'ombre, base des brins dans l'ombre des autres,
+    // lumière qui traverse les brins à contre-jour, ondulation au vent
+    const U = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, THREE.UniformsLib.lights, { uT: { value: 0 }, uTint: { value: new THREE.Color(1, 1, 1) }, uSunL: { value: new THREE.Vector3() }, uAmbL: { value: new THREE.Vector3() } }]); U.uCurve = G.U.curve; U.uCC = G.U.cc; U.uCF = G.U.cf; GR.U = U;
+    if (G.SU) { U.uSunDir = G.SU.uSunDir; U.uWind = G.SU.uWind; U.uWet = G.SU.uWet; } else { U.uSunDir = { value: new THREE.Vector3(0, 1, 0) }; U.uWind = { value: 1 }; U.uWet = { value: 0 }; }
+    U.uCloudTex = G.U.cloudTex; U.uCloudOff = G.U.cloudOff; U.uCloudAmt = G.U.cloudAmt;
+    const mat = new THREE.ShaderMaterial({ uniforms: U, fog: true, lights: true, side: THREE.DoubleSide,
+      vertexShader: `#include <packing>
+attribute vec3 gc; uniform float uT, uCurve, uWind; uniform vec3 uCC; uniform vec2 uCF; varying vec3 vC; varying float vH; varying float vSh; varying vec3 vWP; varying vec3 vVD;
+#if NUM_DIR_LIGHT_SHADOWS > 0
+uniform sampler2D directionalShadowMap[ NUM_DIR_LIGHT_SHADOWS ]; uniform mat4 directionalShadowMatrix[ NUM_DIR_LIGHT_SHADOWS ];
+#endif
+#include <fog_pars_vertex>
+void main(){ vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0); float h = position.y; vH = clamp(h / .45, 0., 1.);
+  float sw = (sin(uT * 1.7 + wp.x * .35 + wp.z * .27) * .1 + sin(uT * 3.3 + wp.x * .9 + wp.z * .4) * .035) * uWind; wp.x += sw * h * 2.2; wp.z += sw * h * 1.2; vWP = wp.xyz;
+  vSh = 1.;
+  #if NUM_DIR_LIGHT_SHADOWS > 0
+  { vec4 sc = directionalShadowMatrix[ 0 ] * wp; vec3 c = sc.xyz / sc.w; if (c.x > 0. && c.x < 1. && c.y > 0. && c.y < 1. && c.z < 1.) { float s = 0.; for (int i = 0; i < 4; i++) { vec2 o = vec2(i == 0 || i == 3 ? -.0006 : .0006, i < 2 ? -.0006 : .0006); s += step(c.z - .0025, unpackRGBAToDepth(texture2D(directionalShadowMap[ 0 ], c.xy + o))); } vSh = s * .25; } }
+  #endif
+  vVD = cameraPosition - wp.xyz;
+  ${CURVE} vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition; vC = gc * (.82 + .3 * fract(sin(dot(floor(wp.xz * .7), vec2(12.9898, 78.233))) * 43758.5453)) * (.9 + .15 * sin(wp.x * .21 + wp.z * .17));
+#include <fog_vertex>
+}`,
+      fragmentShader: `uniform vec3 uTint, uSunL, uAmbL, uSunDir; uniform sampler2D uCloudTex; uniform vec2 uCloudOff; uniform float uCloudAmt, uWet; varying vec3 vC; varying float vH; varying float vSh; varying vec3 vWP; varying vec3 vVD;
+#include <fog_pars_fragment>
+void main(){ vec3 alb = pow(max(vC, vec3(0.)), vec3(2.2)) * vec3(.86, .95, .78) * mix(.32, 1., pow(vH, .75)) * (1. - uWet * .25);
+  float cl = 1. - uCloudAmt * smoothstep(.42, .75, texture2D(uCloudTex, vWP.xz * .016 + uCloudOff).r);
+  vec3 sun = uSunL * cl * vSh, V = normalize(vVD);
+  vec3 c = alb * (sun * (.3 + .7 * max(uSunDir.y, 0.)) * mix(.55, 1., vH) + uAmbL * mix(.55, 1., vH));
+  c += alb * sun * (pow(max(dot(-V, uSunDir), 0.), 4.) * 1.6 + .12) * vH; // lumière à travers les brins
+  c += sun * pow(vH, 3.) * .025 * (1. + uWet * 3.);
+  gl_FragColor = vec4(pow(c, vec3(1. / 2.2)), 1.0);
+#include <fog_fragment>
+}` });
     GR.mat = mat; GR.geoN = grassGeo(6); GR.geoF = grassGeo(3); GR.group = new THREE.Group(); scene.add(GR.group); GR.ch = new Map(); GR.q = [];
   });
   const SC = new THREE.Color(), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
@@ -89,7 +118,9 @@
     for (const me of GR.ch.values()) { const [kx, kz] = me.userData.k; let v = true;
       if (CV && cw8) { v = false; for (let cz = kz * R8; cz < Math.min(ch8, kz * R8 + R8) && !v; cz++) for (let cx = kx * R8; cx < Math.min(cw8, kx * R8 + R8); cx++) if (CV[cz * cw8 + cx]) { v = true; break; } }
       me.visible = v && me.count > 0; if (me.visible) me.geometry = Math.hypot(me.userData.c[0] - tx, me.userData.c[1] - tz) > 50 ? GR.geoF : GR.geoN; }
-    const L = G.lights, si = G.skyInfo; if (L) { const t = GR.U.uTint.value; t.copy(L.hemi.color).multiplyScalar(L.hemi.intensity * .95); SC.copy(L.sun.color).multiplyScalar(L.sun.intensity * .55); t.add(SC); t.r = G.clamp(t.r * 1.15, .34, 1.25); t.g = G.clamp(t.g * 1.15, .4, 1.25); t.b = G.clamp(t.b * 1.15, .55, 1.25); }
+    const L = G.lights, si = G.skyInfo; if (L) { const lin = (c, k) => Math.pow(Math.max(0, c * k), 2.2), SK2 = G.SU ? G.SU.uSunK.value : 1.5, AK = G.SU ? G.SU.uAmbK.value : 1.2, sc = L.sun.color, hc = L.hemi.color, ai = L.amb.intensity;
+      GR.U.uSunL.value.set(lin(sc.r, L.sun.intensity), lin(sc.g, L.sun.intensity), lin(sc.b, L.sun.intensity)).multiplyScalar(SK2);
+      GR.U.uAmbL.value.set(Math.pow(hc.r * L.hemi.intensity + ai, 2.2), Math.pow(hc.g * L.hemi.intensity + ai, 2.2), Math.pow(hc.b * L.hemi.intensity + ai, 2.2)).multiplyScalar(AK); }
     GR.U.fogColor.value.copy(G.scene.fog.color); GR.U.fogNear.value = G.scene.fog.near; GR.U.fogFar.value = G.scene.fog.far;
   });
   const LP = { t: 0 };
