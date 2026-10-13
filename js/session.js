@@ -42,7 +42,7 @@
     if (surv) START.survie.forEach(([id, n], i) => inv[i] = { id, n }); else START.creatif.forEach((id, i) => hot[i] = id);
     return { name: info.name, gender: info.gender, look: info.look, home: k ? 'home' + (k + 1) : 'home', coins: surv ? 300 : 5000, sel: 0, inv, hot, storage: new Array(120).fill(null), flags: {}, best: {}, player: null }; };
   const genderLook = (look, g) => { const d = G.defaultLook(), same = JSON.stringify(Object.assign({}, look, { gender: undefined })) === JSON.stringify(Object.assign({}, d, { gender: undefined }));
-    const l = Object.assign({}, look, { gender: g }); if (same) Object.assign(l, g === 'f' ? { hair: 'couettes', hairCol: 0xa8693a, top: 'robe', topCol: 0xff8fc0, bottom: 'jupe', hat: 'noeud', hatCol: 0xe8434a, lashes: true } : { hair: 'herisse', hairCol: 0x6b3f22, top: 'tshirt', topCol: 0x5b8fd6, bottom: 'short', hat: 'casquette', hatCol: 0xe8434a, lashes: false }); else if (l.lashes === undefined) l.lashes = g === 'f'; return l; };
+    const l = Object.assign({}, look, { gender: g }); if (same) Object.assign(l, g === 'f' ? { hair: 'couettes', hairCol: 0xa8693a, top: 'robe', topCol: 0xff8fc0, bottom: 'jupe', hat: 'noeud', hatCol: 0xe8434a, lashes: true } : { hair: 'degrade', hairCol: 0x4a3020, eyes: 'fins', brows: 'epais', top: 'tshirt', topCol: 0x5b8fd6, bottom: 'jean', botCol: 0x3d5a8a, hat: 'aucun', hatCol: 0xe8434a, lashes: false }); else if (l.lashes === undefined) l.lashes = g === 'f'; return l; };
   G.genderLook = genderLook;
   // une maison pour chaque nouvel habitant, près de la première
   function placeHome(iid, k) {

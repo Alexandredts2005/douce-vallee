@@ -7,7 +7,7 @@
   const $ = G.el, TAU = Math.PI * 2;
   const NET = G.net = { mode: 'solo', peers: new Map(), av: new Map(), visit: null, ops: [], seq: 0, ses: Math.random().toString(36).slice(2, 8), req: new Map(), rid: 0, lastPres: '', presT: 0, pubT: 30, pubRev: -1, said: null, curRoom: null, nroom: null };
   const clean = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯﻿]/g, '').slice(0, n);
-  const LK = ['skin', 'hair', 'hairCol', 'eyes', 'eyeCol', 'mouth', 'top', 'topCol', 'bottom', 'botCol', 'shoes', 'hat', 'hatCol', 'acc', 'blush', 'freckles', 'gender', 'lashes', 'brows', 'nose', 'eyeSize', 'height', 'shoe', 'socks', 'bag', 'bagCol', 'cheek', 'ahoge', 'accCol'];
+  const LK = ['skin', 'hair', 'hairCol', 'eyes', 'eyeCol', 'mouth', 'top', 'topCol', 'bottom', 'botCol', 'shoes', 'hat', 'hatCol', 'acc', 'blush', 'freckles', 'gender', 'lashes', 'brows', 'nose', 'eyeSize', 'height', 'shoe', 'socks', 'bag', 'bagCol', 'cheek', 'ahoge', 'accCol', 'body', 'beard'];
   const packLook = l => { const o = {}; for (const k of LK) if (l && l[k] !== undefined) o[k] = l[k]; return o; };
   const unpackLook = o => { const l = {}; if (o && typeof o === 'object') for (const k of LK) { const v = o[k]; if (typeof v === 'number' && isFinite(v) || typeof v === 'boolean' || (typeof v === 'string' && v.length < 24)) l[k] = v; } l.design = -1; return G.normLook(l); };
   const CODE_RE = /^DV-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
