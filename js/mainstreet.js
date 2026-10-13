@@ -76,14 +76,28 @@
       map.meta.gare = { x: ox + 6, z: oz + 6.6 };
     }
   }
-  G.STRUCT.gare = c => { station(c.map, c.ox, c.oz, false); c.targets.push([c.ox + 6, c.oz + 6, 4]); };
+  // gare au milieu d'un grand monde : une grande gare provençale, sans tunnel ; les trains traversent tout le pays
+  function stationProvence(map, ox, oz) {
+    const W = map.W, I = (x, z) => z * W + x, add = (t, x, z, r = 0, ex) => map.canPlace(t, x, z, r) ? map.addObj(t, x, z, r, ex) : null;
+    for (let x = ox; x < ox + 16; x++) for (let z = oz; z <= oz + 2; z++) { const i = I(x, z); map.lvl[i] = 0; map.water[i] = 0; map.ramp[i] = 0; map.surf[i] = z === oz + 2 ? 11 : z === oz + 1 ? 4 : 0; }
+    for (let x = ox; x < ox + 16; x++) add('rails', x, oz + 1, 1);
+    add('gare_provence', ox + 3, oz + 3);
+    for (let z = oz + 6; z <= oz + 8; z++) for (let x = ox + 1; x <= ox + 14; x++) map.surf[I(x, z)] = 11;
+    for (const x of [ox + 4, ox + 7, ox + 10]) add('banc', x, oz + 2, 2); add('horloge', ox + 13, oz + 2);
+    for (const x of [ox + 1, ox + 7, ox + 14]) add('lampadaire', x, oz + 6); for (const x of [ox + 2, ox + 13]) add('arbre_caisse', x, oz + 7, 0, { v: 1 });
+    add('montgolfiere', ox + 11, oz + 8); add('panneau', ox + 14, oz + 4, 0, { txt: 'Gare : les trains traversent tout le pays. Traverse les voies sur le quai ou à un passage à niveau !' });
+    for (let x = ox + 1; x <= ox + 14; x++) if (x < ox + 10 || x > ox + 13) add('lavande_violette', x, oz + 9);
+    map.meta.train = { x0: 3, x1: W - 3, z: oz + 1.5, stop: ox + 8, sx: ox + 8, y: 0, ox, prov: 1 }; map.meta.signals = []; map.meta.gare = { x: ox + 8, z: oz + 6.6 };
+  }
+  G.stationProvence = stationProvence;
+  G.STRUCT.gare = c => { if (c.oz > G.BORDER + 2) { stationProvence(c.map, c.ox, c.oz); c.targets.push([c.ox + 8, c.oz + 6, 4]); } else { station(c.map, c.ox, c.oz, false); c.targets.push([c.ox + 6, c.oz + 6, 4]); } };
   const labelGate = m => { const g = m.meta.rueGate; if (g && !m._gateLbl) { m._gateLbl = G.mapLabel(m, '🏬 Rue commerçante', g.sx, (g.y || 0) + (g.big ? 9.4 : 3.25), g.z - 1.05, g.big ? 1.7 : 1.1); } };
   G.on('worldgen', map => labelGate(map));
   G.on('load', () => { const m = G.world; if (m.meta.gare && !m.meta.rueGate) { const g = [...m.list].find(o => o.t === 'gare'); if (g) { station(m, g.x - 5, g.z - 3, true); m.flush(); } } labelGate(m); R.reset(); const s = loadRue; loadRue = null; if (s) R.go(s.x, s.z, s.yaw, true); });
   G.on('newGame', () => R.reset());
   // ---------- le train ----------
   const TR = G.train = { st: null, slot: -1, planes: [new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0)], blink: 0, chug: 0, bell: 0 };
-  const LEN = 22, STOPX = t => t.x1 - 1 - LEN / 2; // l'Orient-Express s'arrête la locomotive juste avant le tunnel
+  const LEN = 22, STOPX = t => t.sx != null ? t.sx : t.x1 - 1 - LEN / 2; // l'Orient-Express s'arrête la locomotive juste avant le tunnel
   const snd = (type, f0, f1, dur, vol, t0 = 0) => { const A = G.audio; if (!A || !A.ok || vol < .002) return; try { const C = A.ctx, t = C.currentTime + t0, o = C.createOscillator(), g = C.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.linearRampToValueAtTime(f1, t + dur); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + .03); g.gain.setValueAtTime(vol, t + dur * .7); g.gain.exponentialRampToValueAtTime(.0001, t + dur); o.connect(g); g.connect(A.sfxG); o.start(t); o.stop(t + dur + .05); } catch (e) { } };
   const near = k => { const m = TR.m || G.world, t = m.meta.train, p = G.player; return t && G.map === m ? k * G.clamp(1 - Math.hypot(p.x - TR.st.x, p.z - t.z) / 45, 0, 1) : 0; };
   const whistle = k => { snd('triangle', 740, 760, .5, .07 * k); snd('triangle', 932, 950, .5, .055 * k); snd('triangle', 740, 700, .85, .07 * k, .6); snd('triangle', 932, 880, .85, .055 * k, .6); };
