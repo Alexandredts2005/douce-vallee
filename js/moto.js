@@ -35,17 +35,35 @@
   const hud = document.createElement('div'); hud.id = 'moto-hud'; hud.hidden = true;
   hud.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:40;background:rgba(30,26,22,.78);color:#fff;font:700 14px Nunito,sans-serif;padding:8px 14px;border-radius:16px;text-align:center;pointer-events:none;line-height:1.5';
   document.body.appendChild(hud);
-  const hudUpd = v => { if (hud.hidden || (v.hudT = (v.hudT || 0) + 1) % 5) return; hud.innerHTML = `🏍️ <b>${Math.round(Math.abs(v.spd) * 7)} km/h</b> · vitesse <b>${v.gear + 1}</b> ${GEARS[v.gear].n}<br><span style="font-size:12px;opacity:.85">1 2 3 : changer de vitesse · W : descendre</span>`; };
+  const hudUpd = v => { if (hud.hidden || (v.hudT = (v.hudT || 0) + 1) % 5) return; hud.innerHTML = `🏍️ <b>${Math.round(Math.abs(v.spd) * 7)} km/h</b> · vitesse <b>${v.gear + 1}</b> ${GEARS[v.gear].n}<br><span style="font-size:12px;opacity:.85">1 2 3 : vitesses · W : ranger · E : garer</span>`; };
   // ---------- monter / descendre ----------
   const nearMoto = () => { const m = G.map, p = G.player, [tx, tz] = p.target(); let o = m.objAt(tx, tz); if (o && o.t === 'moto') return o; let best = null, bd = 2.6;
     for (const q of m.list) if (q.t === 'moto') { const [cx, cz] = m.center(q), d = Math.hypot(cx - p.x, cz - p.z); if (d < bd) { bd = d; best = q; } } return best; };
-  function mount(o) {
-    const m = G.map, p = G.player; if (p.vehicle || p.swim || p.sit) return; const [cx, cz] = m.center(o), r = o.r || 0, h = r * PI / 2 + PI / 2, v = o.v || 0; m.removeObj(o);
+  // on enfourche une moto en (x, z), tournée vers h ; pop : elle sort de la poche avec une petite animation
+  function ride(x, z, h, v, pop) {
+    const m = G.map, p = G.player;
     const grp = new THREE.Group(), body = new THREE.Mesh(G.getGeo('moto_corps', v), G.MATS), w1 = new THREE.Mesh(G.getGeo('moto_roue', 0), G.MATS), w2 = new THREE.Mesh(G.getGeo('moto_roue', 0), G.MATS);
     for (const k of [body, w1, w2]) { k.castShadow = true; k.frustumCulled = false; grp.add(k); } w1.position.set(.68, .33, 0); w2.position.set(-.68, .33, 0); grp.rotation.order = 'YXZ'; G.scene.add(grp);
-    p.fish && G.act.stopFish(); p.emote = null; p.root.rotation.order = 'YXZ';
-    p.vehicle = { moto: 1, o: { t: 'moto', r, v }, v, x: cx, z: cz, y: m.topAt(cx, cz), vy: 0, h, spd: 0, gear: G.motoGear || 1, mesh: grp, w1, w2, t: 0, lean: 0, camFn };
-    ENG.start(); hud.hidden = false; G.sfx('place', .6); G.ui.toast('🏍️ En route ! Avance, freine et tourne comme pour marcher · 1, 2, 3 : vitesses · W : descendre.', 6000);
+    p.fish && G.act.stopFish(); p.emote = null; p.root.rotation.order = 'YXZ'; G.motoColor = v;
+    p.vehicle = { moto: 1, o: { t: 'moto', r: 0, v }, v, x, z, y: m.topAt(x, z), vy: 0, h, spd: 0, gear: G.motoGear || 1, mesh: grp, w1, w2, t: 0, lean: 0, camFn, anim: pop ? { k: 'in', t: 0 } : null };
+    if (pop) { grp.scale.setScalar(.01); G.sfx('pop'); G.fx.burst(x, m.topAt(x, z) + .5, z, 16, [0xffffff, 0xf3ead2, 0xffe08a], 2.6, .55, 6); }
+    ENG.start(); hud.hidden = false; G.sfx('place', .6); G.ui.toast('🏍️ En route ! Avance, freine et tourne comme pour marcher · 1, 2, 3 : vitesses · W : ranger la moto · E : la garer ici.', 6000);
+  }
+  function mount(o) { const m = G.map, p = G.player; if (p.vehicle || p.swim || p.sit) return; const [cx, cz] = m.center(o), r = o.r || 0, v = o.v || 0; m.removeObj(o); ride(cx, cz, r * PI / 2 + PI / 2, v, false); }
+  // W : la moto sort de la poche (créatif : toujours ; survie : s'il y en a une dans l'inventaire), sinon on prend celle garée à côté
+  function deploy() {
+    const p = G.player, m = G.map; if (p.vehicle || p.swim || p.sit || p.dead || !p.onGround) return; const near = nearMoto(), have = G.inv.count('moto') >= 1, nd = near ? Math.hypot(m.center(near)[0] - p.x, m.center(near)[1] - p.z) : 99;
+    if (near && (nd < 1.6 || !have)) return mount(near);
+    if (!have) { G.ui.toast('Il te faut une moto : fabrique-la à l\'établi (C).'); G.sfx('error'); return; }
+    if (G.mode !== 'creatif') G.inv.remove('moto', 1);
+    ride(p.x, p.z, p.yaw, G.motoColor || 0, true);
+  }
+  // W en roulant : arrêt net, la moto se replie et retourne dans l'inventaire
+  function stow() { const p = G.player, v = p.vehicle; if (!v || !v.moto || v.anim) return; v.spd = 0; v.anim = { k: 'out', t: 0 }; G.sfx('pickup'); ENG.set(.2, .01); }
+  function stowDone(p, v) {
+    G.fx.burst(v.x, v.y + .5, v.z, 14, [0xffffff, 0xf3ead2], 2.2, .5, 6); leave(p, v); p.teleport(v.x, v.z, v.h); if (p.blocked(p.x, p.z, p.y, true)) p.unstick(true);
+    if (G.mode !== 'creatif' && G.inv.add('moto', 1) > 0) { const m = G.map; if (m.canPlace('moto', Math.round(v.x - 1), Math.round(v.z - .5), 0)) m.addObj('moto', Math.round(v.x - 1), Math.round(v.z - .5), 0, { v: v.v }); G.ui.toast('Inventaire plein : la moto est garée ici.'); }
+    else G.ui.toast(G.mode === 'creatif' ? '🏍️ Moto rangée.' : '🏍️ Moto rangée dans ton inventaire.');
   }
   function dismount() {
     const p = G.player, v = p.vehicle, m = G.map; if (!v || !v.moto) return; if (Math.abs(v.spd) > 3) { G.ui.toast('Ralentis avant de descendre.'); return; }
@@ -72,7 +90,11 @@
         if (I.gp && I.gp.on) { steer += I.gp.lx; gas -= I.gp.ly; if (I.gp.b[7]) gas += 1; if (I.gp.b[6]) gas -= 1; } if (I.touch) { steer += I.touch.mx; gas -= I.touch.my; }
         steer = G.clamp(steer, -1, 1); gas = G.clamp(gas, -1, 1);
         for (let g = 0; g < 3; g++) if (I.hit('Digit' + (g + 1), 'Numpad' + (g + 1)) && v.gear !== g) { v.gear = g; G.motoGear = g; G.sfx('ui'); G.ui.toast('Vitesse ' + (g + 1) + ' : ' + GEARS[g].n); }
-        if (I.hit('KeyZ', 'KeyE') || G.input.chars.moto) { G.input.chars.moto = false; dismount(); if (!p.vehicle) return; } }
+        if (I.hit('KeyZ') || G.input.chars.moto) { G.input.chars.moto = false; stow(); } if (I.hit('KeyE')) { dismount(); if (!p.vehicle) return; } }
+      // animation : la moto se déplie en sortant de la poche, se replie quand on la range
+      if (v.anim) { const a = v.anim, D = a.k === 'in' ? .45 : .35; a.t += dt; const u = Math.min(1, a.t / D), b = u - 1, s = a.k === 'in' ? 1 + 2.70158 * b * b * b + 1.70158 * b * b : 1 - u * u;
+        v.mesh.scale.setScalar(Math.max(.01, s)); gas = 0; steer = 0; if (a.k === 'out') v.spd = 0;
+        if (u >= 1) { if (a.k === 'in') { v.anim = null; v.mesh.scale.setScalar(1); } else { stowDone(p, v); return; } } }
       const max = GEARS[v.gear].max, target = gas > 0 ? max * gas : gas < 0 ? (v.spd > .5 ? 0 : -2.5) : 0, acc = gas < 0 && v.spd > .5 ? 14 : 3 + v.gear * 1.6;
       v.spd += G.clamp(target - v.spd, -acc * dt * (gas ? 1 : .7), acc * dt);
       v.h -= steer * 2.3 * G.clamp(Math.abs(v.spd) / 3, .25, 1) / (1 + Math.abs(v.spd) * .05) * dt * (v.spd < -.1 ? -1 : 1);
@@ -92,9 +114,9 @@
     const og = G.toTitle; G.toTitle = () => { G.motoLeave(); return og(); };
     // bouton tactile 🏍️
     const tk = document.getElementById('tb-take'); if (tk && !document.getElementById('tb-moto')) { const b = tk.cloneNode(false); b.id = 'tb-moto'; b.textContent = '🏍️'; b.title = 'Moto : monter / descendre'; b.style.right = '290px';
-      b.addEventListener('pointerdown', e => { e.preventDefault(); const p = G.player; if (p.vehicle && p.vehicle.moto) G.input.chars.moto = true; else { const o = nearMoto(); if (o) mount(o); else G.ui.toast('Pas de moto près de toi : pose-en une (catalogue ou établi).'); } }); tk.parentNode.appendChild(b); }
+      b.addEventListener('pointerdown', e => { e.preventDefault(); const p = G.player; if (p.vehicle && p.vehicle.moto) G.input.chars.moto = true; else deploy(); }); tk.parentNode.appendChild(b); }
   });
   // W (touche W d'un clavier AZERTY = code KeyZ) : monter sur la moto la plus proche
   G.on('update', () => { const p = G.player, I = G.input; if (!p || p.vehicle || G.state !== 'play' || G.ui.modal || !I.hit('KeyZ') || performance.now() - lastToggle < 300) return; if (G.map !== G.world && !G.map.meta.island) return;
-    const o = nearMoto(); if (o) mount(o); else G.ui.toast('Pas de moto près de toi : pose-en une (catalogue ou établi en survie).'); });
+    deploy(); });
 })();
