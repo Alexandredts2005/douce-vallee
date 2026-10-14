@@ -8,7 +8,7 @@
 // rayons et de la poussière dorée, longs et chauds au lever et au coucher. Les murs entre la caméra et le joueur s'abaissent (comme dans
 // les Sims) mais gardent leur ombre. Le plan se modifie avec la touche H (chateau_plan.js). =====
 (function () {
-  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 2, KS = 3.3, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
+  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 3, KS = 3.3, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
   const VOID = 0, WALL = 1, FLOOR = 2, OPEN = 3, DOOR = 4, NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, dz: -1.7 };
   // ---------- décors ----------
@@ -85,6 +85,10 @@
       for (let dd = 0; dd <= 14 && !door && dz > 0 && dz < H; dd++) for (const x of dd ? [dx0 - dd, dx0 + dd] : [dx0]) if (!door && x > 0 && x + 2 < W && okD(x, dz)) door = { x0: x, x1: x + 2, z: dz };
       for (let z = H - 1; z > 0 && !door; z--) { let bx = -1; for (let x = 1; x + 2 < W; x++) if (okD(x, z) && (bx < 0 || Math.abs(x + 1.5 - W / 2) < Math.abs(bx + 1.5 - W / 2))) bx = x; if (bx >= 0) door = { x0: bx, x1: bx + 2, z }; }
       if (door) { for (let j = 0; j < 3; j++) T[door.z * W + door.x0 + j] = DOOR; door.sx = door.x0 + 1.5; door.sz = door.z - .7; } }
+    // portes de côté, au bout des ailes : trois cases de façade devant la pièce (dans le même ordre que dehors)
+    const doors = [door]; for (const w of wins) { if (!w.door || w.B === C.D || w.f !== 0) continue; const p = onW(w.B.H, w.f, w.a, 0, 0), z = Math.round(Z(w.B.z1)) - 1, xc = Math.floor(X(p[0])); let sd = null;
+      for (let dd = 0; dd <= 7 && !sd; dd++) for (const x of dd ? [xc - 1 - dd, xc - 1 + dd] : [xc - 1]) if (!sd && x > 0 && x + 2 < W && [0, 1, 2].every(j => T[z * W + x + j] === WALL && fl(x + j, z - 1))) { for (let j = 0; j < 3; j++) T[z * W + x + j] = DOOR; sd = { x0: x, x1: x + 2, z, sx: x + 1.5, sz: z - .7 }; }
+      doors.push(sd); }
     // fenêtres du rez-de-chaussée : exactement là où elles sont sur la façade
     const ww = G.clamp(C.sp * k * .6, 1.2, 1.9), wl = [];
     for (const w of wins) { if (w.door) continue; const B = w.B, p = onW(B.H, w.f, w.a, 0, 0), f = w.f;
@@ -110,7 +114,7 @@
       rooms.push({ id: r, k: kd, n: K[0] + (c > 1 ? ROMAN[c - 1] || ' ' + c : ''), wall: K[1], floor: K[2], curt: K[3], lus: K[4], app: 1, x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1 }); }
     for (const w of wl) w.c = ''; // rideaux : ceux de la pièce
     const court = C.court ? [X(C.court[0]), Z(C.court[1]), X(C.court[2]), Z(C.court[3])].map(v => +v.toFixed(2)) : null;
-    return { v: VER, sig: planSig(info), W, H, k, px, court, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
+    return { v: VER, sig: planSig(info), W, H, k, px, court, doors, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
   }
   const planSig = info => '0|' + info.cols + '|' + info.rows;
   G.genChateauPlan = genPlan;
@@ -237,7 +241,7 @@
   // on arrive juste derrière la porte d'entrée
   // (et jamais dans le vide autour du château : si la place demandée n'est pas du parquet, on prend le parquet le plus proche de l'entrée)
   G.on('init', () => { const oem = G.enterMap; G.enterMap = (map, x, z, yaw) => { const pl = map && map.meta && map.meta.plan;
-    if (pl) { const def = Math.abs(x - (Math.floor(map.W / 2) + .5)) < .01 && Math.abs(z - (map.H - 1.4)) < .01; if (pl.door && def) { x = pl.door.sx; z = pl.door.sz; yaw = PI; const pd0 = planData(map), z2 = pl.door.z - 2.6; if (pd0.T[Math.floor(z2) * pd0.W + Math.floor(x)] === FLOOR) z = z2; } // deux pas dans le vestibule : la caméra a la place d'être derrière
+    if (pl) { const def = Math.abs(x - (Math.floor(map.W / 2) + .5)) < .01 && Math.abs(z - (map.H - 1.4)) < .01; const sd = G._chSide >= 0 && pl.doors && pl.doors[G._chSide + 1]; G._chSide = -1; if (sd && def) { x = sd.sx; z = sd.sz - 1.9; yaw = PI; } else if (pl.door && def) { x = pl.door.sx; z = pl.door.sz; yaw = PI; const pd0 = planData(map), z2 = pl.door.z - 2.6; if (pd0.T[Math.floor(z2) * pd0.W + Math.floor(x)] === FLOOR) z = z2; } // deux pas dans le vestibule : la caméra a la place d'être derrière
       const pd = planData(map), walk = (a, b) => { const tx = Math.floor(a), tz = Math.floor(b); return tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H && pd.T[tz * pd.W + tx] === FLOOR; };
       if (!walk(x, z)) { const ax = pl.door ? pl.door.sx : pd.W / 2, az = pl.door ? pl.door.sz : pd.H - 2; let bd = Infinity, bx = x, bz = z;
         for (let i = 0; i < pd.W * pd.H; i++) if (pd.T[i] === FLOOR) { const cx = i % pd.W + .5, cz = Math.floor(i / pd.W) + .5, dd = (cx - ax) ** 2 + (cz - az) ** 2; if (dd < bd) { bd = dd; bx = cx; bz = cz; } }
@@ -727,7 +731,7 @@
   const obs = G.buildShell; G.buildShell = m => { if (m && m.meta && m.meta.plan) return planShell(m); return obs(m); };
   G.on('update', dt => {
     const m = G.map, p = G.player; if (!m || !m.interior || !m.meta.plan || !p) { if (lab && lab.style.opacity !== '0') lab.style.opacity = '0'; return; }
-    const pl = m.meta.plan, d = pl.door; if (d && !G.ui.fading && p.x > d.x0 && p.x < d.x1 + 1 && p.z > d.z + .3) { G.act.exitHouse(); return; }
+    const pl = m.meta.plan; if (!G.ui.fading) for (const [i, d] of (pl.doors || [pl.door]).entries()) if (d && p.x > d.x0 && p.x < d.x1 + 1 && p.z > d.z + .3) { const dw = m.meta.doorsW && m.meta.doorsW[i]; if (dw) m.meta.door = dw; G.act.exitHouse(); return; }
     if (bMat) bMat.uniforms.uT.value += dt; updCut(m, dt); updBeams(m, dt); roomLabel(m, dt);
   });
   // ---------- caméra à la souris : elle reste dans le château, devant les murs et sous le plafond ----------

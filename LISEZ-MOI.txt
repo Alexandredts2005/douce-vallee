@@ -74,6 +74,10 @@ MAISONS ET CHÂTEAUX
     (porte-fenêtre cintrée, porte-fenêtre, fenêtre à allège, œil-de-bœuf), rideaux, lustres et meubles
     (R ou clic droit pour tourner, un clic sur un meuble pour le reprendre). Tout change aussitôt en 3D.
     En Survie, lustres et meubles viennent de ton sac. « Plan d'origine » revient au plan du début.
+  - Châteaux à taille humaine : trois étages au plus, hautes portes-fenêtres, rideaux de velours et balcons de
+    pierre ou de fer forgé ; les grands châteaux s'allongent en ailes au lieu de monter. Portes au bout des ailes
+    (on entre et on ressort par celle qu'on veut). La cour d'honneur est publique : on y pose meubles, arbres, maisons.
+    Par les fenêtres, on voit le vrai village. En avion et en montgolfière, on part loin au-dessus de la mer.
   - POSER SUR LA NATURE : tout ce que tu poses (château, maison, banc, clôture…) écrase ce qu'il y a dessous
     de naturel : arbres, buissons, fleurs, mauvaises herbes, rochers, coquillages, champignons, fruits tombés.
     Les cadeaux et les sacs de clochettes, eux, ne sont jamais écrasés.

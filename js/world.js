@@ -192,7 +192,7 @@
       if (!ds) for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const q = this.objAt(x, z); if (q && G.replaces(d, q)) this.removeObj(q); }
       const o = { t, x: tx, z: tz, r, hp: d.chop || d.mine || 0, f: (d.fruit || d.pickFruit) ? 3 : 0 };
       if (extra) Object.assign(o, extra);
-      o.y = this.baseH(tx, tz); const own = tz * this.W + tx;
+      o.y = this.baseH(tx, tz) + (o.cy || 0); const own = tz * this.W + tx; // cy : posé plus haut que le terrain (la cour pavée d'un château)
       if (ds) { o.dk = ds.dk; if (ds.du) o.du = 1; else delete o.du; o.y += ds.dk; const D = this.dk || (this.dk = new Map()), b = ds.du ? this.W * this.H : 0; for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) D.set(b + z * this.W + x, o); }
       else if (d.up) { const U = this.up || (this.up = new Map()); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) U.set(z * this.W + x, o); }
       else if (d.ceil) { o.y += this.ceilH(); o.v = Math.round(this.ceilH() * 2); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.ceil.set(z * this.W + x, o); }
@@ -310,7 +310,7 @@
     aoCorner(X, Z, h) { for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const x = X + dx, z = Z + dz; if (!this.inb(x, z)) continue; const i = z * this.W + x; if (!this.water[i] && !this.ramp[i] && this.lvl[i] * T > h + .5) return true; } return false; }
     shoreCorner(X, Z) { for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const x = X + dx, z = Z + dz; if (this.inb(x, z) && !this.water[z * this.W + x]) return true; } return false; }
     serialize() {
-      const objs = []; for (const o of this.list) { if (o.temp) continue; const e = { t: o.t, x: o.x, z: o.z }; if (o.r) e.r = o.r; for (const k of ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt', 'dk', 'du']) if (o[k] != null && o[k] !== 0) e[k] = o[k]; if (G.OBJ[o.t].fruit && o.f === 0) e.f = 0; objs.push(e); }
+      const objs = []; for (const o of this.list) { if (o.temp) continue; const e = { t: o.t, x: o.x, z: o.z }; if (o.r) e.r = o.r; for (const k of ['v', 'f', 'g', 'iid', 'txt', 'vi', 'wt', 'dk', 'du', 'cy']) if (o[k] != null && o[k] !== 0) e[k] = o[k]; if (G.OBJ[o.t].fruit && o.f === 0) e.f = 0; objs.push(e); }
       return { W: this.W, H: this.H, interior: this.interior, kind: this.kind, id: this.id, lvl: G.b64.enc(new Uint8Array(this.lvl.buffer)), surf: G.b64.enc(this.surf), water: G.b64.enc(this.water), ramp: G.b64.enc(this.ramp), objs, meta: this.meta };
     }
     static deserialize(d) {

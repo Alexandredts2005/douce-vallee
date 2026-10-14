@@ -38,10 +38,10 @@
     let ix = 0, iz = 0; if (free && !v.landing) { if (I.down('KeyD', 'ArrowRight')) ix += 1; if (I.down('KeyA', 'ArrowLeft')) ix -= 1; if (I.down('KeyW', 'ArrowUp')) iz += 1; if (I.down('KeyS', 'ArrowDown')) iz -= 1; if (I.gp.on) { ix += I.gp.lx; iz -= I.gp.ly; } ix += I.touch.mx; iz -= I.touch.my; }
     const cy = G.cam.yaw, mx = Math.cos(cy) * ix - Math.sin(cy) * iz, mz = -Math.sin(cy) * ix - Math.cos(cy) * iz;
     v.vx += (mx * 5 - v.vx) * Math.min(1, 1.5 * dt); v.vz += (mz * 5 - v.vz) * Math.min(1, 1.5 * dt);
-    v.x = G.clamp(v.x + v.vx * dt, 4, m.W - 4); v.z = G.clamp(v.z + v.vz * dt, 4, m.H - 4);
-    if (free && !v.landing) { if (I.down('Space')) v.talt = Math.min(20, v.talt + dt * 4); if (I.down('ShiftLeft', 'ShiftRight')) v.talt = Math.max(3, v.talt - dt * 4); }
+    const FAR = G.FLY_FAR || 380; v.x = G.clamp(v.x + v.vx * dt, -FAR, m.W + FAR); v.z = G.clamp(v.z + v.vz * dt, -FAR, m.H + FAR); // on part au-dessus de la mer
+    if (free && !v.landing) { if (I.down('Space')) v.talt = Math.min(160, v.talt + dt * (v.talt > 20 ? 9 : 4)); if (I.down('ShiftLeft', 'ShiftRight')) v.talt = Math.max(3, v.talt - dt * 4); }
     if (free && I.hit('KeyE') && !v.landing) { v.landing = true; G.ui.toast('Atterrissage…'); }
-    const tx = Math.floor(v.x - 1), tz = Math.floor(v.z - 1), ground = Math.max(m.topAt(v.x, v.z), m.isWaterAt(v.x, v.z) ? m.waterSurf(Math.floor(v.x), Math.floor(v.z)) : -9);
+    const tx = Math.floor(v.x - 1), tz = Math.floor(v.z - 1), ground = !m.inb(Math.floor(v.x), Math.floor(v.z)) && G.outGround ? G.outGround(m, v.x, v.z) : Math.max(m.topAt(v.x, v.z), m.isWaterAt(v.x, v.z) ? m.waterSurf(Math.floor(v.x), Math.floor(v.z)) : -9);
     if (v.landing) { v.talt = 0; v.vx *= .9; v.vz *= .9; }
     v.alt += (v.talt - v.alt) * Math.min(1, (v.landing ? 1.2 : .8) * dt); v.y += (ground + v.alt - v.y) * Math.min(1, 2 * dt);
     if (v.landing && v.y - ground < .08) {

@@ -43,8 +43,8 @@
   // ---------- plan : où vont les corps de logis, les pavillons, les ailes, la cour ----------
   function plan(cols, rows, st = 0) {
     const Wl = cols * 9, Dl = rows * 7, n = cols * rows, lvl = n === 1 ? 0 : Math.max(1, Math.floor(Math.log2(n))), kind = cols >= 2 && rows >= 2 ? 'U' : rows === 1 ? 'X' : 'Z';
-    let u = Math.pow(n, .25); u = Math.min(u, kind === 'X' ? Dl / 6.2 : kind === 'Z' ? (Wl - .7) / 7.5 : Math.min((Wl - .7) / 8.8, (Dl - .5) / 6.8)); // échelle : tout grandit, dans la limite du terrain
-    const nf = 2 + Math.floor(Math.log2(n) / 2), pdx = .3 * u, bd = 3 * u, X0 = -Wl / 2, X1 = Wl / 2, Z0 = -Dl / 2, Z1 = Dl / 2;
+    let u = Math.min(Math.pow(n, .25), 2); u = Math.min(u, kind === 'X' ? Dl / 6.2 : kind === 'Z' ? (Wl - .7) / 7.5 : Math.min((Wl - .7) / 8.8, (Dl - .5) / 6.8)); // échelle : tout grandit, dans la limite du terrain
+    const nf = Math.min(3, 2 + Math.floor(Math.log2(n) / 2)), pdx = .3 * u, bd = 3 * u, X0 = -Wl / 2, X1 = Wl / 2, Z0 = -Dl / 2, Z1 = Dl / 2;
     const P = { Wl, Dl, n, lvl, kind, u, nf, X0, X1, Z0, Z1, B: [], T: [], ter: [], D: null };
     const add = (x0, x1, z0, z1, k, nfB, door = -1) => { if (x1 - x0 < .05 || z1 - z0 < .05) return null; const B = { x0, x1, z0, z1, k, nf: nfB, door }; P.B.push(B); if (door >= 0) P.D = B; return B; };
     // barre le long de x (symétrique autour de 0) : pavillons aux bouts, avant-corps au milieu, pavillons intermédiaires si c'est long
@@ -53,7 +53,7 @@
       for (let i = 1; i <= k; i++) { const c = aw / 2 + span * i / (k + 1); cuts.push([c - .75 * u, c + .75 * u, 'pav2'], [-c - .75 * u, -c + .75 * u, 'pav2']); }
       cuts.sort((a, b) => a[0] - b[0]); let x = xa; const out = {};
       for (const [c0, c1, kk] of cuts) { if (c0 > x + .05) add(x, c0, zb0, zb1, 'corps', nfB);
-        const B = kk === 'pav' ? add(c0, c1, pz0, pz1, 'pav', nfB) : kk === 'pav2' ? add(c0, c1, zb0 - pdx * .5, zb1 + pdx * .5, 'pav2', nfB) : add(c0, c1, zb0 - pdx * .5, zb1 + pdx * 1.4, 'centre', nfB + (n > 1 ? 1 : 0), 0);
+        const B = kk === 'pav' ? add(c0, c1, pz0, pz1, 'pav', nfB) : kk === 'pav2' ? add(c0, c1, zb0 - pdx * .5, zb1 + pdx * .5, 'pav2', nfB) : add(c0, c1, zb0 - pdx * .5, zb1 + pdx * 1.4, 'centre', nfB + (n > 1 && nfB < 3 ? 1 : 0), 0);
         if (kk === 'pav') out[c0 < 0 ? 'L' : 'R'] = B; x = Math.max(x, c1); }
       if (xb > x + .05) add(x, xb, zb0, zb1, 'corps', nfB); return out; };
     // barre le long de z, de za (fond) à zb (devant) : au bout devant, un pavillon ou l'avant-corps à la porte
@@ -64,17 +64,17 @@
     if (kind === 'X') { // une seule rangée : longue façade, reculée au fond du terrain pour laisser devant une vraie cour d'honneur
       const xa = X0 + .35, xb = X1 - .35, zf = Math.min(Z1 - 1.6 * u, Z0 + (st === 1 ? .9 * u : .28) + .4 * u + 2 * pdx + bd), zb1 = zf - pdx, zb0 = zb1 - bd, E = barX(xa, xb, zb0, zb1, 1.7 * u, nf, zb0 - pdx, zb1 + pdx);
       cl(xa - .4 * u, zb0 - pdx - .4 * u, xb + .4 * u, zf + .4 * u); P.zT = Math.min(Z1 - .1, zf + .4 * u);
-      for (const B of [E.L, E.R]) for (const z of [B.z0, B.z1]) P.T.push({ x: B.x0 < 0 ? B.x0 : B.x1, z, B });
+      for (const B of [E.L, E.R]) for (const z of [B.z0, B.z1]) P.T.push({ x: B.x0 < 0 ? B.x0 : B.x1, z, B }); if (n > 1) P.ends = [E.L, E.R];
     } else if (kind === 'Z') { // une seule colonne : le château en façade, une longue aile en arrière (en T)
       const xa = X0 + .35, xb = X1 - .35, zf = Z1 - 1.6 * u, zb1 = zf - pdx, zb0 = zb1 - bd, E = barX(xa, xb, zb0, zb1, 1.7 * u, nf, zb0 - pdx, zb1 + pdx);
       const hw = Math.min(1.3 * u, (Wl - .7) * .2), zk = Z0 + u, Bk = add(-hw - pdx, hw + pdx, zk, zk + 1.7 * u, 'pav', nf); barZ(-hw, hw, zk + 1.7 * u, zb0 - pdx * .5, nf, null);
       cl(xa - .4 * u, zb0 - pdx - .4 * u, xb + .4 * u, zf + .4 * u); cl(-hw - pdx - .4 * u, zk - .4 * u, hw + pdx + .4 * u, zb0 - pdx - .4 * u); P.zT = Math.min(Z1 - .1, zf + .4 * u);
       P.side = [hw + pdx + .4 * u + .08, Z0 + .22, X1 - .2, zb0 - pdx - .4 * u - .06]; // jardins de part et d'autre de l'aile
-      for (const B of [E.L, E.R]) for (const z of [B.z0, B.z1]) P.T.push({ x: B.x0 < 0 ? B.x0 : B.x1, z, B }); for (const x of [Bk.x0, Bk.x1]) P.T.push({ x, z: Bk.z0, B: Bk });
+      for (const B of [E.L, E.R]) for (const z of [B.z0, B.z1]) P.T.push({ x: B.x0 < 0 ? B.x0 : B.x1, z, B }); for (const x of [Bk.x0, Bk.x1]) P.T.push({ x, z: Bk.z0, B: Bk }); if (n > 1) P.ends = [E.L, E.R];
     } else { // cour d'honneur : corps de logis au fond, deux ailes vers l'avant, grille ou châtelet devant
       const bx0 = X0 + .35, bx1 = X1 - .35, ww = 2.2 * u, zb0 = Z0 + u + pdx, zb1 = zb0 + bd, zf = Z1 - .6, pwE = ww + 2 * pdx, nw = nf >= 3 ? nf - 1 : nf;
       const E = barX(bx0, bx1, zb0, zb1, pwE, nf, zb0 - pdx, zb1 + pdx);
-      const WL = barZ(bx0 + pdx, bx0 + pdx + ww, zb1 + pdx, zf, nw, 'pav'), WR = barZ(bx1 - pdx - ww, bx1 - pdx, zb1 + pdx, zf, nw, 'pav');
+      const WL = barZ(bx0 + pdx, bx0 + pdx + ww, zb1 + pdx, zf, nw, 'pav'), WR = barZ(bx1 - pdx - ww, bx1 - pdx, zb1 + pdx, zf, nw, 'pav'); P.ends = [WL, WR].filter(Boolean);
       const zt = zb1 + pdx + .4 * u; cl(X0, zb0 - pdx - .4 * u, X1, zt); cl(X0, zt, bx0 + pwE + .4 * u, zf + .3); cl(bx1 - pwE - .4 * u, zt, X1, zf + .3);
       P.zT = zt; P.court = [bx0 + pwE + .4 * u, zt, bx1 - pwE - .4 * u, Z1 - .45]; P.gate = { z: Z1 - .45, x0: bx0 + pwE, x1: bx1 - pwE };
       P.T.push({ x: bx0, z: zb0 - pdx, B: E.L }, { x: bx1, z: zb0 - pdx, B: E.R }, { x: bx0, z: zf, B: WL }, { x: bx0 + pwE, z: zf, B: WL }, { x: bx1 - pwE, z: zf, B: WR }, { x: bx1, z: zf, B: WR });
@@ -88,21 +88,22 @@
 
   // ---------- contexte d'un château : plan, hauteurs, tours, espacement des fenêtres (sans rien dessiner) ----------
   function ctx(st, cols, rows) {
-    const P = plan(cols, rows, st), S = PAL[st], { u, lvl } = P, FH = 1.8 * u, C = Object.assign({ S, st, FH, rs: [], cs: [], nwin: 0 }, P);
+    const P = plan(cols, rows, st), S = PAL[st], { u, lvl } = P, hW = 2.1 * Math.pow(u, .8) * (st === 1 ? .94 : 1), FH = hW * 1.28 + .25, ww = hW * (S.ww + .02) / .98, C = Object.assign({ S, st, FH, hW, ww, rs: [], cs: [], nwin: 0 }, P);
+    for (const B of P.ends || []) B.door2 = 0; // porte de côté, au bout de l'aile
     for (const B of P.B) { B.wh = B.nf * FH + (B.k === 'pav' ? .25 * u : B.k === 'centre' ? .3 * u : 0); B.top = TH + B.wh; B.H = blk((B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2, B.x1 - B.x0, B.z1 - B.z0, TH, B.wh); }
     C.tw = st !== 1 ? [] : P.T.map(t => { const r = Math.min(.85 * u * (1 + .04 * lvl), 1.6 * u); return { x: G.clamp(t.x, P.X0 + r + .05, P.X1 - r - .05), z: G.clamp(t.z, P.Z0 + r + .05, P.Z1 - r - .05), r, h: t.B.top + .9 * u * (1 + .05 * lvl) }; });
     // un point est-il caché par un autre bâtiment (ou une tour) ?
     C.free = (B, x, z) => { for (const Q of C.B) if (Q !== B && x > Q.x0 - .01 && x < Q.x1 + .01 && z > Q.z0 - .01 && z < Q.z1 + .01) return false; for (const T of C.tw) if (Math.hypot(x - T.x, z - T.z) < T.r + .15) return false; return true; };
-    let est = 0; for (const B of P.B) est += 2 * (B.H.w + B.H.d) * B.nf; C.sp = Math.max(.85 * u, est / 1100); C.lite = est / C.sp > 520; // pas plus de ~1100 fenêtres
+    let est = 0; for (const B of P.B) est += 2 * (B.H.w + B.H.d) * B.nf; C.sp = Math.max(ww * 2.15, est / 1100); C.lite = est / C.sp > 900; // pas plus de ~1100 fenêtres
     C.rich = est / C.sp < 420 ? 2 : est / C.sp < 900 ? 1 : 0; // fenêtres ouvragées : tous les étages, l'étage noble et le rez-de-chaussée, ou aucun
     return C;
   }
   // travées d'une façade : [{ a, door, k }] ; une fenêtre cachée par un autre bâtiment ou par une tour est sautée
   function bays(C, B, f) {
-    const u = C.u, H = B.H, ww = C.S.ww * u, L = f < 2 ? H.w : H.d, out = []; if (L < ww + .4 * u) return out;
-    let nb = Math.max(1, Math.floor((L - .35 * u) / (B.k === 'centre' ? Math.min(C.sp, (L - .35 * u) / 3) : C.sp))); if (B.door === f && nb % 2 === 0) nb = Math.max(1, nb - 1);
+    const u = C.u, H = B.H, ww = C.ww, L = f < 2 ? H.w : H.d, out = []; if (L < ww + .4 * u) return out;
+    let nb = Math.max(1, Math.floor((L - .35 * u) / (B.k === 'centre' ? Math.min(C.sp, (L - .35 * u) / 3) : C.sp))); const isD = B.door === f || B.door2 === f; if (isD && nb % 2 === 0) nb = Math.max(1, nb - 1);
     for (let k = 0; k < nb; k++) { const a = -L / 2 + (k + .5) * L / nb; let ok = true; for (const da of [-ww / 2, 0, ww / 2]) { const p = onW(H, f, a + da, 0, .12); if (!C.free(B, p[0], p[2])) { ok = false; break; } }
-      if (ok) out.push({ a, door: B.door === f && k === (nb - 1) / 2, k }); }
+      if (ok) out.push({ a, door: isD && k === (nb - 1) / 2, k }); }
     return out;
   }
   // ---------- le grand château ----------
@@ -118,11 +119,12 @@
     for (const T of C.tw) tower(C, T);
     const n0 = C.b.parts.map(p => p.length); grandDoor(C, D);
     gardens(C); for (let m = 0; m < C.b.parts.length; m++) for (let i = n0[m]; i < C.b.parts[m].length; i++) { const g = C.b.parts[m][i]; if (g.userData.sk === G.SK.gold) g.userData.sk = G.SK.ceramic; }
-    const geo = b.done(); return { geo, mask: mask(C), door: { z: D.z1, hw: Math.max(1.1, .55 * u), out: C.kind === 'U' ? 1.1 : .42 }, P: C, fx: { door: C.doorFx, gates: C.gates || [], founts: C.founts || [] } };
+    const geo = b.done(); return { geo, mask: mask(C), door: { z: D.z1, hw: Math.max(1.1, .55 * u), out: C.kind === 'U' ? 1.1 : .42, side: C.side || [] }, P: C, fx: { door: C.doorFx, gates: C.gates || [], founts: C.founts || [] } };
   }
   // le plan et les fenêtres du rez-de-chaussée, pour dessiner l'intérieur exactement comme l'extérieur
   function layout(st, cols, rows) { const C = ctx(st, cols, rows), wins = []; for (const B of C.B) for (let f = 0; f < 4; f++) for (const w of bays(C, B, f)) wins.push({ B, f, a: w.a, door: w.door, k: w.k });
-    return { C, wins, door: { z: C.D.z1, hw: Math.max(1.1, .55 * C.u), out: C.kind === 'U' ? 1.1 : .42 } }; }
+    const side = wins.filter(w => w.door && w.B !== C.D).map(w => { const p = onW(w.B.H, w.f, w.a, 0, 0); return { x: p[0], z: p[2], f: w.f, hw: Math.max(.9, C.ww * .8) }; });
+    return { C, wins, door: { z: C.D.z1, hw: Math.max(1.1, .55 * C.u), out: C.kind === 'U' ? 1.1 : .42, side } }; }
   // fenêtres classiques ouvragées : clé de voûte à mascaron et impostes au rez-de-chaussée, frontons alternés (triangle, arc) et balcons
   // en fer forgé à l'étage noble, allèges moulurées, crossettes aux étages
   function decoWin(C, B, f, a, y, w, h, fl, k) {
@@ -136,7 +138,11 @@
         const rc = C.lvl >= 4 ? GOLD : IRONC, R = w + .26 * u; p = at(0, yb + .33 * u, .25 * u); bx(b, f < 2 ? R : .03 * u, .03 * u, f < 2 ? .03 * u : R, rc, p[0], p[1], p[2]);
         for (let i = 0, n = 7; i <= n; i++) { p = at(-R / 2 + i * R / n, yb + .17 * u, .25 * u); bx(b, .022 * u, .3 * u, .022 * u, IRONC, p[0], p[1], p[2]); }
         p = at(0, yb + .16 * u, .25 * u); dot(b, .05 * u, rc, p[0], p[1], p[2]); b.P(PT.pierre); }
-      else if (B.k === 'corps') { const p2 = at(0, -h / 2 - .2 * u, .03); bx(b, w * .92, .22 * u, .035, S.pil, p2[0], p2[1], p2[2], ry); } }
+      else if (B.k === 'corps' || B.k === 'centre') { // balcon à balustres de pierre de taille : dalle moulurée, balustres, main courante
+        const yb = -h / 2 - .06 * u, R = w + .34 * u, dp = .3 * u, nb = Math.max(4, Math.round(R / (.15 * u))); let p = at(0, yb, dp / 2); b.P(PT.pierre); bx(b, f < 2 ? R : dp, .07 * u, f < 2 ? dp : R, S.step, p[0], p[1], p[2]);
+        p = at(0, yb - .07 * u, .06); bx(b, f < 2 ? R * .7 : .12 * u, .08 * u, f < 2 ? .12 * u : R * .7, S.trim, p[0], p[1], p[2]); p = at(0, yb + .36 * u, dp - .04 * u); bx(b, f < 2 ? R : .09 * u, .06 * u, f < 2 ? .09 * u : R, S.trim, p[0], p[1], p[2]); b.P(0);
+        for (let i = 0; i <= nb; i++) { const q = at(-R / 2 + .04 * u + i * (R - .08 * u) / nb, yb + .19 * u, dp - .05 * u); bx(b, .05 * u, .26 * u, .05 * u, S.pil, q[0], q[1], q[2]); dot(b, .035 * u, S.pil, q[0], q[1] - .03 * u, q[2]); }
+        for (const sd of [-1, 1]) { const q = at(sd * (R / 2 - .03 * u), yb + .2 * u, dp - .05 * u); b.P(PT.pierre); bx(b, .1 * u, .34 * u, .1 * u, S.trim, q[0], q[1], q[2]); b.P(0); } } }
     else if (fl >= 2) for (const s of [-1, 1]) { const p = at(s * (w / 2 + .07), h / 2 + .05, .04); bx(b, .09 * u, .09 * u, .07, S.trim, p[0], p[1], p[2], ry); }
     b.P(0);
   }
@@ -152,12 +158,12 @@
       for (let f = 0; f < 4; f++) { const L = f < 2 ? H.w : H.d; for (const s of [-1, 1]) { const p = onW(H, f, s * (L / 2 - .05), 0, .25); if (!C.free(B, p[0], p[2])) continue;
         for (let k = 0; k < n; k++) { const wide = (k % 2 ? .34 : .2) * u; A.wb(b, H, f, s * (L / 2 - wide / 2 + .02), TH + .2 * u + k * .4 * u, 0, wide, .34 * u, .035, S.trim); } } } b.P(0); }
     if (C.st === 0 && B.k !== 'corps') for (const f of [0, 1]) for (const a of B.k === 'centre' ? [-.44, -.17, .17, .44] : [-.4, .4]) A.wb(b, H, f, a * H.w, TH + H.wh / 2, 0, .15 * u, H.wh - .3 * u, .05, S.pil); // pilastres
-    const ww = S.ww * u;
+    const ww = C.ww;
     for (let f = 0; f < 4; f++) for (const { a, door, k } of bays(C, B, f))
-      for (let fl = 0; fl < B.nf; fl++) { if (door && fl === 0) continue; const gr = fl === 0, y = TH + fl * FH + .95 * u, h = (gr ? 1.15 : 1.0) * u * (C.st === 1 ? .92 : 1);
-        fenetre(b, H, f, a, y, { w: ww, h, glass: 0x9fb9d4, frame: S.frame, sill: S.trim, lintel: S.trim, lintelPat: PT.pierre, curt: C.lite ? null : S.curt, pane: S.pane, arch: gr && S.arch ? 1 : 0 }); C.nwin++;
+      for (let fl = 0; fl < B.nf; fl++) { if (door && fl === 0) { if (B !== C.D) { A.porte(b, H, f, a, { w: ww * 1.35, h: C.hW * .98, col: S.door, frame: S.frame, style: 'vitre', arch: 1, steps: 2, stepCol: S.step }); C.side = C.side || []; const p = onW(H, f, a, 0, 0); C.side.push({ x: p[0], z: p[2], f, hw: Math.max(.9, ww * .8) }); } continue; } const gr = fl === 0, h = C.hW * (gr ? 1 : fl === 1 ? .9 : .76), y = TH + fl * FH + (gr ? .12 : .2) * FH + h / 2; // portes-fenêtres au rez-de-chaussée, hautes fenêtres à l'étage noble
+        fenetre(b, H, f, a, y, { w: ww, h, glass: 0x9fb9d4, frame: S.frame, sill: S.trim, lintel: S.trim, lintelPat: PT.pierre, curt: C.lite ? null : fl === 1 && C.st === 0 ? 0x9a2f3a : S.curt, pane: S.pane, arch: gr && S.arch ? 1 : 0 }); C.nwin++;
         if (C.st === 0 && (C.rich === 2 || (C.rich === 1 && fl < 2))) decoWin(C, B, f, a, y, ww, h, fl, k); }
-    if (C.st === 0 && B.k === 'centre' && B.nf >= 2) { const y = TH + FH + .3 * u, z = H.zc + H.d / 2, w = H.w * .55; b.P(PT.pierre); bx(b, w, .07 * u, .3 * u, S.step, H.xc, y, z + .15 * u); b.P(0); // balcon de l'étage noble
+    if (C.st === 0 && B.k === 'centre' && B.nf >= 2) { const y = TH + FH * 1.2 - .14, z = H.zc + H.d / 2, w = H.w * .55; b.P(PT.pierre); bx(b, w, .07 * u, .3 * u, S.step, H.xc, y, z + .15 * u); b.P(0); // balcon de l'étage noble
       bx(b, w, .04 * u, .04 * u, C.lvl >= 4 ? GOLD : IRONC, H.xc, y + .36 * u, z + .28 * u); for (let k = 0, n = Math.round(w / (.12 * u)); k <= n; k++) bx(b, .025 * u, .32 * u, .025 * u, IRONC, H.xc - w / 2 + k * w / n, y + .2 * u, z + .28 * u); }
   }
   // lucarnes régulièrement sur les longs pans du toit
@@ -282,7 +288,7 @@
   const LAWN = 0x72b04a, GRAV = 0xdccdab, BUIS = 0x3d6e31, IF = 0x2b5a2a, SOIL = 0x5e4532, BRIQ = 0xb35f45, MARB = 0xf4f1ea, IRONK = 0x1c2320, WAT = 0x7cc6de, BRONZE = 0x5a7763, OAK = 0x6b4423;
   // ---------- la grande porte : encadrement de pierre à colonnes ioniques, imposte en éventail dorée, lanternes ; les deux vantaux de chêne sculpté sont vivants ----------
   function grandDoor(C, D) {
-    const { b, u, S, st } = C, H = D.H, w = .92 * u, hL = 1.36 * u, rr = w / 2, y0 = TH, zf = H.zc + H.d / 2, yA = y0 + hL, yTop = yA + rr, cr = .075 * u, cx = w / 2 + .21 * u, out = .2 * u, yE = yTop + .06 * u, eh = .2 * u, zc = zf + out * .55;
+    const { b, S, st } = C, u = C.FH / 1.8, H = D.H, w = .92 * u, hL = 1.36 * u, rr = w / 2, y0 = TH, zf = H.zc + H.d / 2, yA = y0 + hL, yTop = yA + rr, cr = .075 * u, cx = w / 2 + .21 * u, out = .2 * u, yE = yTop + .06 * u, eh = .2 * u, zc = zf + out * .55;
     // fond sombre du vestibule (on le voit quand les vantaux s'ouvrent) et ébrasement de pierre
     const sh = new THREE.Shape(); sh.moveTo(-w / 2, 0); sh.lineTo(w / 2, 0); sh.lineTo(w / 2, hL); sh.absarc(0, hL, rr, 0, PI, false); sh.lineTo(-w / 2, 0);
     b.add(new THREE.ShapeGeometry(sh, 10), 0x2e2318, b.M(0, y0, zf + .004));
@@ -715,6 +721,32 @@
     return qx < 0 || qz < 0 || qx >= M.W || qz >= M.D ? -1 : M.H[qz * M.W + qx];
   };
   for (const id of CAST) if (O[id]) O[id].hAt = hAt;
+  // la cour d'honneur est publique : on y pose meubles, bancs, arbres, maisons… sur le gravier et le gazon
+  // (pas sur les parterres, les haies, la fontaine ni les allées devant la grande porte)
+  function courtCell(q, x, z) {
+    const g = q._grp, R = g && BUILT[g.name]; if (!R || !R.P || !R.P.court) return false; const [lx, lz] = toL(g.r, x - g.cx, z - g.cz), c = R.P.court, D = R.door;
+    if (lx < c[0] + .3 || lx > c[2] - .3 || lz < c[1] + .3 || lz > c[3] - .2) return false;
+    if (Math.abs(lx) < D.hw + 1.6 && lz < D.z + 4) return false;
+    const h = hAt(q, x, z); return h > -.5 && h < .62 ? Math.max(.001, h) : false; // gravier et gazon de la cour (sur la terrasse) : pas les haies, les buis, la fontaine
+  }
+  const ocan = GP.canPlace;
+  GP.canPlace = function (t, tx, tz, r = 0) {
+    if (ocan.call(this, t, tx, tz, r)) return true;
+    const d = O[t]; if (!d || this.interior || CAST.includes(t) || d.ceil || d.up || d.onWater || G._deckY != null && G.deckOK(d) && this.deckSlot && this.deckSlot(tx, tz, G._deckY)) return false;
+    const [w, dd] = G.fpDims(d, r); let L = null, court = false;
+    for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
+      if (x < 2 || z < 2 || x >= this.W - 2 || z >= this.H - 2) return false; const i = z * this.W + x;
+      if (this.water[i] || this.ramp[i]) return false; if (L === null) L = this.lvl[i]; else if (this.lvl[i] !== L) return false;
+      const q = this.occ[i] ? this.objs[this.occ[i] - 1] : null; if (!q || G.replaces(d, q)) continue;
+      if (!isC(q) || !courtCell(q, x + .5, z + .5)) return false; court = true; }
+    return court;
+  };
+  // posé dans la cour : à la hauteur du pavé ; retiré : la case revient au château
+  const courtH = (m, t, tx, tz, r) => { const d = O[t]; if (!d || m.interior || CAST.includes(t)) return 0; const [w, dd] = G.fpDims(d, r); let h = 0;
+    for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const i = z * m.W + x, q = m.occ[i] ? m.objs[m.occ[i] - 1] : null; if (q && isC(q)) { const c = courtCell(q, x + .5, z + .5); if (c) h = Math.max(h, c); } } return h; };
+  const oadd2 = GP.addObj; GP.addObj = function (t, tx, tz, r = 0, ex = null) { if (!(ex && ex.cy != null) && this.inb(tx, tz)) { const h = courtH(this, t, tx, tz, r); if (h > 0) ex = Object.assign({}, ex, { cy: +h.toFixed(3) }); } return oadd2.call(this, t, tx, tz, r, ex); };
+  const orem2 = GP.removeObj; GP.removeObj = function (o) { const res = orem2.call(this, o); if (o && o.cy && !CAST.includes(o.t)) { const [w, dd] = G.fpDims(O[o.t], o.r);
+      for (let z = o.z; z < o.z + dd; z++) for (let x = o.x; x < o.x + w; x++) { const i = z * this.W + x; if (this.occ[i]) continue; for (const q of this._cgList || []) { const [qw, qd] = G.fpDims(O[q.t], q.r); if (x >= q.x && x < q.x + qw && z >= q.z && z < q.z + qd) { this.occ[i] = q.z * this.W + q.x + 1; break; } } } } return res; };
 
   // ---------- la grande porte : au milieu de la façade, elle mène au château principal du groupe ----------
   const doorOf = g => (BUILT[g.name] || { door: { z: g.rows * 3.5 - 1, hw: 1.1 } }).door;
@@ -730,10 +762,12 @@
   // le château et son plan : celui de son groupe s'il est assemblé, sinon lui seul (pour l'intérieur)
   G.chateauInfo = o => { if (!o || !CAST.includes(o.t)) return null; const g = o._grp || solo(o); if (!g) return { st: styleOf(o), cols: 1, rows: 1, r: o.r & 3, n: 1, single: true, main: o };
     return { st: g.st, cols: g.cols, rows: g.rows, r: g.r, n: g.n, single: !!g.single, main: g.single ? o : mainOf(g), cx: g.cx, cz: g.cz, door: doorG(g) }; };
-  const ofront = G.act.front; G.act.front = o => { const g = o && (o._grp || solo(o)); if (!g) return ofront(o); const p = G.player, D = doorG(g), [lx, lz] = toL(g.r, p.x - g.cx, p.z - g.cz); return Math.abs(lx) < D.hw && lz > D.z - .5 && lz < D.z + 2.6; };
+  const ofront = G.act.front; G.act.front = o => { const g = o && (o._grp || solo(o)); if (!g) return ofront(o); const p = G.player, D = doorG(g), [lx, lz] = toL(g.r, p.x - g.cx, p.z - g.cz); if (Math.abs(lx) < D.hw && lz > D.z - .5 && lz < D.z + 2.6) { G._chSide = -1; return true; }
+    const i = (D.side || []).findIndex(sd => Math.abs(lx - sd.x) < sd.hw && lz > sd.z - .5 && lz < sd.z + 2.2); if (i >= 0) { G._chSide = i; return true; } return false; };
   const oenter = G.act.enterHouse; G.act.enterHouse = o => {
     const g = o && (o._grp || solo(o)); if (!g) return oenter(o); const q = g.single ? o : mainOf(g), res = oenter(q), key = q.iid || ('b' + q.t + '_' + q.x + '_' + q.z), v = G.net && G.net.visit;
-    const im = (v && v.interiors && v.interiors[key]) || G.interiors[key]; if (im) { const D = doorG(g), [dx, dz] = toW(g.r, 0, D.z + (D.out || 1.1)); im.meta.door = { x: g.cx + dx, z: g.cz + dz, yaw: g.r * PI / 2 }; im.meta.title = G.chateauName(g.st, g.n); }
+    const im = (v && v.interiors && v.interiors[key]) || G.interiors[key]; if (im) { const D = doorG(g), [dx, dz] = toW(g.r, 0, D.z + (D.out || 1.1)); im.meta.door = { x: g.cx + dx, z: g.cz + dz, yaw: g.r * PI / 2 }; im.meta.title = G.chateauName(g.st, g.n);
+      im.meta.doorsW = [im.meta.door].concat((D.side || []).map(sd => { const [sx, sz] = toW(g.r, sd.x, sd.z + 1.1); return { x: g.cx + sx, z: g.cz + sz, yaw: g.r * PI / 2 }; })); } // où l'on ressort, porte par porte
     return res;
   };
   // le château classique seul : même dessin ultra détaillé que les châteaux assemblés

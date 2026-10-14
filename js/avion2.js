@@ -170,7 +170,10 @@
 
   // ---------- vol ----------
   const GRAV = 6, STALL = 6.0, VR = 7.6, THR = 9.5, DRAG = .018, RAINBOW = [0xff5a5a, 0xffa53a, 0xffe14a, 0x5fd16b, 0x5bb3ff, 0xb583e6];
-  const groundY = (m, x, z) => { const tx = Math.floor(x), tz = Math.floor(z); return m.isWaterT(tx, tz) ? m.waterSurf(tx, tz) : m.terrainH(x, z); };
+  // au-delà du village : la mer (au sud, ou tout autour d'une île) et la grande plaine verte, comme on les voit à l'horizon
+  const FAR = 380, outSea = (m, x, z) => !m.inb(Math.floor(x), Math.floor(z)) && (m.meta.island || z >= (m.meta.seaZ || m.H - G.SEA));
+  G.outGround = (m, x, z) => outSea(m, x, z) ? G.WS : 3 * G.TIER; G.outSea = outSea; G.FLY_FAR = FAR;
+  const groundY = (m, x, z) => { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return G.outGround(m, x, z); return m.isWaterT(tx, tz) ? m.waterSurf(tx, tz) : m.terrainH(x, z); };
   const ou = F.updVehicle; F.updVehicle = (p, dt) => { const v = p.vehicle; if (!v || !v.plane2) return ou(p, dt);
     const I = G.input, m = G.map, free = G.ui.canPlay(), P = v.parts, mouse = G.mouseMode(); dt = Math.min(dt, .05); v.t += dt; v.warnT = Math.max(0, v.warnT - dt);
     let steer = 0, pull = 0, gas = 0;
@@ -187,9 +190,9 @@
     }
     v.thr = G.clamp(v.thr + gas * dt * 1.1, 0, 1);
     // le bord du monde : l'avion fait demi-tour tout seul
-    const W = m.W, H = m.H, mg = 16; if (!v.ground && !v.auto && (v.x < mg || v.z < mg || v.x > W - mg || v.z > H - mg)) { let d = (v.h - Math.atan2(W / 2 - v.x, H / 2 - v.z)) % TAU; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) > .35) steer = d > 0 ? 1 : -1; else steer = G.clamp(d * 3, -1, 1); pull = Math.max(pull, 0); if ((v.edgeT = (v.edgeT || 0) - dt) < 0) { v.edgeT = 6; G.ui.toast('↩️ Demi-tour : c\'est le bout du monde !'); } }
-    if (v.y > 40) pull = Math.min(pull, -.4);
-    const gy = v.gy = groundY(m, v.x, v.z), water = m.isWaterT(Math.floor(v.x), Math.floor(v.z));
+    const W = m.W, H = m.H, mg = 30 - FAR; if (!v.ground && !v.auto && (v.x < mg || v.z < mg || v.x > W - mg || v.z > H - mg)) { let d = (v.h - Math.atan2(W / 2 - v.x, H / 2 - v.z)) % TAU; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) > .35) steer = d > 0 ? 1 : -1; else steer = G.clamp(d * 3, -1, 1); pull = Math.max(pull, 0); if ((v.edgeT = (v.edgeT || 0) - dt) < 0) { v.edgeT = 6; G.ui.toast('↩️ Demi-tour : c\'est le bout du monde !'); } }
+    if (v.y > 220) pull = Math.min(pull, -.4); // très haut dans le ciel, mais pas jusqu'aux étoiles
+    const gy = v.gy = groundY(m, v.x, v.z), water = m.isWaterT(Math.floor(v.x), Math.floor(v.z)) || outSea(m, v.x, v.z);
     if (v.auto) { // atterrissage automatique en spirale
       const L = v.auto, h0 = v.h; L.a += dt * Math.min(2.4, 9 / Math.max(L.r, 2)); L.r = Math.max(0, L.r - dt * Math.max(1.1, L.r * .3)); const nx = L.x + Math.cos(L.a) * L.r, nz = L.z + Math.sin(L.a) * L.r, k = L.r / L.r0;
       if (Math.hypot(nx - v.x, nz - v.z) > .002) v.h = Math.atan2(nx - v.x, nz - v.z); let dh = (v.h - h0) % TAU; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
@@ -218,7 +221,7 @@
       v.spd = Math.max(0, v.spd + (v.thr * THR - DRAG * v.spd * v.spd - GRAV * Math.sin(v.pitch)) * dt);
       const lift = Math.min(1, v.spd / STALL), vyT = v.spd * Math.sin(v.pitch) - (1 - lift) * 5.5 - Math.abs(v.bank) * .35;
       v.vy += (vyT - v.vy) * Math.min(1, 2.5 * dt); v.off += (0 - v.off) * Math.min(1, 3 * dt);
-      const hs = v.spd * Math.cos(v.pitch); v.x = G.clamp(v.x + Math.sin(v.h) * hs * dt, 3, W - 3); v.z = G.clamp(v.z + Math.cos(v.h) * hs * dt, 3, H - 3); v.y += v.vy * dt;
+      const hs = v.spd * Math.cos(v.pitch); v.x = G.clamp(v.x + Math.sin(v.h) * hs * dt, -FAR, W + FAR); v.z = G.clamp(v.z + Math.cos(v.h) * hs * dt, -FAR, H + FAR); v.y += v.vy * dt;
       // obstacles (arbres, toits, falaises) : on rebondit au-dessus
       const top = m.topAt(v.x, v.z); if (top < 40 && v.y < top - .1 && top > gy + .4) { v.y = top + .25; v.vy = Math.max(v.vy, 2.2); v.spd *= .9; G.cam.shake(.15); if (v.warnT <= 0) { v.warnT = 4; G.sfx('thud'); G.ui.toast('Attention aux obstacles ! 🌳'); } }
       if (v.y <= gy) { // contact avec le sol ou l'eau
