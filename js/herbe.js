@@ -112,9 +112,13 @@ void main() {
   function dropAll() { for (const k of [...GR.ch.keys()]) drop(k); GR.q = []; }
   function build(m, kx, kz) {
     const x0 = kx * CS, z0 = kz * CS, x1 = Math.min(m.W, x0 + CS), z1 = Math.min(m.H, z0 + CS), D = BIO.data, dP = BIO.dP, items = [];
+    // autour des châteaux, le gazon est tondu ras : pas de touffes au pied des grilles, herbe courte un peu plus loin
+    const cs = []; if (m._cgList) for (const o of m._cgList) { if (!m.list.has(o)) continue; const [w, d] = G.fpDims(G.OBJ[o.t], o.r); if (o.x + w + 5 < x0 || o.x - 5 > x1 || o.z + d + 5 < z0 || o.z - 5 > z1) continue; cs.push([o.x, o.z, o.x + w, o.z + d]); }
+    const mown = (x, z) => { let dm = 99; for (const [a, c, e, f] of cs) dm = Math.min(dm, Math.max(a - x - .5, x + .5 - e, c - z - .5, z + .5 - f, 0)); return dm; };
     for (let z = z0; z < z1; z++) for (let x = x0; x < x1; x++) {
       const i = z * m.W + x, s = m.surf[i]; if (m.water[i] || m.ramp[i] || !(s === 0 || s === 1 || s === 14)) continue; const o = m.objAt(x, z); if (o && (G.OBJ[o.t].h > .3 || G.OBJ[o.t].enter)) continue;
-      const lush = D[i * 4] / 255, dry = D[i * 4 + 1] / 255, wild = D[i * 4 + 2] / 255, fl = D[i * 4 + 3] / 255, lawn = 1 - sm(1.2, 3.5, dP[i]);
+      const dn = cs.length ? mown(x, z) : 99; if (dn < 1.6) continue;
+      const lush = D[i * 4] / 255, dry = D[i * 4 + 1] / 255, wild = D[i * 4 + 2] / 255 * sm(2.5, 5, dn), fl = D[i * 4 + 3] / 255, lawn = Math.max(1 - sm(1.2, 3.5, dP[i]), 1 - sm(1.6, 4.5, dn));
       const k = 4 + (lush > .5 ? 1 : 0) - (dry > .65 ? 1 : 0) + (G.hash2(x, z, 11) < .4 ? 1 : 0) - (s === 1 ? 1 : 0);
       for (let j = 0; j < k; j++) { const rx = x + G.hash2(x, z, 20 + j), rz = z + G.hash2(z, x, 40 + j), h = (q) => G.hash2(x * 7 + j, z * 3 + q, 60);
         items.push([rx, m.terrainH(rx, rz) - .02, rz, h(1), h(2) * TAU, (.75 + .5 * h(3)) * (1 - lawn * .35), .8 + .4 * h(4), h(5) * 100,

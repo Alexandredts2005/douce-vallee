@@ -34,9 +34,6 @@
   function epi(b, x, y, z, s = 1) { b.cyl(.025 * s, .04 * s, .3 * s, 6, GOLD, x, y + .15 * s, z); dot(b, .07 * s, GOLD, x, y + .34 * s, z, 1); b.cone(.04 * s, .18 * s, 6, GOLD, x, y + .5 * s, z); }
   function flag(C, x, y, z, s) { const b = C.b, [c1, c2] = C.S.flag; b.cyl(.02 * s, .025 * s, 1.1 * s, 6, IRONC, x, y + .55 * s, z); bx(b, .7 * s, .4 * s, .03 * s, c1, x + .36 * s, y + .88 * s, z); bx(b, .7 * s, .1 * s, .035 * s, c2, x + .36 * s, y + .88 * s, z); dot(b, .05 * s, GOLD, x, y + 1.13 * s, z); }
   function vase(b, x, y, z, s, col) { b.cyl(.06 * s, .1 * s, .06 * s, 8, col, x, y + .03 * s, z); dot(b, .13 * s, col, x, y + .2 * s, z, 1); b.cyl(.12 * s, .08 * s, .06 * s, 10, col, x, y + .33 * s, z); }
-  function statueG(b, x, y, z, s, col = 0xece6d8) { b.P(PT.pierre); bx(b, .36 * s, .5 * s, .36 * s, 0xd9d2c2, x, y + .25 * s, z); b.P(0); b.cyl(.09 * s, .14 * s, .5 * s, 8, col, x, y + .75 * s, z); dot(b, .09 * s, col, x, y + 1.08 * s, z, 1); b.add(new THREE.BoxGeometry(.36 * s, .06 * s, .06 * s), col, b.M(x, y + .9 * s, z, 0, 0, .5)); }
-  function statue(C, x, z, s) { statueG(C.b, x, 0, z, s); C.rect(x - .2 * s, z - .2 * s, x + .2 * s, z + .2 * s, 1.2 * s); }
-  function topiaire(C, x, z, s) { const b = C.b; b.cyl(.2 * s, .16 * s, .3 * s, 8, 0xd9d2c2, x, .15 * s, z); b.cone(.24 * s, .9 * s, 10, 0x2f6b3a, x, .75 * s, z); dot(b, .1 * s, 0x2f6b3a, x, 1.25 * s, z, 1); C.circ(x, z, .22 * s, 1.3 * s); }
   function crest(C, x0, z0, x1, z1, y) { const b = C.b, L = Math.hypot(x1 - x0, z1 - z0), n = Math.min(30, Math.floor(L / C.u)); if (L < .1) return;
     bx(b, Math.abs(x1 - x0) + .06, .06, Math.abs(z1 - z0) + .06, GOLD, (x0 + x1) / 2, y + .03, (z0 + z1) / 2);
     for (let k = 0; k <= n; k++) { const t = n ? k / n : .5; b.cone(.05 * C.u, .22 * C.u, 6, GOLD, x0 + (x1 - x0) * t, y + .15 * C.u, z0 + (z1 - z0) * t); } }
@@ -44,7 +41,7 @@
     for (const k of [-.18, .18]) b.cyl(.05 * u, .06 * u, .16 * u, 6, 0xc0603c, x + (along ? k * u : 0), y1 + .18 * u, z + (along ? 0 : k * u)); }
 
   // ---------- plan : où vont les corps de logis, les pavillons, les ailes, la cour ----------
-  function plan(cols, rows) {
+  function plan(cols, rows, st = 0) {
     const Wl = cols * 9, Dl = rows * 7, n = cols * rows, lvl = n === 1 ? 0 : Math.max(1, Math.floor(Math.log2(n))), kind = cols >= 2 && rows >= 2 ? 'U' : rows === 1 ? 'X' : 'Z';
     let u = Math.pow(n, .25); u = Math.min(u, kind === 'X' ? Dl / 6.2 : kind === 'Z' ? (Wl - .7) / 7.5 : Math.min((Wl - .7) / 8.8, (Dl - .5) / 6.8)); // échelle : tout grandit, dans la limite du terrain
     const nf = 2 + Math.floor(Math.log2(n) / 2), pdx = .3 * u, bd = 3 * u, X0 = -Wl / 2, X1 = Wl / 2, Z0 = -Dl / 2, Z1 = Dl / 2;
@@ -64,14 +61,15 @@
       for (let i = 1; i <= k; i++) { const c = za + len * i / (k + 1); add(x0, x1, z, c - .75 * u, 'corps', nfB); add(x0 - pdx * .5, x1 + pdx * .5, c - .75 * u, c + .75 * u, 'pav2', nfB); z = c + .75 * u; }
       add(x0, x1, z, zb - pwF, 'corps', nfB); return front ? add(x0 - pdx, x1 + pdx, zb - pwF, zb, 'pav', nfB) : null; };
     const cl = (x0, z0, x1, z1) => P.ter.push([Math.max(X0 + .1, x0), Math.max(Z0 + .1, z0), Math.min(X1 - .1, x1), Math.min(Z1 - .1, z1)]);
-    if (kind === 'X') { // une seule rangée : longue façade
-      const xa = X0 + .35, xb = X1 - .35, zf = Z1 - 1.6 * u, zb1 = zf - pdx, zb0 = zb1 - bd, E = barX(xa, xb, zb0, zb1, 1.7 * u, nf, zb0 - pdx, zb1 + pdx);
+    if (kind === 'X') { // une seule rangée : longue façade, reculée au fond du terrain pour laisser devant une vraie cour d'honneur
+      const xa = X0 + .35, xb = X1 - .35, zf = Math.min(Z1 - 1.6 * u, Z0 + (st === 1 ? .9 * u : .28) + .4 * u + 2 * pdx + bd), zb1 = zf - pdx, zb0 = zb1 - bd, E = barX(xa, xb, zb0, zb1, 1.7 * u, nf, zb0 - pdx, zb1 + pdx);
       cl(xa - .4 * u, zb0 - pdx - .4 * u, xb + .4 * u, zf + .4 * u); P.zT = Math.min(Z1 - .1, zf + .4 * u);
       for (const B of [E.L, E.R]) for (const z of [B.z0, B.z1]) P.T.push({ x: B.x0 < 0 ? B.x0 : B.x1, z, B });
     } else if (kind === 'Z') { // une seule colonne : le château en façade, une longue aile en arrière (en T)
       const xa = X0 + .35, xb = X1 - .35, zf = Z1 - 1.6 * u, zb1 = zf - pdx, zb0 = zb1 - bd, E = barX(xa, xb, zb0, zb1, 1.7 * u, nf, zb0 - pdx, zb1 + pdx);
       const hw = Math.min(1.3 * u, (Wl - .7) * .2), zk = Z0 + u, Bk = add(-hw - pdx, hw + pdx, zk, zk + 1.7 * u, 'pav', nf); barZ(-hw, hw, zk + 1.7 * u, zb0 - pdx * .5, nf, null);
       cl(xa - .4 * u, zb0 - pdx - .4 * u, xb + .4 * u, zf + .4 * u); cl(-hw - pdx - .4 * u, zk - .4 * u, hw + pdx + .4 * u, zb0 - pdx - .4 * u); P.zT = Math.min(Z1 - .1, zf + .4 * u);
+      P.side = [hw + pdx + .4 * u + .08, Z0 + .22, X1 - .2, zb0 - pdx - .4 * u - .06]; // jardins de part et d'autre de l'aile
       for (const B of [E.L, E.R]) for (const z of [B.z0, B.z1]) P.T.push({ x: B.x0 < 0 ? B.x0 : B.x1, z, B }); for (const x of [Bk.x0, Bk.x1]) P.T.push({ x, z: Bk.z0, B: Bk });
     } else { // cour d'honneur : corps de logis au fond, deux ailes vers l'avant, grille ou châtelet devant
       const bx0 = X0 + .35, bx1 = X1 - .35, ww = 2.2 * u, zb0 = Z0 + u + pdx, zb1 = zb0 + bd, zf = Z1 - .6, pwE = ww + 2 * pdx, nw = nf >= 3 ? nf - 1 : nf;
@@ -90,7 +88,7 @@
 
   // ---------- contexte d'un château : plan, hauteurs, tours, espacement des fenêtres (sans rien dessiner) ----------
   function ctx(st, cols, rows) {
-    const P = plan(cols, rows), S = PAL[st], { u, lvl } = P, FH = 1.8 * u, C = Object.assign({ S, st, FH, rs: [], cs: [], nwin: 0 }, P);
+    const P = plan(cols, rows, st), S = PAL[st], { u, lvl } = P, FH = 1.8 * u, C = Object.assign({ S, st, FH, rs: [], cs: [], nwin: 0 }, P);
     for (const B of P.B) { B.wh = B.nf * FH + (B.k === 'pav' ? .25 * u : B.k === 'centre' ? .3 * u : 0); B.top = TH + B.wh; B.H = blk((B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2, B.x1 - B.x0, B.z1 - B.z0, TH, B.wh); }
     C.tw = st !== 1 ? [] : P.T.map(t => { const r = Math.min(.85 * u * (1 + .04 * lvl), 1.6 * u); return { x: G.clamp(t.x, P.X0 + r + .05, P.X1 - r - .05), z: G.clamp(t.z, P.Z0 + r + .05, P.Z1 - r - .05), r, h: t.B.top + .9 * u * (1 + .05 * lvl) }; });
     // un point est-il caché par un autre bâtiment (ou une tour) ?
@@ -112,15 +110,15 @@
     const C = ctx(st, cols, rows), b = C.b = G.mb(700 + st * 31 + cols * 7 + rows * 3), { u, S } = C, D = C.D;
     C.rect = (x0, z0, x1, z1, h) => C.rs.push([Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1), h]);
     C.circ = (x, z, r, h) => C.cs.push([x, z, r, h]);
-    C.zP = Math.min(C.Z1 - .9, Math.max(C.zT, D.z1 + .6 * u)); // devant la porte, la terrasse avance jusqu'au perron (place pour la colonnade)
-    if (C.zP > C.zT + .05) C.ter.push([D.x0 - .2 * u, C.zT, D.x1 + .2 * u, C.zP]);
+    if (C.kind === 'U') { C.zP = Math.min(C.Z1 - .9, Math.max(C.zT, D.z1 + .6 * u)); if (C.zP > C.zT + .05) C.ter.push([D.x0 - .2 * u, C.zT, D.x1 + .2 * u, C.zP]); } // devant la porte, la terrasse avance jusqu'au perron
+    else { C.ew = (D.x1 - D.x0) / 2 + .2 * u; C.zP = Math.min(C.Z1 - 1.6, Math.max(C.zT, D.z1 + .25 * u) + .72); C.ter.push([-C.ew, C.zT - .05, C.ew, C.zP]); } // perron à deux rampes
     for (const [x0, z0, x1, z1] of C.ter) { b.P(PT.pierre); b.box(x1 - x0, TH, z1 - z0, S.base, (x0 + x1) / 2, TH / 2, (z0 + z1) / 2); b.P(0); C.rect(x0, z0, x1, z1, TH); }
     for (const B of C.B) block(C, B);
     for (const B of C.B) (st === 0 ? roofC : st === 1 ? roofL : roofT)(C, B);
     for (const T of C.tw) tower(C, T);
-    porte(b, D.H, 0, 0, { w: .8 * u, h: 1.55 * u, col: S.door, style: S.ds, frame: S.frame, arch: st < 2 ? 1 : 0, imposte: st === 2 ? 1 : 0, fronton: st === 2 ? S.trim : null, steps: 0, lamp: 2 });
-    gardens(C);
-    const geo = b.done(); return { geo, mask: mask(C), door: { z: D.z1, hw: Math.max(1.1, .55 * u) }, P: C };
+    const n0 = C.b.parts.map(p => p.length); grandDoor(C, D);
+    gardens(C); for (let m = 0; m < C.b.parts.length; m++) for (let i = n0[m]; i < C.b.parts[m].length; i++) { const g = C.b.parts[m][i]; if (g.userData.sk === G.SK.gold) g.userData.sk = G.SK.ceramic; }
+    const geo = b.done(); return { geo, mask: mask(C), door: { z: D.z1, hw: Math.max(1.1, .55 * u) }, P: C, fx: { door: C.doorFx, gates: C.gates || [], founts: C.founts || [] } };
   }
   // le plan et les fenêtres du rez-de-chaussée, pour dessiner l'intérieur exactement comme l'extérieur
   function layout(st, cols, rows) { const C = ctx(st, cols, rows), wins = []; for (const B of C.B) for (let f = 0; f < 4; f++) for (const w of bays(C, B, f)) wins.push({ B, f, a: w.a, door: w.door, k: w.k });
@@ -280,70 +278,339 @@
     if (B.k === 'pav') { chimney(C, long ? (H.xc < 0 ? B.x0 + .6 * u : B.x1 - .6 * u) : H.xc, long ? H.zc : B.z0 + .6 * u, y, y + hh + .2 * u, S.wall, S.trim, long); // haute cheminée de brique au bout du pavillon
       if (lvl >= 3 && C.kind !== 'Z') campanile(C, e[1][0], y + hh - .05, e[1][1], u * (.7 + .1 * lvl)); }
   }
-  // ---------- jardins : perron, statues, ifs, parterres, fontaine, grille ou châtelet ----------
-  function gardens(C) {
-    const { b, u, S, kind } = C, s = Math.min(2.2, .8 + .25 * u), zT = C.zT, zP = C.zP, pw = Math.max(1.6, 1.1 * u);
+  // ---------- jardins à la française : gazon tondu à bandes, allées de gravier ratissé, buis taillés, broderies, bassins, grilles dorées ----------
+  const LAWN = 0x72b04a, GRAV = 0xdccdab, BUIS = 0x3d6e31, IF = 0x2b5a2a, SOIL = 0x5e4532, BRIQ = 0xb35f45, MARB = 0xf4f1ea, IRONK = 0x1c2320, WAT = 0x7cc6de, BRONZE = 0x5a7763, OAK = 0x6b4423;
+  // ---------- la grande porte : encadrement de pierre à colonnes ioniques, imposte en éventail dorée, lanternes ; les deux vantaux de chêne sculpté sont vivants ----------
+  function grandDoor(C, D) {
+    const { b, u, S, st } = C, H = D.H, w = .92 * u, hL = 1.36 * u, rr = w / 2, y0 = TH, zf = H.zc + H.d / 2, yA = y0 + hL, yTop = yA + rr, cr = .075 * u, cx = w / 2 + .21 * u, out = .2 * u, yE = yTop + .06 * u, eh = .2 * u, zc = zf + out * .55;
+    // fond sombre du vestibule (on le voit quand les vantaux s'ouvrent) et ébrasement de pierre
+    const sh = new THREE.Shape(); sh.moveTo(-w / 2, 0); sh.lineTo(w / 2, 0); sh.lineTo(w / 2, hL); sh.absarc(0, hL, rr, 0, PI, false); sh.lineTo(-w / 2, 0);
+    b.add(new THREE.ShapeGeometry(sh, 10), 0x2e2318, b.M(0, y0, zf + .004));
+    b.P(PT.pierre); for (const sx of [-1, 1]) bx(b, .07 * u, hL, out, S.trim, sx * (w / 2 + .035 * u), y0 + hL / 2, zf + out / 2); b.P(0);
+    // imposte : vitrage en demi-cercle, rayons et rosace dorés, traverse de chêne
+    b.add(new THREE.CircleGeometry(rr - .02, 20, 0, PI), 0x9fb9d4, b.M(0, yA, zf + .02), 1);
+    for (let k = 1; k < 8; k++) { const a = k / 8 * PI; b.add(new THREE.BoxGeometry(.016 * u, rr - .04, .02), GOLD, b.M(Math.cos(a) * (rr - .04) / 2, yA + Math.sin(a) * (rr - .04) / 2, zf + .035, 0, 0, a - PI / 2)); }
+    b.add(new THREE.TorusGeometry(rr * .52, .012 * u, 4, 14, PI), GOLD, b.M(0, yA, zf + .035)); b.add(new THREE.CircleGeometry(rr * .2, 12, 0, PI), GOLD, b.M(0, yA, zf + .04));
+    b.add(new THREE.TorusGeometry(rr - .02, .024 * u, 4, 18, PI), 0xf7f2e6, b.M(0, yA, zf + .03));
+    bx(b, w + .04, .07 * u, .09, OAK, 0, yA - .03 * u, zf + .045);
+    // archivolte moulurée, clé à mascaron doré
+    b.P(PT.pierre); b.add(new THREE.TorusGeometry(rr + .075 * u, .065 * u, 5, 20, PI), S.trim, b.M(0, yA, zf + out * .5), 0, true);
+    bx(b, .2 * u, .3 * u, out + .05, S.pil, 0, yTop + .05 * u, zf + out / 2); b.P(0); dot(b, .06 * u, GOLD, 0, yTop + .04 * u, zf + out + .05, 1);
+    // colonnes ioniques sur piédestaux, entablement (il porte le balcon de l'étage noble), lanternes sur consoles
+    for (const sx of [-1, 1]) { const x = sx * cx;
+      b.P(PT.pierre); bx(b, cr * 3.3, .34 * u, cr * 3.3, S.trim, x, y0 + .17 * u, zc); bx(b, cr * 3.7, .06 * u, cr * 3.7, S.pil, x, y0 + .37 * u, zc); b.P(0);
+      b.add(new THREE.CylinderGeometry(cr, cr * 1.12, yE - y0 - .5 * u, 16), S.pil, b.M(x, (y0 + .4 * u + yE - .1 * u) / 2, zc), 0, true);
+      b.add(new THREE.TorusGeometry(cr * 1.15, .016 * u, 4, 14), S.trim, b.M(x, y0 + .42 * u, zc, PI / 2, 0, 0));
+      b.P(PT.pierre); bx(b, cr * 3.1, .07 * u, cr * 3.1, S.trim, x, yE - .07 * u, zc); b.P(0);
+      for (const s2 of [-1, 1]) b.add(new THREE.TorusGeometry(.032 * u, .011 * u, 4, 10), C.lvl >= 2 ? GOLD : S.trim, b.M(x + s2 * cr * 1.15, yE - .14 * u, zc + cr * .9));
+      const lx = sx * (cx + .36 * u), lz = zf + .22 * u; bx(b, .04 * u, .14 * u, .22 * u, IRONK, lx, y0 + 1.15 * u, zf + .1 * u);
+      b.add(new THREE.CylinderGeometry(.07 * u, .05 * u, .05 * u, 6), IRONK, b.M(lx, y0 + 1.02 * u, lz)); b.add(new THREE.CylinderGeometry(.05 * u, .05 * u, .16 * u, 6), 0xffe2a0, b.M(lx, y0 + 1.12 * u, lz), 1);
+      for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI / 4; bx(b, .011 * u, .17 * u, .011 * u, IRONK, lx + Math.cos(a) * .055 * u, y0 + 1.12 * u, lz + Math.sin(a) * .055 * u); }
+      b.add(new THREE.ConeGeometry(.085 * u, .1 * u, 6), IRONK, b.M(lx, y0 + 1.25 * u, lz)); dot(b, .022 * u, GOLD, lx, y0 + 1.31 * u, lz);
+      C.rect(x - cr * 1.7, zf, x + cr * 1.7, zf + out + .1, yE); }
+    b.P(PT.pierre); bx(b, 2 * cx + cr * 4, eh * .45, out + .14, S.trim, 0, yE + eh * .22, zc); bx(b, 2 * cx + cr * 4.8, eh * .3, out + .22, S.pil, 0, yE + eh * .6, zc); b.P(0);
+    if (C.lvl >= 2) bx(b, 2 * cx + cr * 4.2, .02 * u, .02, GOLD, 0, yE + eh * .3, zc + out / 2 + .08);
+    if (!(st === 0 && D.nf >= 2)) { // sans balcon au-dessus : fronton cintré et cartouche aux armes
+      b.P(PT.pierre); b.add(new THREE.CylinderGeometry(cx + .12 * u, cx + .12 * u, out + .12, 20, 1, false, -PI / 2, PI), S.trim, b.M(0, yE + eh * .76, zc, PI / 2, 0, 0, 1, 1, .42)); b.P(0);
+      b.add(new THREE.SphereGeometry(.12 * u, 12, 8), C.lvl >= 2 ? GOLD : S.pil, b.M(0, yE + eh + .1 * u, zf + out + .03, 0, 0, 0, .8, 1, .3)); }
+    C.doorFx = { x: 0, y: y0, z: zf + .02, w, h: hL - .035 * u };
+  }
+  const lawn = (C, x0, z0, x1, z1) => { if (x1 - x0 < .08 || z1 - z0 < .08) return; C.b.P(PT.gazon); bx(C.b, x1 - x0, .11, z1 - z0, LAWN, (x0 + x1) / 2, 0, (z0 + z1) / 2); C.b.P(0); };
+  const gravel = (C, x0, z0, x1, z1, col = GRAV, y = .03) => { if (x1 - x0 < .08 || z1 - z0 < .08) return; C.b.P(PT.gravier); bx(C.b, x1 - x0, y * 2, z1 - z0, col, (x0 + x1) / 2, 0, (z0 + z1) / 2); C.b.P(0); };
+  const hedge = (C, x0, z0, x1, z1, h, col = BUIS, coll = true) => { if (x1 - x0 < .02 || z1 - z0 < .02) return; C.b.P(PT.buis); bx(C.b, x1 - x0, h, z1 - z0, col, (x0 + x1) / 2, h / 2, (z0 + z1) / 2); C.b.P(0); if (coll) C.rect(x0, z0, x1, z1, h); };
+  const frame = (C, x0, z0, x1, z1, t, h, col = BUIS, coll = false) => { hedge(C, x0, z0, x1, z0 + t, h, col, coll); hedge(C, x0, z1 - t, x1, z1, h, col, coll); hedge(C, x0, z0 + t, x0 + t, z1 - t, h, col, coll); hedge(C, x1 - t, z0 + t, x1, z1 - t, h, col, coll); };
+  // arc de buis couché au sol (broderie) : un point à l'angle a est en (cx + r cos a, cz + r sin a)
+  const arcB = (C, cx, cz, r, a0, sw, t = .05, h = 1.5, col = BUIS) => { if (r < .03 || sw < .05) return; C.b.P(PT.buis); C.b.add(new THREE.TorusGeometry(r, t, 4, Math.max(5, Math.round(sw * Math.sqrt(r) * 6)), sw), col, C.b.M(cx, t * h * .6, cz, PI / 2, -a0, 0, 1, 1, h)); C.b.P(0); };
+  // le même arc vu dans un miroir (quart de parterre sx, sz)
+  const mA = (sx, sz, a0, sw) => sx > 0 ? (sz > 0 ? a0 : -(a0 + sw)) : (sz > 0 ? PI - (a0 + sw) : a0 + PI);
+  const disc = (C, x, z, r, y, col, pat = PT.gravier, seg = 28) => { C.b.P(pat); C.b.add(new THREE.CylinderGeometry(r, r, y * 2, seg), col, C.b.M(x, 0, z)); C.b.P(0); };
+  const lathe = (b, pts, seg, col, x, y, z, mat = 0) => b.add(new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(Math.max(0, p[0]), p[1])), seg), col, b.M(x, y, z), mat);
+  // vase Médicis (pierre ou bronze doré), garni de fleurs si on veut
+  function urne(b, x, y, z, s, col, fl) {
+    lathe(b, [[0, 0], [.13, 0], [.13, .05], [.08, .07], [.06, .12], [.07, .16], [.13, .2], [.17, .28], [.18, .36], [.2, .4], [.23, .43], [.21, .45], [0, .45]].map(p => [p[0] * s, p[1] * s]), 12, col, x, y, z);
+    for (const sx of [-1, 1]) b.add(new THREE.TorusGeometry(.06 * s, .012 * s, 4, 8, PI), col, b.M(x + sx * .19 * s, y + .3 * s, z, 0, 0, sx > 0 ? -PI / 2 : PI / 2));
+    if (fl) { b.jit(.1); b.add(new THREE.IcosahedronGeometry(.17 * s, 1), 0x3f7a35, b.M(x, y + .5 * s, z, 0, 0, 0, 1, .55, 1)); b.jit(0); for (let k = 0; k < 7; k++) { const a = k / 7 * TAU; dot(b, .045 * s, fl[k % fl.length], x + Math.cos(a) * .13 * s, y + .55 * s + (k % 2) * .03 * s, z + Math.sin(a) * .13 * s); } }
+  }
+  // pot à feu : urne de pierre couronnée de flammes dorées
+  function potFeu(b, x, y, z, s, col) { urne(b, x, y, z, s * .9, col); b.S(G.SK.gold); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; b.add(new THREE.SphereGeometry(.05 * s, 8, 6), GOLD, b.M(x + Math.cos(a) * .07 * s, y + .52 * s, z + Math.sin(a) * .07 * s, Math.sin(a) * .3, 0, -Math.cos(a) * .3, 1, 2.4, 1)); } b.add(new THREE.SphereGeometry(.07 * s, 10, 8), GOLD, b.M(x, y + .56 * s, z, 0, 0, 0, 1, 2.6, 1)); b.add(new THREE.ConeGeometry(.03 * s, .14 * s, 8), GOLD, b.M(x, y + .8 * s, z)); b.S(null); }
+  // caisse de Versailles (bois peint, montants à boules dorées)
+  function caisse(b, x, z, s) { const w = .5 * s; bx(b, w, w * .9, w, 0xf0ece0, x, w * .45, z); for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { bx(b, .06 * s, w * .98, .06 * s, 0x2f4f3c, x + dx * w / 2, w * .49, z + dz * w / 2); dot(b, .045 * s, GOLD, x + dx * w / 2, w + .03 * s, z + dz * w / 2, 1); } bx(b, w + .02, .04 * s, w + .02, 0x2f4f3c, x, w * .9, z); }
+  // ifs et buis taillés : cône, boule sur tige en caisse, pièce montée (trois boules)
+  function ifCone(C, x, z, s, coll = true) { const b = C.b; b.P(PT.buis); b.add(new THREE.ConeGeometry(.26 * s, 1.05 * s, 12), IF, b.M(x, .55 * s, z)); b.add(new THREE.CylinderGeometry(.27 * s, .27 * s, .1 * s, 12), IF, b.M(x, .06 * s, z)); b.P(0); if (coll) C.circ(x, z, .24 * s, 1.1 * s); }
+  function boule(C, x, z, s, coll = true) { const b = C.b; caisse(b, x, z, s * .7); b.cyl(.025 * s, .03 * s, .5 * s, 6, 0x5b4128, x, .55 * s, z); b.P(PT.buis); b.add(new THREE.IcosahedronGeometry(.24 * s, 2), BUIS, b.M(x, .95 * s, z)); b.P(0); if (coll) C.circ(x, z, .2 * s, 1.15 * s); }
+  function monte(C, x, z, s, coll = true) { const b = C.b; b.P(PT.buis); for (const [r, y] of [[.25, .25], [.19, .63], [.13, .93]]) b.add(new THREE.IcosahedronGeometry(r * s, 2), IF, b.M(x, y * s, z)); b.P(0); if (coll) C.circ(x, z, .24 * s, 1.05 * s); }
+  // oranger en caisse
+  function oranger(C, x, z, s, i = 0) { const b = C.b; caisse(b, x, z, s); b.cyl(.035 * s, .05 * s, .55 * s, 6, 0x6b4a2e, x, .72 * s, z); b.jit(.08); b.add(new THREE.IcosahedronGeometry(.38 * s, 2), 0x3f8a3a, b.M(x, 1.22 * s, z)); b.jit(0);
+    for (let k = 0; k < 7; k++) { const a = k / 7 * TAU + i; dot(b, .055 * s, 0xff9a1f, x + Math.cos(a) * .3 * s, 1.15 * s + (k % 3) * .1 * s, z + Math.sin(a) * .3 * s); } C.circ(x, z, .3 * s, 1.6 * s); }
+  // statue de marbre (ou de bronze doré) sur un piédestal mouluré, tournée vers ry
+  function statueG(b, x, y, z, s, col = 0xf1ede4, ry = 0, ped = true) {
+    let y0 = y; if (ped) { b.P(PT.pierre); bx(b, .46 * s, .1 * s, .46 * s, 0xe3dccd, x, y + .05 * s, z); bx(b, .36 * s, .46 * s, .36 * s, 0xe9e3d6, x, y + .33 * s, z); bx(b, .44 * s, .08 * s, .44 * s, 0xe3dccd, x, y + .6 * s, z); b.P(0); y0 = y + .64 * s; }
+    const c = Math.cos(ry), sn = Math.sin(ry), L = (dx, dz) => [x + dx * c + dz * sn, z - dx * sn + dz * c], g = col === GOLD ? GOLD : col;
+    b.add(new THREE.CylinderGeometry(.15 * s, .16 * s, .05 * s, 10), g, b.M(x, y0 + .025 * s, z));
+    b.add(new THREE.CylinderGeometry(.08 * s, .135 * s, .48 * s, 10), g, b.M(x, y0 + .29 * s, z, 0, ry, .05)); // drapé jusqu'aux pieds
+    let p = L(-.012 * s, 0); b.add(new THREE.CylinderGeometry(.1 * s, .078 * s, .27 * s, 10), g, b.M(p[0], y0 + .65 * s, p[1], 0, ry, -.06)); // buste
+    b.add(new THREE.SphereGeometry(.07 * s, 10, 6), g, b.M(x, y0 + .79 * s, z, 0, ry, 0, 1.75, .6, 1)); // épaules
+    b.add(new THREE.CylinderGeometry(.026 * s, .03 * s, .06 * s, 8), g, b.M(x, y0 + .84 * s, z));
+    b.add(new THREE.SphereGeometry(.058 * s, 10, 8), g, b.M(x, y0 + .91 * s, z, 0, ry, .1, .95, 1.08, 1)); // tête, un peu penchée
+    p = L(-.03 * s, -.01 * s); b.add(new THREE.SphereGeometry(.03 * s, 8, 6), g, b.M(p[0], y0 + .94 * s, p[1])); // chignon
+    p = L(-.12 * s, 0); b.add(new THREE.CylinderGeometry(.022 * s, .026 * s, .3 * s, 7), g, b.M(p[0], y0 + .64 * s, p[1], 0, ry, .12)); // bras le long du corps
+    p = L(.13 * s, .02 * s); b.add(new THREE.CylinderGeometry(.022 * s, .026 * s, .28 * s, 7), g, b.M(p[0], y0 + .93 * s, p[1], 0, ry, -.5)); // bras levé
+    p = L(.2 * s, .03 * s); b.add(new THREE.TorusGeometry(.05 * s, .011 * s, 4, 10), col === GOLD ? GOLD : 0xe9e1cc, b.M(p[0], y0 + 1.09 * s, p[1], 0, ry, 0)); // couronne de lauriers brandie
+    p = L(0, .07 * s); b.add(new THREE.BoxGeometry(.24 * s, .05 * s, .03 * s), g, b.M(p[0], y0 + .62 * s, p[1], 0, ry, .7)); // écharpe du drapé
+  }
+  function statue(C, x, z, s, ry = 0, gold = false) { statueG(C.b, x, 0, z, s, gold ? GOLD : 0xf1ede4, ry); C.rect(x - .23 * s, z - .23 * s, x + .23 * s, z + .23 * s, 1.2 * s); }
+  // banc de pierre
+  function banc(C, x, z, s, along) { const b = C.b, w = .9 * s, d = .3 * s; b.P(PT.pierre); for (const k of [-1, 1]) bx(b, along ? .12 * s : d * .8, .3 * s, along ? d * .8 : .12 * s, 0xe3dccd, x + (along ? k * w * .36 : 0), .15 * s, z + (along ? 0 : k * w * .36)); bx(b, along ? w : d, .06 * s, along ? d : w, 0xece6d8, x, .33 * s, z); b.P(0); C.rect(x - (along ? w : d) / 2, z - (along ? d : w) / 2, x + (along ? w : d) / 2, z + (along ? d : w) / 2, .36 * s); }
+  // lanterne sur un candélabre de fonte
+  function candelabre(C, x, z, s) { const b = C.b; b.cyl(.06 * s, .09 * s, .2 * s, 8, IRONK, x, .1 * s, z); b.cyl(.025 * s, .035 * s, 1.55 * s, 8, IRONK, x, .95 * s, z); b.add(new THREE.TorusGeometry(.05 * s, .01 * s, 4, 10), GOLD, b.M(x, 1.5 * s, z, PI / 2, 0, 0));
+    b.cyl(.055 * s, .07 * s, .26 * s, 6, 0xffe2a0, x, 1.85 * s, z, 0, 0, 0, 1); for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI / 4; bx(b, .012 * s, .28 * s, .012 * s, IRONK, x + Math.cos(a) * .07 * s, 1.85 * s, z + Math.sin(a) * .07 * s); }
+    b.cone(.1 * s, .12 * s, 6, IRONK, x, 2.05 * s, z); dot(b, .025 * s, GOLD, x, 2.13 * s, z); C.circ(x, z, .08, 1.9 * s); }
+
+  // ---------- parterre de broderie : cadre de buis, plate-bande fleurie, rinceaux de buis sur brique pilée, médaillon de marbre blanc ----------
+  function broderie(C, x0, z0, x1, z1, s) {
+    const b = C.b, w = x1 - x0, d = z1 - z0, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, fl = C.S.fl; C.rect(x0, z0, x1, z1, .46);
+    if (w < 1.1 || d < 1.1) { lawn(C, x0, z0, x1, z1); frame(C, x0, z0, x1, z1, .1, .2); if (w > .6 && d > .6) ifCone(C, xc, zc, .55 * s, false); return; }
+    const t = Math.min(.16, .07 + Math.min(w, d) * .03), pb = Math.min(w, d) > 2.1 ? .34 : 0;
+    frame(C, x0, z0, x1, z1, t, .27);
+    let ix0 = x0 + t, ix1 = x1 - t, iz0 = z0 + t, iz1 = z1 - t;
+    if (pb) { // plate-bande : terre, fleurs sur deux rangs, petits ifs en cône aux angles
+      for (const [a, c, e, f] of [[ix0, iz0, ix1, iz0 + pb], [ix0, iz1 - pb, ix1, iz1], [ix0, iz0 + pb, ix0 + pb, iz1 - pb], [ix1 - pb, iz0 + pb, ix1, iz1 - pb]]) bx(b, e - a, .13, f - c, SOIL, (a + e) / 2, 0, (c + f) / 2);
+      const W2 = ix1 - ix0 - pb, D2 = iz1 - iz0 - pb, per = 2 * (W2 + D2), n = Math.min(110, Math.floor(per / .18));
+      for (let k = 0; k < n; k++) { let q = (k + .5) / n * per, x, z; const h0 = pb / 2;
+        if (q < W2) { x = ix0 + h0 + q; z = iz0 + h0; } else if ((q -= W2) < D2) { x = ix1 - h0; z = iz0 + h0 + q; } else if ((q -= D2) < W2) { x = ix1 - h0 - q; z = iz1 - h0; } else { x = ix0 + h0; z = iz1 - h0 - (q - W2); }
+        dot(b, .062, k % 4 === 3 ? 0x3f7a35 : fl[k % 3], x + (k % 2 - .5) * .09, .14 + (k % 3) * .02, z + ((k >> 1) % 2 - .5) * .09); }
+      for (const [x, z] of [[ix0 + pb / 2, iz0 + pb / 2], [ix1 - pb / 2, iz0 + pb / 2], [ix0 + pb / 2, iz1 - pb / 2], [ix1 - pb / 2, iz1 - pb / 2]]) ifCone(C, x, z, .5 * s, false);
+      ix0 += pb; ix1 -= pb; iz0 += pb; iz1 -= pb; frame(C, ix0, iz0, ix1, iz1, .07, .17); ix0 += .07; ix1 -= .07; iz0 += .07; iz1 -= .07; }
+    const iw = ix1 - ix0, id = iz1 - iz0, ax = iw >= id, Lg = ax ? iw : id, Sh = ax ? id : iw;
+    if (Sh < .8) { lawn(C, ix0, iz0, ix1, iz1); for (let k = 0, n = Math.max(1, Math.round(Lg / 1.2)); k < n; k++) monte(C, ax ? ix0 + (k + .5) * iw / n : xc, ax ? zc : iz0 + (k + .5) * id / n, .42 * s, false); return; }
+    gravel(C, ix0, iz0, ix1, iz1, BRIQ, .062);
+    const k = Math.max(1, Math.round(Lg / Sh)), cl = Lg / k, tb = G.clamp(.03 + Sh * .022, .045, .09);
+    for (let i = 0; i < k; i++) { const cx = ax ? ix0 + (i + .5) * cl : xc, cz = ax ? zc : iz0 + (i + .5) * cl; motif(C, cx, cz, (ax ? cl : iw) / 2, (ax ? id : cl) / 2, tb, s, i);
+      if (i > 0) { b.P(PT.buis); dot(b, tb * 2, BUIS, ax ? ix0 + i * cl : xc, tb * 1.4, ax ? zc : iz0 + i * cl, 1); b.P(0); } }
+  }
+  // un motif de broderie (cellule hx × hz) : médaillon de marbre cerclé de buis, quatre volutes en C enroulées, rinceaux sur les côtés, fleurs
+  function motif(C, cx, cz, hx, hz, tb, s, i) {
+    const b = C.b, m = Math.min(hx, hz), rr = m * .33, fl = C.S.fl;
+    disc(C, cx, cz, rr, .072, MARB); arcB(C, cx, cz, rr, 0, TAU, tb); arcB(C, cx, cz, rr * .52, 0, TAU, tb * .8);
+    if (m > 1.2 && C.lvl >= 3) urne(b, cx, .07, cz, .8 * s, GOLD, fl); else if (m > .7) monte(C, cx, cz, Math.min(.5, m * .32) * s, false);
+    else for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; dot(b, .05, fl[k % 3], cx + Math.cos(a) * rr * .3, .12, cz + Math.sin(a) * rr * .3); }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const qx = cx + sx * hx * .6, qz = cz + sz * hz * .58, r1 = m * .25, A = (a0, sw) => mA(sx, sz, a0, sw), e0 = -PI * .44, sw = PI * 1.4, e1 = e0 + sw;
+      arcB(C, qx, qz, r1, A(e0, sw), sw, tb); // la volute, ouverte vers le médaillon
+      for (const [e, a1] of [[e0, e0 + PI * .15], [e1, e1 - PI * 1.75]]) { const rc = r1 * .4, px = qx + sx * (r1 - rc) * Math.cos(e), pz = qz + sz * (r1 - rc) * Math.sin(e); arcB(C, px, pz, rc, A(a1, PI * 1.6), PI * 1.6, tb * .8); } // enroulements
+      b.P(PT.buis); dot(b, tb * 1.7, BUIS, cx + sx * hx * .9, tb * 1.3, cz + sz * hz * .9, 1); b.P(0); // boule dans l'angle
+      for (let k = 0; k < 3; k++) dot(b, .055, fl[(k + i) % 3], qx + sx * (k - 1) * r1 * .3, .12, qz + sz * (1 - Math.abs(k - 1)) * r1 * .2); }
+    // rinceaux : un demi-cercle au milieu de chaque côté, tourné vers le médaillon
+    arcB(C, cx + hx * .92, cz, hz * .3, PI / 2, PI, tb * .85); arcB(C, cx - hx * .92, cz, hz * .3, -PI / 2, PI, tb * .85);
+    arcB(C, cx, cz + hz * .92, hx * .3, PI, PI, tb * .85); arcB(C, cx, cz - hz * .92, hx * .3, 0, PI, tb * .85);
+  }
+  // ---------- fontaine majestueuse : bassin à margelle moulurée, socle à dauphins, deux vasques festonnées, groupe doré, jets ----------
+  function fontaine(C, x, z, R, grand) {
+    const b = C.b, lvl = C.lvl, st = 0xece5d5, sr = G.clamp(R * .42, .42, 1.9), gold = grand || lvl >= 3, metal = gold ? GOLD : BRONZE, S2 = k => k * sr;
+    const prof = [[R + .17, 0], [R + .17, .07], [R + .09, .12], [R + .07, .37], [R + .12, .41], [R + .12, .49], [R + .04, .55], [R - .07, .53], [R - .14, .45], [R - .14, .12]];
+    b.P(PT.pierre); lathe(b, prof, Math.min(72, 28 + Math.round(R * 12)), st, x, 0, z); b.P(0);
+    b.add(new THREE.CylinderGeometry(R - .13, R - .13, .03, 40), 0x2a4d56, b.M(x, .13, z));
+    b.add(new THREE.CylinderGeometry(R - .135, R - .135, .02, 48), WAT, b.M(x, .4, z), 2);
+    const big = R > 1.05, F = { x, z, R, wy: .41, sr, dol: [], gold };
+    // socle octogonal sortant de l'eau
+    b.P(PT.pierre); b.add(new THREE.CylinderGeometry(S2(.44), S2(.52), .62, 8), st, b.M(x, .31, z)); b.add(new THREE.CylinderGeometry(S2(.56), S2(.56), .08, 8), st, b.M(x, .64, z)); b.P(0);
+    const yS = .68;
+    if (big) for (let k = 0; k < 4; k++) { // quatre dauphins qui crachent l'eau dans le bassin
+      const a = k * PI / 2 + PI / 4, ca = Math.cos(a), sa = Math.sin(a), rc = S2(.5), r = S2(.2), yc = yS + r + .02;
+      b.add(new THREE.TorusGeometry(r, S2(.07), 6, 12, PI * 1.12), metal, b.M(x + ca * rc, yc, z + sa * rc, 0, -a, -PI * .56), 0, true);
+      const hx = x + ca * (rc + S2(.04)), hz = z + sa * (rc + S2(.04)), hy = yc - r * .95;
+      b.add(new THREE.SphereGeometry(S2(.09), 10, 8), metal, b.M(hx, hy, hz, 0, -a, 0, 1.25, .9, 1));
+      b.add(new THREE.ConeGeometry(S2(.05), S2(.14), 8), metal, b.M(hx + ca * S2(.1), hy - S2(.03), hz + sa * S2(.1), 0, -a, -PI / 2 - .5));
+      for (const s2 of [-1, 1]) b.add(new THREE.ConeGeometry(S2(.06), S2(.18), 6), metal, b.M(x + ca * (rc - S2(.02)) - sa * s2 * S2(.06), yc + r * 1.05 + S2(.06), z + sa * (rc - S2(.02)) + ca * s2 * S2(.06), 0, -a, s2 * .7));
+      F.dol.push([hx + ca * S2(.17), hy - S2(.07), hz + sa * S2(.17), ca, sa]); }
+    // balustre, vasque basse festonnée, balustre, vasque haute
+    b.P(PT.pierre); lathe(b, [[S2(.22), 0], [S2(.22), S2(.08)], [S2(.12), S2(.16)], [S2(.1), S2(.3)], [S2(.17), S2(.5)], [S2(.17), S2(.62)], [S2(.09), S2(.8)], [S2(.13), S2(.9)], [S2(.2), S2(.98)], [0, S2(.98)]], 14, st, x, yS, z); b.P(0);
+    const v1 = yS + S2(1.2), r1 = S2(big ? .98 : .8);
+    b.P(PT.pierre); lathe(b, [[0, -S2(.3)], [S2(.24), -S2(.3)], [S2(.32), -S2(.22)], r1 > 0 ? [r1 * .62, -S2(.14)] : [0, 0], [r1 * .9, -S2(.04)], [r1, S2(.04)], [r1 * 1.02, S2(.08)], [r1 * .94, S2(.08)], [r1 * .9, S2(.03)], [0, S2(.03)]], 36, st, x, v1, z); b.P(0);
+    b.add(new THREE.CylinderGeometry(r1 * .9, r1 * .9, .02, 32), WAT, b.M(x, v1 + S2(.05), z), 2);
+    for (let k = 0, n = big ? 16 : 10; k < n; k++) { const a = k / n * TAU; b.add(new THREE.SphereGeometry(S2(.06), 6, 4), gold && k % 2 ? GOLD : st, b.M(x + Math.cos(a) * r1 * 1.01, v1 + S2(.02), z + Math.sin(a) * r1 * 1.01, 0, -a, 0, .6, 1, 1.3)); }
+    F.v1 = v1 + S2(.06); F.r1 = r1;
+    let yTop = v1 + S2(.08);
+    if (big || gold) { b.P(PT.pierre); lathe(b, [[S2(.14), 0], [S2(.08), S2(.12)], [S2(.11), S2(.3)], [S2(.07), S2(.5)], [S2(.12), S2(.58)], [0, S2(.58)]], 12, st, x, yTop, z); b.P(0);
+      const v2 = yTop + S2(.66), r2 = S2(.52);
+      b.P(PT.pierre); lathe(b, [[0, -S2(.16)], [S2(.14), -S2(.16)], [r2 * .7, -S2(.07)], [r2, S2(.03)], [r2 * 1.03, S2(.07)], [r2 * .93, S2(.07)], [0, S2(.03)]], 28, st, x, v2, z); b.P(0);
+      b.add(new THREE.CylinderGeometry(r2 * .9, r2 * .9, .02, 24), WAT, b.M(x, v2 + S2(.045), z), 2);
+      for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; b.add(new THREE.SphereGeometry(S2(.045), 6, 4), gold ? GOLD : st, b.M(x + Math.cos(a) * r2, v2 + S2(.03), z + Math.sin(a) * r2)); }
+      F.v2 = v2 + S2(.05); F.r2 = r2; yTop = v2 + S2(.07); }
+    // couronnement : groupe doré (grandes fontaines) ou pomme de pin, d'où jaillit le jet
+    if (gold) { statueG(b, x, yTop, z, S2(.62), GOLD, PI / 4, false); F.top = yTop + S2(.62) * 1.12; }
+    else { b.add(new THREE.ConeGeometry(S2(.09), S2(.3), 10), metal, b.M(x, yTop + S2(.15), z)); dot(b, S2(.07), metal, x, yTop + S2(.05), z, 1); F.top = yTop + S2(.32); }
+    // nappes d'eau translucides (l'eau qui court sur le bord des vasques ; elles ondulent quand on est tout près)
+    b.add(new THREE.CylinderGeometry(r1 * 1.03, r1 * 1.16, F.v1 - .41, 32, 1, true), 0xe2f4fa, b.M(x, (F.v1 + .41) / 2, z), 2);
+    if (F.v2) b.add(new THREE.CylinderGeometry(F.r2 * 1.04, F.r2 * 1.18, F.v2 - F.v1, 24, 1, true), 0xe2f4fa, b.M(x, (F.v2 + F.v1) / 2, z), 2);
+    b.add(new THREE.CylinderGeometry(S2(.025), S2(.05), S2(.9), 8, 1, true), 0xeef8fc, b.M(x, F.top + S2(.45), z), 2);
+    (C.founts || (C.founts = [])).push(F); C.circ(x, z, R + .17, .56);
+  }
+
+  // ---------- ferronnerie : grille droite sur mur bahut, piliers à bossages, portail à couronnement doré ----------
+  function grille(C, ax, az, bx2, bz, h) {
+    const b = C.b, L = Math.hypot(bx2 - ax, bz - az); if (L < .3) return; const ux = (bx2 - ax) / L, uz = (bz - az) / L, alongX = Math.abs(ux) > .5, ry = alongX ? 0 : PI / 2, P = t => [ax + ux * t, az + uz * t];
+    const yb = .34, top = yb + h, S = C.S, BX = (len, hh, th, col, t, y) => { const p = P(t); if (alongX) bx(b, len, hh, th, col, p[0], y, p[1]); else bx(b, th, hh, len, col, p[0], y, p[1]); };
+    b.P(PT.pierre); BX(L, yb, .3, S.trim, L / 2, yb / 2); BX(L + .04, .05, .36, S.pil, L / 2, yb + .02); b.P(0);
+    BX(L, .035, .04, IRONK, L / 2, yb + .1); BX(L, .03, .04, IRONK, L / 2, yb + .3); BX(L, .035, .04, IRONK, L / 2, top - .15); BX(L, .025, .035, IRONK, L / 2, top - .3);
+    const n = Math.max(2, Math.round(L / .12));
+    for (let k = 0; k <= n; k++) { const t = k * L / n, p = P(t); bx(b, .022, h, .022, IRONK, p[0], yb + h / 2, p[1]);
+      if (k % 2 === 0) { b.add(new THREE.ConeGeometry(.032, .11, 6), GOLD, b.M(p[0], top + .05, p[1])); dot(b, .024, GOLD, p[0], top - .02, p[1]); } else b.add(new THREE.ConeGeometry(.02, .07, 5), GOLD, b.M(p[0], top + .03, p[1]));
+      if (k < n) { const q = P(t + L / n / 2); for (const sg of [-1, 1]) b.add(new THREE.TorusGeometry(.042, .008, 3, 7, PI * 1.4), IRONK, b.M(q[0], yb + .2 + sg * .045, q[1], 0, ry, sg > 0 ? -PI * .2 : PI * .8)); // frise de volutes
+        if (k % 2 === 0) b.add(new THREE.TorusGeometry(.04, .007, 3, 8), GOLD, b.M(q[0], top - .225, q[1], 0, ry, 0)); } } // anneaux dorés en haut
+    const np = Math.max(1, Math.round(L / 2.4)); for (let k = 0; k <= np; k++) { const p = P(k * L / np); bx(b, .07, h + .08, .07, IRONK, p[0], yb + (h + .08) / 2, p[1]); dot(b, .055, GOLD, p[0], top + .14, p[1], 1); b.add(new THREE.ConeGeometry(.03, .1, 6), GOLD, b.M(p[0], top + .23, p[1])); }
+    if (alongX) C.rect(Math.min(ax, bx2), az - .17, Math.max(ax, bx2), az + .17, 1.9); else C.rect(ax - .17, Math.min(az, bz), ax + .17, Math.max(az, bz), 1.9);
+  }
+  // pilier de pierre à bossages, corniche, et son couronnement (pot à feu, statue, vase)
+  function pilier(C, x, z, s, ph, top) {
+    const b = C.b, S = C.S, w = .44 * s; b.P(C.st === 2 ? PT.brique : PT.pierre);
+    if (C.st === 2) bx(b, w, ph - .3, w, S.wall, x, (ph - .3) / 2 + .2, z);
+    b.P(PT.pierre); bx(b, w + .16, .22, w + .16, S.base, x, .11, z);
+    if (C.st !== 2) for (let y = .22, k = 0; y < ph - .34; k++) { const hh = Math.min(.24 * s, ph - .34 - y); bx(b, w + (k % 2 ? 0 : .05), hh - .015, w + (k % 2 ? 0 : .05), k % 2 ? S.trim : S.pil, x, y + hh / 2, z); y += hh; }
+    else for (let y = .22, k = 0; y < ph - .34; k++, y += .3) bx(b, w + .03, .1, w + .03, S.trim, x, y + .05, z);
+    bx(b, w + .12, .1, w + .12, S.trim, x, ph - .26, z); bx(b, w + .24, .12, w + .24, S.pil, x, ph - .15, z); bx(b, w + .16, .08, w + .16, S.trim, x, ph - .05, z); b.P(0);
+    if (top === 'feu') potFeu(b, x, ph, z, 1.1 * s, S.pil); else if (top === 'statue') statueG(b, x, ph, z, .8 * s, C.lvl >= 4 ? GOLD : 0xf1ede4, 0, false); else urne(b, x, ph, z, s, C.lvl >= 4 ? GOLD : S.pil, C.S.fl);
+    C.rect(x - w / 2 - .08, z - w / 2 - .08, x + w / 2 + .08, z + w / 2 + .08, ph);
+  }
+  // le portail : ses deux vantaux sont vivants (ils s'ouvrent quand on approche) ; ici, le seuil et le couronnement en arc, doré, avec soleil ou couronne
+  function portail(C, xc, z, w, ph, s) {
+    const b = C.b, lvl = C.lvl, ya = ph + .02, ra = w / 2 + .12;
+    b.P(PT.pierre); bx(b, w + .1, .06, .46, C.S.trim, xc, .03, z); b.P(0);
+    bx(b, w + .3, .06, .06, IRONK, xc, ya, z); bx(b, w + .3, .04, .05, IRONK, xc, ya + .16, z);
+    for (let k = 0; k <= 8; k++) { const x = xc - w / 2 - .15 + k * (w + .3) / 8; bx(b, .02, .16, .02, IRONK, x, ya + .08, z); }
+    b.add(new THREE.TorusGeometry(ra, .03, 4, 26, PI), IRONK, b.M(xc, ya + .16, z, 0, 0, 0, 1, .58, 1));
+    b.add(new THREE.TorusGeometry(ra * .78, .022, 4, 22, PI), GOLD, b.M(xc, ya + .16, z, 0, 0, 0, 1, .55, 1));
+    for (let k = 1; k < 8; k++) { const a = k / 8 * PI, ca = Math.cos(a), sa = Math.sin(a); b.add(new THREE.BoxGeometry(.018, ra * .58 * .9, .018), IRONK, b.M(xc + ca * ra * .45, ya + .16 + sa * ra * .58 * .45, z, 0, 0, a - PI / 2)); }
+    for (const sg of [-1, 1]) for (let k = 0; k < 2; k++) b.add(new THREE.TorusGeometry(.09 + k * .05, .012, 3, 9, PI * 1.5), k ? GOLD : IRONK, b.M(xc + sg * (ra * .55 + k * .1), ya + .32 + k * .08, z, 0, 0, sg > 0 ? PI * .1 : PI * .4));
+    const yc = ya + .16 + ra * .58 + .08;
+    if (lvl >= 1) { // soleil doré (le Roi-Soleil) ou couronne fleurdelisée
+      b.add(new THREE.CylinderGeometry(.13 * s, .13 * s, .03, 18), GOLD, b.M(xc, yc + .1 * s, z, PI / 2, 0, 0));
+      for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; b.add(new THREE.ConeGeometry(.026 * s, (k % 2 ? .13 : .2) * s, 4), GOLD, b.M(xc + Math.cos(a) * .2 * s, yc + .1 * s + Math.sin(a) * .2 * s, z, 0, 0, a - PI / 2)); } }
+    if (lvl >= 2) { const y2 = yc + .36 * s; b.add(new THREE.TorusGeometry(.1 * s, .02 * s, 4, 14), GOLD, b.M(xc, y2, z, PI / 2, 0, 0, 1, 1, 1)); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; dot(b, .028 * s, GOLD, xc + Math.cos(a) * .1 * s, y2 + .07 * s, z + Math.sin(a) * .1 * s * .3); } b.add(new THREE.ConeGeometry(.025 * s, .12 * s, 4), GOLD, b.M(xc, y2 + .14 * s, z)); }
+    (C.gates || (C.gates = [])).push({ x: xc, z, w, h: ph - .12, s });
+  }
+  // une entrée complète : grilles de part et d'autre, deux grands piliers, le portail
+  function entree(C, xa, xb, z, gw, s) {
+    const { u, lvl } = C, ph = 1.45 + .3 * u + .12 * lvl, hg = .95 + .1 * u, pw = .44 * s;
+    grille(C, xa, z, -gw / 2 - pw / 2 - .04, z, hg); grille(C, gw / 2 + pw / 2 + .04, z, xb, z, hg);
+    for (const sx of [-1, 1]) pilier(C, sx * (gw / 2 + pw / 2), z, s, ph, lvl >= 3 ? 'statue' : 'feu');
+    portail(C, 0, z, gw, ph - .1, s);
+  }
+  // le perron : deux larges marches de pierre, joues à volutes surmontées de vases
+  function perron(C, pw) {
+    const { b, S } = C, zP = C.zP;
     for (let k = 0; k < 2; k++) { const h = (2 - k) * .12, w = pw + (k + 1) * .3; b.P(PT.pierre); bx(b, w, h, .34, S.step, 0, h / 2, zP + .17 + k * .34); b.P(0); C.rect(-w / 2, zP + k * .34, w / 2, zP + (k + 1) * .34, h); }
-    const bed = (x, z, w, d) => { b.jit(.06); b.blob(.3, 1, 0x4a8a4f, x, .3, z, w / .3 / 2, .7, d / .3 / 2); b.jit(0); for (let k = 0; k < 6; k++) dot(b, .06, S.fl[k % 3], x - w * .4 + k * w * .16, .55, z + (k % 2 - .5) * d * .3); C.rect(x - w / 2, z - d / 2, x + w / 2, z + d / 2, .55); };
-    if (kind !== 'U') { // jardin de devant
-      for (const sx of [-1, 1]) statue(C, sx * (pw / 2 + .65), Math.min(C.Z1 - .3, zP + .4), s * .9);
-      const zr = C.Z1 - .45; if (zr > zT + .45) { const xm = C.Wl / 2 - .5; let i = 0; for (let x = pw / 2 + 1.0; x < xm && i < 30; x += 1.6 * s, i++) for (const sx of [-1, 1]) { topiaire(C, sx * x, zr, s * .9); if (i % 2 === 0 && x + .8 * s < xm) bed(sx * (x + .8 * s), zr - .05, 1.0 * s, .5); } }
-    } else court(C, s, pw);
-    // derrière : ifs taillés en rang
-    const zb = C.Z0 + .45; if (C.ter.every(t => t[1] > zb + .25)) { const xm = C.Wl / 2 - .5; let i = 0; for (let x = 0; x < xm && i < 40; x += 2.2 * s, i++) for (const sx of x ? [-1, 1] : [1]) topiaire(C, sx * x, zb, s * .85); }
+    for (const sx of [-1, 1]) { const x = sx * (pw / 2 + .45); b.P(PT.pierre); bx(b, .24, .44, .62, S.trim, x, .22, zP + .31); bx(b, .3, .06, .68, S.pil, x, .47, zP + .31); b.P(0); urne(b, x, .5, zP + .38, .7, S.pil, S.fl); C.rect(x - .15, zP, x + .15, zP + .68, .9); }
   }
-  function court(C, s, pw) {
-    const { b, u, S, lvl } = C, [x0, z0, x1, z1] = C.court, cw = x1 - x0, cd = z1 - z0, aw = Math.max(2.0, 1.2 * u);
-    b.P(PT.pierre); bx(b, cw, .03, cd, 0xd8d0bf, (x0 + x1) / 2, .015, (z0 + z1) / 2); bx(b, aw, .035, cd - .7, 0xe8e1d0, 0, .02, (z0 + z1) / 2 + .35); b.P(0);
-    // fontaine au milieu de la cour (devant les ailes intérieures s'il y en a)
-    const I = C.inner, R = G.clamp(Math.min(cw, cd) * .12, 1.0, 3.2 * u), fz = Math.max(z0 + .7 + (cd - .7) * .5, I ? I.z + R + .8 : 0), og = lvl >= 3 && cw > 9 * u;
-    if (cd > 4) { b.P(PT.pierre); b.cyl(R, R + .05, .5, 28, S.trim, 0, .25, fz); b.P(0); b.cyl(R - .12, R - .12, .06, 28, 0x7ec8e8, 0, .45, fz, 0, 0, 0, 2); b.cyl(R * .18, R * .24, .9 + .1 * lvl, 12, S.trim, 0, .45 + (.9 + .1 * lvl) / 2, fz);
-      const yb = 1.45 + .1 * lvl; b.cyl(R * .42, R * .2, .2, 18, S.trim, 0, yb, fz); b.cyl(R * .38, R * .38, .04, 18, 0x7ec8e8, 0, yb + .1, fz, 0, 0, 0, 2); b.cyl(.05 * s, .12 * s, .9 * s, 8, 0xcfeffa, 0, yb + .55 * s, fz, 0, 0, 0, 2);
-      if (lvl >= 3) statueG(b, 0, yb + .1, fz, .7 * s, GOLD); C.circ(0, fz, R + .05, .6); }
-    // parterres de buis en broderie, de part et d'autre de l'allée
-    const xe = x1 - (og ? 1.5 : .5), full = [[aw / 2 + .6, xe]], zs = Math.max(z0 + .9, C.zP + .3), zones = cd > 4 ? [[zs, fz - R - .8, I ? [[aw / 2 + .6, I.xi - .4], [I.xo + .4, xe]] : full], [fz + R + .8, z1 - .7, full]] : [[zs, z1 - .7, full]];
-    for (const [az, bz, xs] of zones) for (const [ax0, bx0] of xs) for (const sx of [-1, 1]) { const ax = sx > 0 ? ax0 : -bx0, bx2 = sx > 0 ? bx0 : -ax0, w = bx2 - ax, d = bz - az; if (w < 1.2 || d < 1.0) continue; const nx = G.clamp(Math.round(w / (5 * u)), 1, 4), nz = G.clamp(Math.round(d / (5 * u)), 1, 4);
-      for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const ex0 = ax + i * w / nx + (i ? .45 : 0), ex1 = ax + (i + 1) * w / nx - (i < nx - 1 ? .45 : 0), ez0 = az + j * d / nz + (j ? .45 : 0), ez1 = az + (j + 1) * d / nz - (j < nz - 1 ? .45 : 0); parterre(C, ex0, ez0, ex1, ez1, s); } }
-    // statues et lanternes le long de l'allée
-    if (lvl >= 2) for (let z = Math.max(z0 + 2.2, C.zP + 1.2), i = 0; z < z1 - 1.2 && i < 16; z += 3.5 * u, i++) { if (cd > 4 && Math.abs(z - fz) < R + 1) continue; for (const sx of [-1, 1]) { if (i % 2 === 0 || lvl < 3) statue(C, sx * (aw / 2 + .35), z, s * .8);
-      else { b.cyl(.04 * s, .06 * s, 1.5 * s, 6, IRONC, sx * (aw / 2 + .35), .75 * s, z); b.box(.2 * s, .28 * s, .2 * s, 0xffe2a0, sx * (aw / 2 + .35), 1.62 * s, z, 0, 0, 0, 1); b.cone(.17 * s, .14 * s, 6, IRONC, sx * (aw / 2 + .35), 1.84 * s, z); C.circ(sx * (aw / 2 + .35), z, .1, 1.5 * s); } } }
-    // orangers en caisse le long des ailes
-    if (og) for (const sx of [-1, 1]) for (let z = z0 + 1.4, i = 0; z < z1 - 1.2 && i < 30; z += 2.4 * s, i++) { const x = sx * (x1 - .7);
-      bx(b, .5 * s, .5 * s, .5 * s, 0x3f6b4a, x, .25 * s, z); bx(b, .56 * s, .06 * s, .56 * s, 0xf3eee4, x, .5 * s, z); b.cyl(.04 * s, .05 * s, .5 * s, 6, 0x6b4a2e, x, .75 * s, z);
-      b.jit(.08); b.blob(.38 * s, 1, 0x3f8a3a, x, 1.25 * s, z); b.jit(0); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU + i; dot(b, .06 * s, 0xff9a1f, x + Math.cos(a) * .3 * s, 1.2 * s + (k % 2) * .15 * s, z + Math.sin(a) * .3 * s); } C.circ(x, z, .3 * s, 1.6 * s); }
-    if (lvl >= 5) for (const sx of [-1, 1]) { const x = sx * (aw / 2 + 1.2), z = z1 - 1.0, h = 2.4 * s; // obélisques à l'entrée
+  // ---------- les jardins selon la forme du château ----------
+  function gardens(C) {
+    const s = Math.min(2.2, .8 + .25 * C.u); C.founts = []; C.gates = [];
+    if (C.kind === 'U') court(C, s); else { frontCourt(C, s); if (C.kind === 'Z') sideGardens(C, s); }
+    backGarden(C, s);
+  }
+  // fontaine adossée au perron : bassin en demi-lune, stèle à bossages, mascaron de lion doré qui crache l'eau, coquille et vase
+  function wallFountain(C, x, z, R, s) {
+    const b = C.b, st = 0xece5d5, S = C.S, prof = [[R + .14, 0], [R + .14, .07], [R + .08, .11], [R + .06, .33], [R + .1, .37], [R + .1, .45], [R + .03, .5], [R - .06, .48], [R - .12, .41], [R - .12, .1]];
+    b.P(PT.pierre); b.add(new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), 26, -PI / 2, PI), st, b.M(x, 0, z)); b.P(0);
+    b.add(new THREE.CircleGeometry(R - .12, 26, PI, PI), 0x2a4d56, b.M(x, .1, z, -PI / 2, 0, 0)); b.add(new THREE.CircleGeometry(R - .12, 26, PI, PI), WAT, b.M(x, .38, z, -PI / 2, 0, 0), 2);
+    const sw = Math.min(1.25, R * 1.5), sh = 1.45 * Math.min(1.2, s);
+    b.P(PT.pierre); bx(b, sw, sh, .26, S.trim, x, sh / 2, z - .13); bx(b, sw + .12, .1, .34, S.pil, x, sh + .05, z - .13); bx(b, sw * .7, .5, .06, S.pil, x, sh * .6, z + .02); b.P(0);
+    for (const sx of [-1, 1]) { b.P(PT.pierre); bx(b, .14, sh - .1, .32, S.pil, x + sx * (sw / 2 - .07), (sh - .1) / 2, z - .11); b.P(0); }
+    // coquille en éventail et vase couronné
+    b.add(new THREE.CircleGeometry(sw * .32, 14, 0, PI), S.pil, b.M(x, sh * .82, z + .03)); for (let k = 1; k < 7; k++) { const a = k / 7 * PI; b.add(new THREE.BoxGeometry(.02, sw * .3, .03), GOLD, b.M(x + Math.cos(a) * sw * .15, sh * .82 + Math.sin(a) * sw * .15, z + .045, 0, 0, a - PI / 2)); }
+    urne(b, x, sh + .1, z - .13, .85 * Math.min(1.2, s), C.lvl >= 3 ? GOLD : S.pil, S.fl);
+    // mascaron : tête de lion dorée, crinière
+    const my = sh * .52; b.S(G.SK.gold); b.add(new THREE.TorusGeometry(.13, .05, 6, 14), GOLD, b.M(x, my, z + .05)); b.add(new THREE.SphereGeometry(.11, 12, 10), GOLD, b.M(x, my, z + .09, 0, 0, 0, 1, 1.05, .8));
+    b.add(new THREE.SphereGeometry(.05, 8, 6), GOLD, b.M(x, my - .05, z + .17)); b.S(null);
+    // petite vasque sous le mascaron
+    b.P(PT.pierre); b.add(new THREE.LatheGeometry([[0, -.12], [.1, -.12], [.22, -.03], [.25, .02], [.22, .03], [0, .03]].map(p => new THREE.Vector2(p[0], p[1])), 14, -PI / 2, PI), st, b.M(x, my - .38, z + .02)); b.P(0);
+    (C.founts || (C.founts = [])).push({ x, z, R, wy: .39, sr: .55, dol: [[x, my - .06, z + .2, 0, 1]], half: true, top: 0 });
+    C.rect(x - R - .14, z - .26, x + R + .14, z + R + .14, .5); C.rect(x - sw / 2, z - .26, x + sw / 2, z, sh);
+  }
+  // cour d'honneur devant un château en ligne (ou en T) : perron à deux rampes et fontaine adossée, gravier ratissé, pelouses bordées de buis, statues, grille dorée et portail
+  function frontCourt(C, s) {
+    const { b, u, S, lvl } = C, zT = C.zT, zP = C.zP, ew = C.ew, xa = C.X0 + .2, xb = C.X1 - .2, zR = C.Z1 - .24, gw = G.clamp(1.15 * u, 1.6, 2.6);
+    // perron : deux rampes de deux marches qui descendent de chaque côté, balustrade devant
+    for (const sx of [-1, 1]) for (let k = 0; k < 2; k++) { const h = (2 - k) * .12, xk = ew + k * .34; b.P(PT.pierre); bx(b, .34, h, zP - zT + .05, S.step, sx * (xk + .17), h / 2, (zT + zP) / 2); b.P(0); C.rect(sx > 0 ? xk : -xk - .34, zT, sx > 0 ? xk + .34 : -xk, zP, h); }
+    const Rw = G.clamp(zR - zP - .55, .55, .9);
+    for (const sx of [-1, 1]) { const xa2 = Rw + .18, xb2 = ew - .05, L = xb2 - xa2; if (L < .25) continue; const n = Math.max(2, Math.round(L / .16)); b.P(PT.pierre);
+      bx(b, L, .05, .14, S.trim, sx * (xa2 + L / 2), TH + .03, zP - .08); bx(b, L + .04, .06, .18, S.pil, sx * (xa2 + L / 2), TH + .38, zP - .08); b.P(0);
+      for (let k = 0; k <= n; k++) lathe(b, [[.035, 0], [.045, .05], [.028, .14], [.045, .24], [.03, .3], [0, .3]], 8, S.pil, sx * (xa2 + k * L / n), TH + .05, zP - .08); C.rect(sx > 0 ? xa2 : -xb2, zP - .16, sx > 0 ? xb2 : -xa2, zP, TH + .42); }
+    for (const sx of [-1, 1]) { b.P(PT.pierre); bx(b, .24, .5, .24, S.trim, sx * (ew - .12), TH + .25, zP - .12); b.P(0); urne(b, sx * (ew - .12), TH + .5, zP - .12, .75, lvl >= 3 ? GOLD : S.pil, S.fl); }
+    wallFountain(C, 0, zP, Rw, s);
+    // sol : gravier au pied de la terrasse et dans la cour, pelouses de part et d'autre
+    const cw = ew + .7 + .2; gravel(C, xa, zT, xb, Math.min(zR, zT + .62)); gravel(C, -cw - .16, zT, cw + .16, zR + .2);
+    for (const sx of [-1, 1]) { const x0 = sx > 0 ? cw + .16 : xa + .12, x1 = sx > 0 ? xb - .12 : -cw - .16, z0 = zT + .62, z1 = zR - .26; if (x1 - x0 < .6 || z1 - z0 < .35) continue;
+      gravel(C, x0 - .16, z1, x1 + .16, zR + .2); gravel(C, sx > 0 ? x1 : x0 - .16, z0 - .12, sx > 0 ? x1 + .16 : x0, z1);
+      const ww = x1 - x0, dd = z1 - z0;
+      if (ww > 3.2 && dd > 1.15) { lawn(C, x0, z0, x1, z1); frame(C, x0, z0, x1, z1, .1, .22); const R = Math.min(.85, dd * .4, ww * .16), xm = (x0 + x1) / 2;
+        gravel(C, xm - R - .25, z0 + .1, xm + R + .25, z1 - .1); fontaine(C, xm, (z0 + z1) / 2, R, false);
+        for (const k of [-1, 1]) { const xs = xm + k * (R + .25 + (ww / 2 - R - .25) / 2); if (Math.abs(xs - xm) < ww / 2 - .35) (lvl >= 2 ? statue : ifCone)(C, xs, (z0 + z1) / 2, .75 * s, 0, lvl >= 4); } }
+      else if (dd > 1.6 && ww > 1.6) broderie(C, x0, z0, x1, z1, s);
+      else { lawn(C, x0, z0, x1, z1); frame(C, x0, z0, x1, z1, .1, .22);
+        const n = Math.max(1, Math.floor(ww / 1.4)); for (let i = 0; i < n; i++) { const x = x0 + (i + .5) * ww / n; if (dd > .7) (i % 2 ? boule : ifCone)(C, x, (z0 + z1) / 2, (dd > 1.1 ? .75 : .55) * s); } }
+      for (let x = x0 + .12, k = 0; x < x1 - .1 && k < 80; x += .19, k++) dot(b, .058, S.fl[k % 3], x, .13, z1 - .08 + (k % 2) * .05); }
+    for (const sx of [-1, 1]) statue(C, sx * (cw - .25), Math.min(zR - .45, zP + .5), .85 * s, sx > 0 ? -PI / 2 : PI / 2, lvl >= 4);
+    entree(C, xa, xb, zR, gw, s);
+    for (const sx of [-1, 1]) grille(C, sx > 0 ? xb : xa, zR, sx > 0 ? xb : xa, zT + .1, .95 + .1 * u);
+  }
+  // jardins de part et d'autre de l'aile d'un château en T : tapis vert, bassins, ifs taillés
+  function sideGardens(C, s) {
+    const A = C.side; if (!A) return; const [ax0, az0, ax1, az1] = A;
+    for (const sx of [-1, 1]) { const x0 = sx > 0 ? ax0 : -ax1, x1 = sx > 0 ? ax1 : -ax0, w = x1 - x0, d = az1 - az0; if (w < 1 || d < 1.5) continue;
+      gravel(C, x0, az0, x1, az1); const n = Math.max(1, Math.round(d / 4.2)), seg = d / n;
+      for (let i = 0; i < n; i++) { const z0 = az0 + i * seg + .2, z1 = az0 + (i + 1) * seg - .2, zm = (z0 + z1) / 2, X0 = x0 + .3, X1 = x1 - .3;
+        if (w > 2.2 && seg > 2.6) { lawn(C, X0, z0, X1, z1); frame(C, X0, z0, X1, z1, .1, .22); const R = Math.min(.9, (X1 - X0) * .3, (z1 - z0) * .3); gravel(C, (X0 + X1) / 2 - R - .25, zm - R - .25, (X0 + X1) / 2 + R + .25, zm + R + .25); fontaine(C, (X0 + X1) / 2, zm, R, false);
+          for (const k of [-1, 1]) ifCone(C, (X0 + X1) / 2, zm + k * (R + .25 + (seg / 2 - R - .45) / 2), .7 * s); }
+        else broderie(C, X0, z0, X1, z1, s); }
+      for (let z = az0 + .3, k = 0; z < az1 - .2 && k < 40; z += 1.6, k++) (k % 2 ? boule : ifCone)(C, sx > 0 ? x1 - .15 : x0 + .15, z, .7 * s); }
+  }
+  // derrière le château : une bande de gazon tondu et une rangée d'ifs taillés
+  function backGarden(C, s) {
+    let zb = C.Z0 + .2, ze = Infinity; for (const t of C.ter) ze = Math.min(ze, t[1]); if (C.kind === 'Z' && C.side) return; if (ze - zb < .45) return;
+    lawn(C, C.X0 + .2, zb, C.X1 - .2, ze - .02); const xm = C.Wl / 2 - .6; let i = 0;
+    if (ze - zb > .7) for (let x = 0; x < xm && i < 40; x += 2.2 * s, i++) for (const sx of x ? [-1, 1] : [1]) (i % 2 ? boule : ifCone)(C, sx * x, (zb + ze) / 2, .72 * s);
+  }
+  // ---------- cour d'honneur des grands châteaux (ailes en U) : un vrai jardin à la française ----------
+  function court(C, s) {
+    const { b, u, S, lvl } = C, [x0, z0, x1, z1] = C.court, cw = x1 - x0, cd = z1 - z0, pw = Math.max(1.6, 1.1 * u), I = C.inner;
+    perron(C, pw); gravel(C, x0, z0, x1, z1 + .1);
+    const zs = Math.max(z0 + .3, C.zP + .9, I ? I.z + .4 : -1e9), zg = z1 - .95, aw = G.clamp(.9 + .4 * u, 1.4, 3.4), gw = G.clamp(1.3 * u, 2.0, 3.2);
+    const R = G.clamp(Math.min((zg - zs) * .29, cw * .12), .8, 3.6 * Math.sqrt(u)), fz = I ? Math.max((zs + zg) / 2, I.z + R + 1) : (zs + zg) / 2, hasF = zg - zs > 2.4 && cw > 3.5;
+    if (hasF) { disc(C, 0, fz, R + .75, .046, GRAV); fontaine(C, 0, fz, R, lvl >= 3); }
+    // parterres : quatre carreaux autour du bassin si la cour est profonde, sinon un long parterre de chaque côté
+    const pz0 = fz - R - .7, pz1 = fz + R + .7, quads = hasF && pz0 - zs > 1.5 && zg - pz1 > 1.5, xe = x1 - (lvl >= 2 && cw > 11 ? 1.25 : .55);
+    const zones = !hasF ? [[aw / 2 + .2, xe, zs, zg]] : quads ? [[aw / 2 + .2, xe, zs, pz0], [aw / 2 + .2, xe, pz1, zg], [R + .95, xe, pz0 + .45, pz1 - .45]] : [[Math.max(aw / 2 + .2, R + .75), xe, zs, zg]];
+    zones.forEach(([ax, bxe, az, bz], zi) => {
+      const w = bxe - ax, d = bz - az; if (w < .9 || d < .9) return; const side = zi === 2;
+      const nx = G.clamp(Math.round(w / (side ? 6 : 4.2)), 1, 4), nz = G.clamp(Math.round(d / 4.2), 1, 4);
+      for (const sx of [-1, 1]) for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+        const ex0 = ax + i * w / nx + (i ? .25 : 0), ex1 = ax + (i + 1) * w / nx - (i < nx - 1 ? .25 : 0), ez0 = az + j * d / nz + (j ? .25 : 0), ez1 = az + (j + 1) * d / nz - (j < nz - 1 ? .25 : 0);
+        const X0 = sx > 0 ? ex0 : -ex1, X1 = sx > 0 ? ex1 : -ex0;
+        if (side) { lawn(C, X0, ez0, X1, ez1); frame(C, X0, ez0, X1, ez1, .1, .22); if (ex1 - ex0 > 1.2 && ez1 - ez0 > 1.2) (lvl >= 3 ? statue : ifCone)(C, (X0 + X1) / 2, (ez0 + ez1) / 2, .8 * s, 0, lvl >= 4); }
+        else broderie(C, X0, ez0, X1, ez1, s); } });
+    // ifs en cône aux angles des carreaux le long de l'allée, statues et candélabres le long de l'allée
+    for (let z = zs + 1.0, i = 0; z < zg - .6 && i < 18; z += 2.6 * Math.max(1, u * .7), i++) { if (hasF && Math.abs(z - fz) < R + 1.1) continue;
+      for (const sx of [-1, 1]) { const x = sx * (aw / 2 + .45); if (i % 3 === 1) { if (lvl >= 2) candelabre(C, x, z, s * .85); else ifCone(C, x, z, .75 * s); } else if (i % 3 === 0) statue(C, x, z, .85 * s, sx > 0 ? -PI / 2 : PI / 2, lvl >= 4); else boule(C, x, z, .8 * s); } }
+    // orangers en caisse le long des ailes, bancs de pierre
+    if (lvl >= 2 && cw > 11) for (const sx of [-1, 1]) for (let z = z0 + 1.2, i = 0; z < z1 - 1.1 && i < 30; z += 2.2 * s, i++) { const x = sx * (x1 - .45); if (i % 3 === 2) banc(C, x, z, s, false); else oranger(C, x, z, .8 * s, i); }
+    else for (const sx of [-1, 1]) for (let z = z0 + .9, i = 0; z < z1 - .9 && i < 20; z += 1.7, i++) (i % 2 ? boule : ifCone)(C, sx * (x1 - .4), z, .7 * s);
+    if (lvl >= 5) for (const sx of [-1, 1]) { const x = sx * (aw / 2 + 1.3), z = z1 - 1.1, h = 2.4 * s; // obélisques à l'entrée
       b.P(PT.pierre); bx(b, .7 * s, .5 * s, .7 * s, S.trim, x, .25 * s, z); b.P(0); b.add(new THREE.CylinderGeometry(.08 * s, .3 * s, h, 4), 0xd9cfb8, b.M(x, .5 * s + h / 2, z, 0, PI / 4, 0)); b.add(new THREE.ConeGeometry(.11 * s, .25 * s, 4), GOLD, b.M(x, .5 * s + h + .12 * s, z, 0, PI / 4, 0)); C.rect(x - .35 * s, z - .35 * s, x + .35 * s, z + .35 * s, h); }
-    closure(C, s);
+    closure(C, s, gw);
   }
-  function parterre(C, x0, z0, x1, z1, s) {
-    const b = C.b, w = x1 - x0, d = z1 - z0, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, HG = 0x2f6b3a, t = .18, h = .4, fl = C.S.fl;
-    bx(b, w, .05, d, 0x5f9e48, xc, .03, zc); for (const [ww, dd, x, z] of [[w, t, xc, z0 + t / 2], [w, t, xc, z1 - t / 2], [t, d, x0 + t / 2, zc], [t, d, x1 - t / 2, zc]]) bx(b, ww, h, dd, HG, x, h / 2, z);
-    // broderie de buis : croix (petits parterres) ou diagonales et rond central (grands), fleurs en rangs le long des bordures
-    if (w > 2.6 && d > 2.6) { const L = Math.hypot(w, d) * .62, a = Math.atan2(d, w); for (const s2 of [-1, 1]) b.add(new THREE.BoxGeometry(L, h * .7, t * .8), HG, b.M(xc, h * .35, zc, 0, s2 * a, 0));
-      const rr = Math.min(w, d) * .2; b.cyl(rr, rr, h * .7, 18, HG, xc, h * .35, zc); b.cyl(rr - .15, rr - .15, h * .72, 18, 0x6a4a32, xc, h * .36, zc); b.cone(.2 * s, .9 * s, 10, HG, xc, h + .45 * s, zc);
-      for (let k = 0, n = Math.min(12, Math.round(rr * 6)); k < n; k++) { const an = k / n * TAU; dot(b, .08, fl[k % 3], xc + Math.cos(an) * (rr - .3), h * .75, zc + Math.sin(an) * (rr - .3)); } }
-    else if (w > 1.6 && d > 1.6) { bx(b, w * .6, h * .8, t, HG, xc, h * .4, zc); bx(b, t, h * .8, d * .6, HG, xc, h * .4, zc); }
-    const W2 = w - .8, D2 = d - .8, per = 2 * (W2 + D2), n = Math.min(72, Math.floor(per / .32)); for (let k = 0; k < n; k++) { let q = (k + .5) / n * per, x, z;
-      if (q < W2) { x = x0 + .4 + q; z = z0 + .4; } else if ((q -= W2) < D2) { x = x1 - .4; z = z0 + .4 + q; } else if ((q -= D2) < W2) { x = x1 - .4 - q; z = z1 - .4; } else { x = x0 + .4; z = z1 - .4 - (q - W2); }
-      dot(b, .075, fl[k % 3], x, .13, z); }
-    for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) b.cone(.16 * s, .7 * s, 8, HG, x + (x < xc ? .15 : -.15), .35 * s + h, z + (z < zc ? .15 : -.15));
-    C.rect(x0, z0, x1, z1, .45);
-  }
-  function closure(C, s) { // la cour se ferme devant : grille dorée, châtelet à deux tours ou mur de brique, avec une grande entrée au milieu
-    const { b, u, S, lvl, st } = C, G0 = C.gate, z = G0.z, gw = Math.max(2.6, 1.3 * u), ph = 2.2 + .3 * u, xs = [[G0.x0, -gw / 2 - .4 * u], [gw / 2 + .4 * u, G0.x1]];
-    if (st === 0) { for (const [a, c] of xs) { const L = c - a; if (L < .2) continue; b.P(PT.pierre); bx(b, L, .35, .3, S.trim, (a + c) / 2, .175, z); b.P(0); const n = Math.max(2, Math.round(L / .28));
-        bx(b, L, .05, .05, IRONC, (a + c) / 2, 1.2 + .1 * u, z); bx(b, L, .05, .05, IRONC, (a + c) / 2, .5, z); for (let k = 0; k <= n; k++) { const x = a + k * L / n; bx(b, .04, 1.25 + .1 * u, .04, IRONC, x, .35 + (1.25 + .1 * u) / 2, z); if (k % 2 === 0) b.cone(.04, .14, 6, GOLD, x, 1.67 + .1 * u, z); }
-        C.rect(a, z - .15, c, z + .15, 1.8); }
-      for (const sx of [-1, 1]) { const x = sx * (gw / 2 + .2 * u); b.P(PT.pierre); bx(b, .4 * u + .2, ph, .4 * u + .2, S.trim, x, ph / 2, z); bx(b, .5 * u + .25, .14, .5 * u + .25, S.pil, x, ph + .07, z); b.P(0); if (lvl >= 3) statueG(b, x, ph + .14, z, .7 * s, lvl >= 4 ? GOLD : 0xece6d8); else vase(b, x, ph + .14, z, s, S.pil); C.rect(x - .2 * u - .1, z - .2 * u - .1, x + .2 * u + .1, z + .2 * u + .1, ph);
-        for (let k = 0; k < 6; k++) bx(b, .03, 1.3, .03, GOLD, x - sx * (.2 * u + .15) - sx * k * .12, 1.0, z - .1 - k * .1); }
-    } else if (st === 1) { for (const [a, c] of xs) { const L = c - a; if (L < .2) continue; b.P(PT.pierre); bx(b, L, 1.1, .4, S.wall, (a + c) / 2, .55, z); b.P(0); for (let k = 0, n = Math.floor(L / (.5 * u)); k < n; k++) bx(b, .25 * u, .25, .44, S.trim, a + (k + .5) * L / n, 1.22, z); C.rect(a, z - .2, c, z + .2, 1.3); }
-      const r = .6 * u, th = 3.2 * u; for (const sx of [-1, 1]) { const x = sx * (gw / 2 + r * .7); b.P(PT.pierre); b.cyl(r, r + .04 * u, th, 16, S.wall, x, th / 2, z); b.P(0); b.P(PT.ardoise); b.cone(r + .12 * u, 2.4 * r, 16, S.roof, x, th + 1.2 * r, z); b.P(0); epi(b, x, th + 2.4 * r - .05, z, u); if (lvl >= 3) flag(C, x, th + 2.4 * r + .3 * u, z, u * .8); C.circ(x, z, r + .04 * u, th); }
+  function closure(C, s, gw) { // la cour se ferme devant : grille dorée, châtelet à deux tours ou mur de brique, avec le grand portail au milieu
+    const { b, u, S, lvl, st } = C, G0 = C.gate, z = G0.z, ph = 2.2 + .3 * u;
+    if (st === 0) { entree(C, G0.x0, G0.x1, z, gw, s); return; }
+    const pw = .44 * s, xs = [[G0.x0, -gw / 2 - pw - .1], [gw / 2 + pw + .1, G0.x1]];
+    if (st === 1) { for (const [a, c] of xs) { const L = c - a; if (L < .2) continue; b.P(PT.pierre); bx(b, L, 1.1, .4, S.wall, (a + c) / 2, .55, z); b.P(0); for (let k = 0, n = Math.floor(L / (.5 * u)); k < n; k++) bx(b, .25 * u, .25, .44, S.trim, a + (k + .5) * L / n, 1.22, z); C.rect(a, z - .2, c, z + .2, 1.3); }
+      const r = .6 * u, th = 3.2 * u; for (const sx of [-1, 1]) { const x = sx * (gw / 2 + r * .7 + .1); b.P(PT.pierre); b.cyl(r, r + .04 * u, th, 16, S.wall, x, th / 2, z); b.P(0); b.P(PT.ardoise); b.cone(r + .12 * u, 2.4 * r, 16, S.roof, x, th + 1.2 * r, z); b.P(0); epi(b, x, th + 2.4 * r - .05, z, u); if (lvl >= 3) flag(C, x, th + 2.4 * r + .3 * u, z, u * .8); C.circ(x, z, r + .04 * u, th); }
       const y0 = Math.max(2.6, 2.1 * u), bw = gw + .2 * u; b.P(PT.pierre); bx(b, bw, 1.0 * u, .9 * u, S.wall, 0, y0 + .5 * u, z); b.P(0); b.P(PT.ardoise); G.prism(b, bw + .2 * u, .9 * u, 1.1 * u, S.roof, 0, y0 + 1.0 * u, z, PI / 2); b.P(0);
       fenetre(b, blk(0, z, bw, .9 * u, 0, 0), 0, 0, y0 + .5 * u, { w: .4 * u, h: .5 * u, frame: S.frame, glass: 0x9fb9d4 }); b.add(new THREE.TorusGeometry(gw / 2, .12 * u, 6, 18, PI), S.trim, b.M(0, y0 - gw / 2 + .1, z + .45 * u), 0, true);
+      (C.gates || (C.gates = [])).push({ x: 0, z, w: gw, h: Math.min(y0 - .2, 2.2), s });
     } else { for (const [a, c] of xs) { const L = c - a; if (L < .2) continue; b.P(PT.brique); bx(b, L, 1.2, .35, S.wall, (a + c) / 2, .6, z); b.P(0); b.P(PT.pierre); bx(b, L + .04, .1, .45, S.trim, (a + c) / 2, 1.25, z); b.P(0); C.rect(a, z - .2, c, z + .2, 1.3); }
-      for (const sx of [-1, 1]) { const x = sx * (gw / 2 + .25 * u); b.P(PT.brique); bx(b, .5 * u + .1, ph, .5 * u + .1, S.wall, x, ph / 2, z); b.P(0); b.P(PT.pierre); bx(b, .6 * u + .15, .16, .6 * u + .15, S.trim, x, ph + .08, z); b.P(0); vase(b, x, ph + .16, z, s, lvl >= 4 ? GOLD : S.trim); C.rect(x - .25 * u - .05, z - .25 * u - .05, x + .25 * u + .05, z + .25 * u + .05, ph);
-        for (let k = 0; k < 6; k++) bx(b, .03, 1.4, .03, IRONC, x - sx * (.25 * u + .15) - sx * k * .12, 1.0, z - .1 - k * .1); }
-    }
+      for (const sx of [-1, 1]) pilier(C, sx * (gw / 2 + pw / 2), z, s, ph, 'urne');
+      portail(C, 0, z, gw, ph - .1, s); }
   }
   // ---------- carte des hauteurs pour les collisions (8 × 8 par case), à partir des volumes posés ----------
   function mask(C) {
@@ -470,7 +737,8 @@
     return res;
   };
   // le château classique seul : même dessin ultra détaillé que les châteaux assemblés
-  const och = MD.chateau2; MD.chateau2 = v => v % 3 === 0 ? build(0, 1, 1).geo : och(v);
+  let SOLO = null; const soloBuilt = () => SOLO || (G.getGeo('chateau2', 0), SOLO);
+  const och = MD.chateau2; MD.chateau2 = v => v % 3 === 0 ? (SOLO = build(0, 1, 1)).geo : och(v);
   // le salon du château principal grandit avec le château (les meubles sont gardés) ; les châteaux à plan de pièces (chateau_interieur.js) ont leur propre intérieur
   G.on('enterMap', m => {
     if (!m || !m.interior || m.isVisit || m.meta.plan) return; let g = null; for (const w of [G.world, G.island]) if (w && w._cgList) for (const o of w._cgList) if (o._grp && o.iid === m.id && mainOf(o._grp) === o) g = o._grp; if (!g) return;
@@ -489,5 +757,87 @@
         if (m.canPlace(d.id, cx, cz, r) && !G.act.occupiedByMe(d, r, cx, cz)) { best = [cx, cz]; bd = dist; } } } } finally { G._deckY = sv; }
     return best || base; }; });
   for (let k = 0; k < 3; k++) { const it = G.ITEMS['chateau_cat' + k]; if (it) it.desc = 'Pose plusieurs fois ce même château côte à côte, sans case vide entre eux, en largeur comme en profondeur : ils s\'assemblent en un seul château, toujours plus grand, plus haut et plus beau !'; }
-  G.chateauFusion = { build, plan, regroup, layout, toL, toW, onW, RY, NR };
+  // ---------- le château vivant : les vantaux de la grande porte et du portail s'ouvrent quand on approche, l'eau des fontaines coule vraiment ----------
+  const LEAF = {}, V3 = THREE.Vector3; let fallM = null, sprayM = null;
+  // un vantail de chêne (charnière en x = 0, il s'étend vers +x) : panneaux moulurés en relief, cartouche, heurtoir et poignée dorés
+  function doorLeaf(lw, h) { const k = 'd' + lw.toFixed(2) + '|' + h.toFixed(2); if (LEAF[k]) return LEAF[k];
+    const b = G.mb(77), t = .075, q = Math.min(1.25, lw / .46), MO = 0x7d512c, FI = 0x744a27; b.S(G.SK.wood);
+    bx(b, lw - .012, h, t, OAK, lw / 2, h / 2, 0);
+    for (const fz of [1, -1]) { const zf = fz * (t / 2 + .012), zr = fz * (t / 2 + .026), zs = fz * (t / 2 + .036);
+      for (const [y0, y1] of [[.08 * h, .3 * h], [.36 * h, .82 * h], [.87 * h, .97 * h]]) { const x0 = .065 * q, x1 = lw - .065 * q, cx = (x0 + x1) / 2, ww = x1 - x0, hh = y1 - y0, cy = (y0 + y1) / 2;
+        for (const s of [-1, 1]) { bx(b, ww + .03, .03, .03, MO, cx, cy + s * hh / 2, zf); bx(b, .03, hh, .03, MO, cx + s * ww / 2, cy, zf); }
+        bx(b, ww - .06, hh - .06, .028, FI, cx, cy, zr); if (hh > .2) bx(b, ww - .16 * q, hh - .16 * q, .02, MO, cx, cy, zs); } }
+    b.S(G.SK.ceramic); const zg = t / 2 + .05;
+    b.add(new THREE.TorusGeometry(.065 * q, .011, 4, 16), GOLD, b.M(lw / 2, .59 * h, zg, 0, 0, 0, .75, 1.25, 1)); dot(b, .028 * q, GOLD, lw / 2, .59 * h, zg, 1);
+    for (const s of [-1, 1]) b.add(new THREE.TorusGeometry(.04 * q, .008, 3, 8, PI), GOLD, b.M(lw / 2 + s * .07 * q, .59 * h + s * .12 * q, zg, 0, 0, s > 0 ? 0 : PI));
+    dot(b, .034, GOLD, lw * .5, .47 * h, zg, 1); b.add(new THREE.TorusGeometry(.045, .009, 4, 12), GOLD, b.M(lw * .5, .43 * h, zg + .01)); // heurtoir
+    bx(b, .022, .22, .022, GOLD, lw - .07 * q, .5 * h, zg - .01); dot(b, .02, GOLD, lw - .07 * q, .5 * h + .12, zg - .01);
+    for (const y of [.15 * h, .85 * h]) bx(b, .1, .03, .012, GOLD, .06, y, zg - .02); // pentures
+    b.S(null); return LEAF[k] = b.done(); }
+  // un vantail de grille (charnière en x = 0, battant en x = lw, plus haut) : barreaux à lances dorées, volutes, médaillon
+  function gateLeaf(lw, h) { const k = 'g' + lw.toFixed(2) + '|' + h.toFixed(2); if (LEAF[k]) return LEAF[k];
+    const b = G.mb(78), n = Math.max(4, Math.round(lw / .1)), top = x => h + .36 * Math.sin(x / lw * PI / 2);
+    bx(b, .055, h + .02, .055, IRONK, .028, h / 2, 0); bx(b, .055, top(lw) + .04, .055, IRONK, lw - .028, (top(lw) + .04) / 2, 0);
+    for (const y of [.06, .5, .56, h * .64]) bx(b, lw, .035, .045, IRONK, lw / 2, y, 0);
+    for (let i = 1; i < n; i++) { const x = i * lw / n, hh = top(x); bx(b, .022, hh, .022, IRONK, x, hh / 2, 0); b.add(new THREE.ConeGeometry(.034, .12, 6), GOLD, b.M(x, hh + .05, 0)); dot(b, .02, GOLD, x, hh - .03, 0); }
+    for (let i = 0; i < n; i++) { const x0 = i * lw / n, x1 = (i + 1) * lw / n, y0 = top(x0) - .1, y1 = top(x1) - .1; b.add(new THREE.BoxGeometry(Math.hypot(x1 - x0, y1 - y0) + .01, .03, .035), IRONK, b.M((x0 + x1) / 2, (y0 + y1) / 2, 0, 0, 0, Math.atan2(y1 - y0, x1 - x0))); }
+    for (let i = 0; i < n; i += 2) { const x = (i + 1) * lw / n; for (const sg of [-1, 1]) b.add(new THREE.TorusGeometry(.068, .011, 3, 9, PI * 1.4), (i / 2) % 2 ? GOLD : IRONK, b.M(x, .28 + sg * .075, 0, 0, 0, sg > 0 ? -PI * .2 : PI * .8)); }
+    b.add(new THREE.TorusGeometry(.15, .018, 4, 18), GOLD, b.M(lw * .55, h * .38, 0, 0, 0, 0, .8, 1.18, 1)); b.add(new THREE.TorusGeometry(.08, .012, 4, 14), GOLD, b.M(lw * .55, h * .38, 0, 0, 0, 0, .8, 1.18, 1)); dot(b, .045, GOLD, lw * .55, h * .38, 0, 1);
+    for (let i = 1; i < 4; i++) dot(b, .028, GOLD, i * lw / 4, h * .64, 0, 1);
+    for (const P of b.parts) for (const g of P) if (g.userData.sk === G.SK.gold) g.userData.sk = G.SK.ceramic;
+    return LEAF[k] = b.done(); }
+  // eau vivante (même principe que la grande fontaine de la place)
+  const uvS = (g, su, sv) => { const a = g.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) * su, a.getY(i) * sv); return g; };
+  const wDisc = (r, y, half) => { const g = half ? new THREE.CircleGeometry(r, 24, PI, PI) : new THREE.CircleGeometry(r, 40); g.rotateX(-PI / 2); g.translate(0, y, 0); const n = g.attributes.position.count, c = new Float32Array(n * 3); for (let i = 0; i < n; i++) { c[i * 3] = .55; c[i * 3 + 1] = .8; c[i * 3 + 2] = .95; } g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return new THREE.Mesh(g, G.M.water); };
+  const curt = (r0, y0, r1, y1, mat) => { const pts = []; for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(new THREE.Vector2(r0 + (r1 - r0) * Math.sqrt(t), y0 + (y1 - y0) * t)); } return new THREE.Mesh(uvS(new THREE.LatheGeometry(pts, 36), 12, 2), mat); };
+  const jetM = (p0, p1, h, rad, mat) => { const a = new V3(...p0), c = new V3(...p1), m2 = a.clone().lerp(c, .5); m2.y = Math.max(a.y, c.y) + h; return new THREE.Mesh(uvS(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, m2, c), 16, rad, 6), 1, 3), mat); };
+  function fountFx(F) {
+    if (!fallM) { fallM = G.curveMat(new THREE.MeshBasicMaterial({ map: G.TEX.fall, color: 0xe6f6ff, transparent: true, opacity: .4, side: THREE.DoubleSide, depthWrite: false })); sprayM = G.curveMat(new THREE.MeshBasicMaterial({ map: G.TEX.fall, color: 0xffffff, transparent: true, opacity: .3, side: THREE.DoubleSide, depthWrite: false })); }
+    const g = new THREE.Group(), land = []; g.position.set(F.x, 0, F.z);
+    g.add(wDisc(F.R - .14, F.wy + .012, F.half)); if (F.r1) { g.add(wDisc(F.r1 * .9, F.v1 + .008)); g.add(curt(F.r1 * 1.03, F.v1, F.r1 * 1.22, F.wy, fallM)); } if (F.v2) { g.add(wDisc(F.r2 * .9, F.v2 + .008)); g.add(curt(F.r2 * 1.04, F.v2, F.r2 * 1.24, F.v1, fallM)); }
+    for (const [x, y, z, ca, sa] of F.dol) { const e = [x - F.x + ca * F.R * .4, F.wy, z - F.z + sa * F.R * .4]; g.add(jetM([x - F.x, y, z - F.z], e, .22 * F.sr, .028 * F.sr + .012, fallM)); land.push(e); }
+    const sr = F.sr; if (F.top) { const yb = F.v2 || F.v1, rb = F.r2 || F.r1; g.add(curt(.02, F.top + .95 * sr, rb * .75, yb + .02, sprayM));
+      const up = new THREE.Mesh(uvS(new THREE.CylinderGeometry(.025 * sr + .01, .045 * sr + .01, .9 * sr, 8, 1, true), 1, 3), fallM); up.position.y = F.top + .45 * sr; up.rotation.x = PI; g.add(up);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; land.push([Math.cos(a) * F.r1 * 1.2, F.wy, Math.sin(a) * F.r1 * 1.2]); } }
+    const rip = []; for (let i = 0; i < 10; i++) { const me = new THREE.Mesh(new THREE.RingGeometry(.07, .1, 20), G.curveMat(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }))); me.rotation.x = -PI / 2; me.visible = false; g.add(me); rip.push({ me, t: 1 }); }
+    g.traverse(c => { c.frustumCulled = false; c.renderOrder = 2; });
+    return { g, F, land, rip, rt: 0, st: 0 }; }
+  const LV = new Map(); // château dessiné (ancre d'un groupe ou château classique seul) → ses vantaux et son eau
+  function liveOf(m, o) {
+    const g = o._grp; if (g) { if (g.anchor !== o) return null; const R = BUILT[g.name]; return R && R.fx ? { fx: R.fx, cx: g.cx, cz: g.cz, r: g.r, sig: g.name } : null; }
+    if (!CAST.includes(o.t) || styleOf(o) !== 0) return null; const R = soloBuilt(); if (!R || !R.fx) return null; const [cx, cz] = m.center(o); return { fx: R.fx, cx, cz, r: o.r & 3, sig: 'solo' };
+  }
+  function makeLive(m, o, I) {
+    const root = new THREE.Group(); root.position.set(I.cx, o.y, I.cz); root.rotation.y = I.r * PI / 2; const L = { m, o, sig: I.sig, root, leaves: [], founts: [], cx: I.cx, cz: I.cz, r: I.r };
+    const hinge = (geo, x, y, z, mir, kind, dx, dz, w) => { const piv = new THREE.Group(); piv.position.set(x, y, z); const me = new THREE.Mesh(geo, G.MATS); me.castShadow = true; me.receiveShadow = true; me.frustumCulled = false; if (mir) me.scale.x = -1; piv.add(me); root.add(piv); L.leaves.push({ piv, mir, kind, dx, dz, w, a: 0 }); };
+    const D = I.fx.door; if (D) { const lw = D.w / 2, geo = doorLeaf(lw, D.h); hinge(geo, D.x - lw, D.y, D.z, false, 'd', D.x, D.z, D.w); hinge(geo, D.x + lw, D.y, D.z, true, 'd', D.x, D.z, D.w); }
+    for (const Gt of I.fx.gates) { const lw = Gt.w / 2 - .01, h = Math.max(.9, Gt.h - .42), geo = gateLeaf(lw, h); hinge(geo, Gt.x - Gt.w / 2 + .005, .06, Gt.z, false, 'g', Gt.x, Gt.z, Gt.w); hinge(geo, Gt.x + Gt.w / 2 - .005, .06, Gt.z, true, 'g', Gt.x, Gt.z, Gt.w); }
+    for (const F of I.fx.founts) { const f = fountFx(F); f.g.visible = false; root.add(f.g); L.founts.push(f); }
+    root.traverse(c => { c.frustumCulled = false; }); m.group.add(root); return L;
+  }
+  const leafGeos = () => new Set(Object.values(LEAF));
+  function dropLive(L) { if (L.root.parent) L.root.parent.remove(L.root); const keep = leafGeos(); L.root.traverse(c => { if (c.isMesh && !keep.has(c.geometry)) c.geometry.dispose(); }); }
+  let lvT = 0;
+  G.on('frame', dt => {
+    const m = G.map, p = G.player; if (!m || !p || !dt) return; dt = Math.min(dt, .1);
+    if ((lvT -= dt) < 0) { lvT = .5; // qui doit vivre (et qui ne le doit plus)
+      const want = new Set(); if (!m.interior && m._cgList) for (const o of m._cgList) { if (!o._k || !m.list.has(o)) continue; const I = liveOf(m, o); if (!I) continue; if (Math.abs(I.cx - p.x) > 110 || Math.abs(I.cz - p.z) > 110) continue; want.add(o); const L = LV.get(o);
+        if (!L || L.m !== m || L.sig !== I.sig || L.cx !== I.cx || L.cz !== I.cz || L.r !== I.r) { if (L) dropLive(L); LV.set(o, makeLive(m, o, I)); } }
+      for (const [o, L] of LV) if (!want.has(o) && (L.m === m || !L.m.list.has(o))) { dropLive(L); LV.delete(o); } }
+    for (const L of LV.values()) { const o = L.o, vis = L.m === m && !zero(o._anim); L.root.visible = vis; if (!vis) continue;
+      L.root.position.y = o.y; const [lx, lz] = toL(L.r, p.x - L.cx, p.z - L.cz), py = p.y - o.y;
+      for (const lf of L.leaves) { // on approche (devant ou derrière) : les vantaux s'ouvrent vers l'intérieur
+        const near = Math.abs(lx - lf.dx) < lf.w / 2 + 1.3 && lz > lf.dz - (lf.kind === 'g' ? 2.6 : .8) && lz < lf.dz + 2.7 && py < 3, want = near ? (lf.kind === 'g' ? 1.55 : 1.75) : 0, a0 = lf.a;
+        lf.a += G.clamp(want - lf.a, -dt * 1.5, dt * 1.5); if (a0 === 0 && lf.a > 0 && lf.mir) G.sfx(lf.kind === 'd' ? 'door' : 'open'); else if (a0 > 0 && lf.a === 0 && lf.mir) G.sfx('close');
+        lf.piv.rotation.y = lf.mir ? -lf.a : lf.a; }
+      for (const f of L.founts) { const F = f.F, [wx, wz] = toW(L.r, F.x, F.z), d2 = Math.hypot(L.cx + wx - p.x, L.cz + wz - p.z); f.g.visible = d2 < 48; if (!f.g.visible) continue;
+        if (G.ents) G.ents.fallDist = Math.min(G.ents.fallDist == null ? 99 : G.ents.fallDist, Math.max(0, d2 - F.R) * 1.4 + 2);
+        if ((f.rt -= dt) < 0) { f.rt = .14; const R2 = f.rip.find(q => q.t >= 1); if (R2) { const Lp = f.land[Math.floor(Math.random() * f.land.length)]; R2.t = 0; R2.me.position.set(Lp[0] + (Math.random() - .5) * .1, Lp[1] + .015, Lp[2] + (Math.random() - .5) * .1); R2.me.visible = true; } }
+        for (const R2 of f.rip) { if (R2.t >= 1) continue; R2.t += dt / 1.3; const sc = 1 + R2.t * 4 * Math.min(1.5, F.sr); R2.me.scale.set(sc, sc, sc); R2.me.material.opacity = .5 * (1 - R2.t); if (R2.t >= 1) R2.me.visible = false; }
+        if (F.top && d2 < 26 && (f.st -= dt) < 0) { f.st = .06; const a = Math.random() * TAU, sp = (.3 + Math.random() * .5) * F.sr, vx = Math.cos(a) * sp, vz = Math.sin(a) * sp;
+          G.fx.one(L.cx + wx, o.y + F.top + .9 * F.sr, L.cz + wz, vx, .7 + Math.random() * .8, vz, .9, 3.2, Math.random() < .5 ? 0xffffff : 0xcdeeff, .05, 0);
+          const Lp = f.land[Math.floor(Math.random() * f.land.length)], [ex, ez] = toW(L.r, Lp[0], Lp[2]); G.fx.one(L.cx + wx + ex, o.y + Lp[1] + .05, L.cz + wz + ez, (Math.random() - .5) * .6, .8 + Math.random() * .6, (Math.random() - .5) * .6, .4, 4, 0xffffff, .045, 0); } } }
+  });
+  G.on('enterMap', () => { lvT = 0; });
+  G.chateauFusion = { build, plan, regroup, layout, toL, toW, onW, RY, NR, live: LV };
 })();

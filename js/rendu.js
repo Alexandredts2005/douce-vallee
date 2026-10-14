@@ -230,7 +230,7 @@ gCloud = 1. - uCloudAmt * smoothstep( .42, .75, texture2D( uCloudTex, vWP.xz * .
 gRough = ${(o.rough != null ? o.rough : .82).toFixed(3)}; gMetal = ${(o.metal || 0).toFixed(3)};
 surfProps( vSk );
 ${o.floor ? `gRough = ${o.floor === 3 ? '.12 + .06 * ( 1. - pq.a )' : '.2 + .1 * prH( floor( vWP.xz * 3. ) ) + .4 * ( 1. - pq.a )'};` : ''}
-${o.pat ? `{ float pid = floor( vPat + .5 ); gRough = pid < 1.5 ? .85 : pid < 2.5 ? .8 : pid < 3.5 ? .55 : pid < 4.5 ? .62 : pid < 5.5 ? .75 : pid < 6.5 ? .7 : pid < 7.5 ? .93 : pid < 8.5 ? .42 : pid < 9.5 ? .9 : pid < 10.5 ? .8 : .22; }` : ''}
+${o.pat ? `{ float pid = floor( vPat + .5 ); gRough = pid < 1.5 ? .85 : pid < 2.5 ? .8 : pid < 3.5 ? .55 : pid < 4.5 ? .62 : pid < 5.5 ? .75 : pid < 6.5 ? .7 : pid < 7.5 ? .93 : pid < 8.5 ? .42 : pid < 9.5 ? .9 : pid < 10.5 ? .8 : pid < 11.5 ? .22 : pid < 12.5 ? .93 : pid < 13.5 ? .96 : .74; if ( pid > 11.5 && pid < 12.5 ) gSheen = .3; }` : ''}
 ${o.ground ? `{ vec2 ce = floor( vUv * 4. ); float cell = ce.x + ( 3. - ce.y ) * 4.;
   gRough = cell < .5 ? .9 : cell < 1.5 ? .92 : cell < 2.5 ? .95 : cell < 3.5 ? .7 : cell < 4.5 ? .55 : cell < 5.5 ? .97 : cell < 6.5 ? .42 : cell < 7.5 ? .97 : cell < 8.5 ? .5 : cell < 9.5 ? .75 : cell < 10.5 ? .45 : cell < 11.5 ? .5 : cell < 12.5 ? .28 : cell < 13.5 ? .97 : cell < 14.5 ? .9 : .85;
   if ( cell < 1.5 || ( cell > 13.5 && cell < 14.5 ) ) { gSheen = .35; diffuseColor.rgb *= vec3( .6, .72, .46 );

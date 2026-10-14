@@ -3,7 +3,7 @@
 // Les motifs sont calculés dans le shader à partir de la position des sommets : aucun texte de plus, aucun appel de dessin en plus.
 (function () {
   const MD = G.MODELS, TAU = Math.PI * 2;
-  const PT = G.PAT = { brique: 1, pierre: 2, bardage: 3, tuiles: 4, bardeaux: 5, planches: 6, crepi: 7, ardoise: 8, moellons: 9, rondins: 10, carrelage: 11 };
+  const PT = G.PAT = { brique: 1, pierre: 2, bardage: 3, tuiles: 4, bardeaux: 5, planches: 6, crepi: 7, ardoise: 8, moellons: 9, rondins: 10, carrelage: 11, gazon: 12, gravier: 13, buis: 14 };
   // ---------- matériau à motifs ----------
   const PAT_FS = `
 varying float vPat; varying vec3 vOP; varying vec3 vON;
@@ -59,9 +59,27 @@ vec3 dvPat(vec3 c) {
   } else if (id < 10.5) { // rondins
     float y = uv.y / .21, f = fract(y), fw = fwidth(y);
     o = c * (.6 + .48 * sin(f * 3.14159)) * (.94 + .1 * dvN(vec2(uv.x * 4., floor(y) * 3.7))); avg = c * .9; fade = fw;
-  } else { // carrelage
+  } else if (id < 11.5) { // carrelage
     vec2 q = uv / .3, f = fract(q), fw = fwidth(q); float r = dvH(floor(q) + 31.);
     o = mix(mix(c, vec3(.93), .6), c * (.92 + .14 * r), dvJ(f, vec2(.03), fw)); avg = c; fade = max(fw.x, fw.y);
+  } else if (id < 12.5) { // gazon tondu : larges bandes de tonte claires et sombres, brins serrés
+    float bd = uv.x / .62, sf = fract(bd), fb = fwidth(bd), stripe = mod(floor(bd), 2.);
+    float edge = smoothstep(0., .08 + fb, sf) * smoothstep(0., .08 + fb, 1. - sf);
+    vec2 g = uv * 46., fg = fwidth(g); float grain = dvN(g) * .6 + dvN(g * 2.3 + 5.) * .4, gk = 1. - smoothstep(.3, .9, max(fg.x, fg.y));
+    float clump = dvN(uv * 3.1 + 11.) * .6 + dvN(uv * .9) * .4;
+    o = c * mix(vec3(.76, .82, .72), vec3(1.12, 1.14, 1.04), stripe) * mix(1., .97, 1. - edge) * (.93 + .1 * clump) * mix(1., .86 + .26 * grain, gk);
+    return o;
+  } else if (id < 13.5) { // gravier blond ratissé
+    vec2 p = uv * 24., i = floor(p), f = fract(p) - .5, fw = fwidth(p); vec2 jt = vec2(dvH(i + 3.), dvH(i + 9.)) - .5;
+    float d = length(f - jt * .45), r = dvH(i + 17.), pebble = smoothstep(.36, .2, d) * (1. - smoothstep(.25, .8, max(fw.x, fw.y)));
+    float rake = .97 + .03 * sin(uv.y * 30.) * (1. - smoothstep(.1, .6, fwidth(uv.y * 30.)));
+    o = c * (.86 + .1 * dvN(uv * 6.)) * mix(1., .82 + .36 * r, pebble) * rake;
+    return o;
+  } else { // buis taillé : petites feuilles serrées, reflets
+    vec2 p = uv * 13., fw = fwidth(p); float k = 1. - smoothstep(.35, 1., max(fw.x, fw.y));
+    float n1 = dvN(p), n2 = dvN(p * 2.6 + 7.), n3 = dvN(uv * 1.7 + 3.);
+    o = c * (.9 + .12 * n3) * mix(1., .7 + .38 * n1 + .22 * n2, k);
+    return o;
   }
   o = mix(o, avg, smoothstep(.35, .8, fade));
   return o * mix(.8, 1., smoothstep(0., .45, vOP.y));
