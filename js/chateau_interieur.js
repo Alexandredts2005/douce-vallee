@@ -48,7 +48,8 @@
     const parts = [], cuts = (L, m) => { const c = []; for (let s = 0; s <= m; s++) c.push(Math.round(s * L / m)); return c; }; let gals = 0;
     C.B.forEach((B, bi) => { const x0 = Math.round(X(B.x0)), x1 = Math.round(X(B.x1)), z0 = Math.round(Z(B.z0)), z1 = Math.round(Z(B.z1)), w = x1 - x0, d = z1 - z0; if (w < 1 || d < 1) return;
       const push = (a, b, c, e, role) => parts.push({ bi, k: B.k, role, x0: x0 + a, x1: x0 + b, z0: z0 + c, z1: z0 + e });
-      if (B.k === 'centre') { const zs = d >= 14 ? [0, Math.round(d * .56), d] : [0, d], xs = cuts(w, Math.max(1, Math.round(w / 16)));
+      // un nombre impair de pièces côte à côte : le vestibule reste centré sur la porte (jamais une cloison juste derrière elle)
+      if (B.k === 'centre') { const nc = Math.max(1, Math.round(w / 16)), zs = d >= 14 ? [0, Math.round(d * .56), d] : [0, d], xs = cuts(w, nc % 2 ? nc : nc + 1);
         for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) push(xs[i], xs[i + 1], zs[j], zs[j + 1], zs.length > 2 && j === 0 ? 'salon' : 'vest'); return; }
       const lg = Math.max(w, d), sh = Math.min(w, d), gal = lg / sh >= 2.3 && sh <= 14 && lg >= 20 && gals < 2; if (gal) gals++;
       const xs = cuts(w, gal && w >= d ? 1 : Math.max(1, Math.round(w / 10.5))), zs = cuts(d, gal && d > w ? 1 : Math.max(1, Math.round(d / 10.5)));
@@ -79,8 +80,11 @@
     // porte d'entrée : au milieu de l'avant-corps, sur la façade
     const D0 = C.D, dz = Math.round(Z(D0.z1)) - 1, dx0 = Math.round(X(0) - 1.5); let door = null;
     if (dz > 0 && [0, 1, 2].every(j => T[dz * W + dx0 + j] === WALL && fl(dx0 + j, dz - 1))) { for (let j = 0; j < 3; j++) T[dz * W + dx0 + j] = DOOR; door = { x0: dx0, x1: dx0 + 2, z: dz, sx: dx0 + 1.5, sz: dz - .7 }; }
-    else { // repli : le milieu du bas du plan
-      for (let z = H - 1; z > 0 && !door; z--) for (let x = Math.floor(W / 2) - 1; x <= Math.floor(W / 2) - 1; x++) if ([0, 1, 2].every(j => T[z * W + x + j] === WALL && fl(x + j, z - 1))) { for (let j = 0; j < 3; j++) T[z * W + x + j] = DOOR; door = { x0: x, x1: x + 2, z, sx: x + 1.5, sz: z - .7 }; } }
+    else { // repli : la place la plus proche du milieu sur la même façade, sinon sur la façade la plus basse (trois cases de mur, du parquet derrière, dehors devant)
+      const okD = (x, z) => [0, 1, 2].every(j => T[z * W + x + j] === WALL && fl(x + j, z - 1) && (z + 1 >= H || id[(z + 1) * W + x + j] < 0));
+      for (let dd = 0; dd <= 14 && !door && dz > 0 && dz < H; dd++) for (const x of dd ? [dx0 - dd, dx0 + dd] : [dx0]) if (!door && x > 0 && x + 2 < W && okD(x, dz)) door = { x0: x, x1: x + 2, z: dz };
+      for (let z = H - 1; z > 0 && !door; z--) { let bx = -1; for (let x = 1; x + 2 < W; x++) if (okD(x, z) && (bx < 0 || Math.abs(x + 1.5 - W / 2) < Math.abs(bx + 1.5 - W / 2))) bx = x; if (bx >= 0) door = { x0: bx, x1: bx + 2, z }; }
+      if (door) { for (let j = 0; j < 3; j++) T[door.z * W + door.x0 + j] = DOOR; door.sx = door.x0 + 1.5; door.sz = door.z - .7; } }
     // fenêtres du rez-de-chaussée : exactement là où elles sont sur la façade
     const ww = G.clamp(C.sp * k * .6, 1.2, 1.9), wl = [];
     for (const w of wins) { if (w.door) continue; const B = w.B, p = onW(B.H, w.f, w.a, 0, 0), f = w.f;
@@ -231,12 +235,19 @@
   GP.canPlace = function (t, tx, tz, r = 0) { if (this.meta && this.meta.plan) { const pd = planData(this), d = O[t]; if (d) { const [w, dd] = G.fpDims(d, r); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < 0 || z < 0 || x >= pd.W || z >= pd.H || pd.T[z * pd.W + x] !== FLOOR) return false; } }
     return ocp.call(this, t, tx, tz, r); };
   // on arrive juste derrière la porte d'entrée
-  G.on('init', () => { const oem = G.enterMap; G.enterMap = (map, x, z, yaw) => { const pl = map && map.meta && map.meta.plan; if (pl && pl.door && Math.abs(x - (Math.floor(map.W / 2) + .5)) < .01 && Math.abs(z - (map.H - 1.4)) < .01) { x = pl.door.sx; z = pl.door.sz; yaw = PI; } return oem(map, x, z, yaw); }; });
+  // (et jamais dans le vide autour du château : si la place demandée n'est pas du parquet, on prend le parquet le plus proche de l'entrée)
+  G.on('init', () => { const oem = G.enterMap; G.enterMap = (map, x, z, yaw) => { const pl = map && map.meta && map.meta.plan;
+    if (pl) { const def = Math.abs(x - (Math.floor(map.W / 2) + .5)) < .01 && Math.abs(z - (map.H - 1.4)) < .01; if (pl.door && def) { x = pl.door.sx; z = pl.door.sz; yaw = PI; const pd0 = planData(map), z2 = pl.door.z - 2.6; if (pd0.T[Math.floor(z2) * pd0.W + Math.floor(x)] === FLOOR) z = z2; } // deux pas dans le vestibule : la caméra a la place d'être derrière
+      const pd = planData(map), walk = (a, b) => { const tx = Math.floor(a), tz = Math.floor(b); return tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H && pd.T[tz * pd.W + tx] === FLOOR; };
+      if (!walk(x, z)) { const ax = pl.door ? pl.door.sx : pd.W / 2, az = pl.door ? pl.door.sz : pd.H - 2; let bd = Infinity, bx = x, bz = z;
+        for (let i = 0; i < pd.W * pd.H; i++) if (pd.T[i] === FLOOR) { const cx = i % pd.W + .5, cz = Math.floor(i / pd.W) + .5, dd = (cx - ax) ** 2 + (cz - az) ** 2; if (dd < bd) { bd = dd; bx = cx; bz = cz; } }
+        x = bx; z = bz; if (yaw == null) yaw = PI; } }
+    return oem(map, x, z, yaw); }; });
   // avant d'entrer dans un château classique : son intérieur suit le plan actuel du château (créé ou refait, les meubles sont gardés)
   function prepare(o) {
     if (!o || (G.net && G.net.visit) || !G.chateauInfo) return; const info = G.chateauInfo(o); if (!info || info.st !== 0) return;
     const q = info.main || o; if (!q.iid) q.iid = 'b' + q.t + '_' + q.x + '_' + q.z; const iid = q.iid, im = G.interiors[iid], sig = planSig(info);
-    if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER) return;
+    if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER && im.meta.plan.door) return; // (un plan sans porte, d'une ancienne version, est refait)
     const nm = makePlanInterior(iid, info, im); if (im) G.scene.remove(im.group); G.interiors[iid] = nm; G.scene.add(nm.group); nm.group.visible = false;
   }
   const oen = G.act.enterHouse; G.act.enterHouse = o => { try { prepare(o); } catch (e) { console.warn('intérieur du château', e); } return oen(o); };
@@ -654,7 +665,7 @@
     // une place libre pour la caméra : du parquet tout autour (ou une arche, sous son cintre), ni dans le sol ni contre le plafond
     const free = (x, y, z) => { if (y > CH - .35 || y < .25) return false;
       for (const ox of [-.27, .27]) for (const oz of [-.27, .27]) { const tx = Math.floor(x + ox), tz = Math.floor(z + oz); if (tx < 0 || tz < 0 || tx >= W || tz >= H) return false; const t = T[tz * W + tx];
-        if (t !== FLOOR && !((t === OPEN || t === DOOR) && y < 2.8)) return false; }
+        if (t !== FLOOR && !(t === OPEN && y < 2.8)) return false; } // (pas dans l'embrasure de la porte d'entrée : on la verrait de trop près)
       return true; };
     const n = Math.max(6, Math.ceil(dist / .08)); let k = 1;
     for (let i = 1; i <= n; i++) { const t = i / n; if (!free(x0 + ex * t, y0 + ey * t, z0 + ez * t)) { k = (i - 1) / n; break; } }
