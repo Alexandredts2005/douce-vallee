@@ -202,14 +202,19 @@
   // =====================================================================
   // ============ 4. LE DESSIN DE L'INTÉRIEUR =============================
   // =====================================================================
-  // matériaux qui s'abaissent : le sommet des murs entre la caméra et le joueur descend (l'ombre, elle, reste entière)
-  const CUT = { tex: { value: null }, n: { value: 1 }, low: { value: 1.12 } };
+  // vue du village (de haut) : les murs entre la caméra et le joueur sont coupés net à hauteur d'appui, avec un dessus de pierre
+  // (le reste du mur n'est pas dessiné ; son ombre, elle, reste entière). À la souris, les murs restent toujours debout.
+  // wid = numéro du segment de mur ; wid + .5 = le dessus de pierre de ce segment, caché sous le sol tant que le mur est debout.
+  const CUT = { tex: { value: null }, n: { value: 1 }, low: { value: 1.12 }, top: { value: 7.2 } };
   const cutCache = new Map();
   function cutMat(base) {
     if (cutCache.has(base)) return cutCache.get(base); const c = base.clone(), ob = base.onBeforeCompile, k0 = base.customProgramCacheKey ? base.customProgramCacheKey() : '';
-    c.onBeforeCompile = (sh, r) => { ob.call(base, sh, r); sh.uniforms.uCutTex = CUT.tex; sh.uniforms.uCutN = CUT.n; sh.uniforms.uCutLow = CUT.low;
-      sh.vertexShader = 'attribute float wid;\nuniform sampler2D uCutTex;\nuniform float uCutN, uCutLow;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n{ float cw = texture2D( uCutTex, vec2( ( wid + .5 ) / uCutN, .5 ) ).r; transformed.y = mix( transformed.y, min( transformed.y, uCutLow ), cw ); }'); };
-    c.customProgramCacheKey = () => k0 + '|cut'; if (base.extensions) c.extensions = base.extensions; if (base.alphaToCoverage) c.alphaToCoverage = true; cutCache.set(base, c); return c;
+    c.onBeforeCompile = (sh, r) => { ob.call(base, sh, r); sh.uniforms.uCutTex = CUT.tex; sh.uniforms.uCutN = CUT.n; sh.uniforms.uCutLow = CUT.low; sh.uniforms.uCutTop = CUT.top;
+      sh.vertexShader = 'attribute float wid;\nuniform sampler2D uCutTex;\nuniform float uCutN, uCutLow, uCutTop;\nvarying float vCutY, vCutW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n'
+        + '{ float wi = floor( wid + .01 ), cap = step( .25, wid - wi ), cw = texture2D( uCutTex, vec2( ( wi + .5 ) / uCutN, .5 ) ).r;\n'
+        + '  if ( cap > .5 ) transformed.y = cw > .003 ? mix( uCutTop, uCutLow, cw ) - .004 : -3.0;\n  vCutY = transformed.y; vCutW = cap > .5 ? 0.0 : cw; }');
+      sh.fragmentShader = 'uniform float uCutLow, uCutTop;\nvarying float vCutY, vCutW;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n  if ( vCutW > .003 && vCutY > mix( uCutTop, uCutLow, vCutW ) ) discard;'); };
+    c.customProgramCacheKey = () => k0 + '|cut2'; if (base.extensions) c.extensions = base.extensions; if (base.alphaToCoverage) c.alphaToCoverage = true; cutCache.set(base, c); return c;
   }
   const cutMats = () => G.MATS.map(m => m ? cutMat(m) : m);
   const matCache = {};
@@ -404,7 +409,7 @@
         let p = F.P(sc, ch - .12, .2); b.add(new THREE.BoxGeometry(w + 1.0, .42, .1), col, b.M(p[0], p[1], p[2], 0, F.ry, 0)); b.S(sk.gold); p = F.P(sc, ch - .34, .21); bx(b, w + 1.02, .04, .11, GOLD, p[0], p[1], p[2], F.ry);
         p = F.P(sc, ch - .39, .225); bx(b, w + .98, .06, .025, GOLD, p[0], p[1], p[2], F.ry); p = F.P(sc, ch + .14, .12); bx(b, w + 1.2, .035, .035, GOLD, p[0], p[1], p[2], F.ry); b.S(null); }
       // rayon de soleil : le contour intérieur de la baie
-      const yt = h.kind === 'arc' ? h.y1 - w / 2 * .3 : h.y1; beams.push({ pts: [F.P(h.s0, h.y0, 0), F.P(h.s1, h.y0, 0), F.P(h.s1, yt, 0), F.P(h.s0, yt, 0)], nx: F.nx, nz: F.nz, r: win.r, box: [rm.x0, rm.z0, rm.x1 + 1, rm.z1 + 1] });
+      const yt = h.kind === 'arc' ? h.y1 - w / 2 * .3 : h.y1; beams.push({ pts: [F.P(h.s0, h.y0, 0), F.P(h.s1, h.y0, 0), F.P(h.s1, yt, 0), F.P(h.s0, yt, 0)], nx: F.nx, nz: F.nz, r: win.r, wid, box: [rm.x0, rm.z0, rm.x1 + 1, rm.z1 + 1] });
     }
     function archFace(F, nt, trim, gk, first) {
       const w = nt.s1 - nt.s0, sc = (nt.s0 + nt.s1) / 2, [ys, hh] = opH(nt.type, w, CH), pts = []; pts.push([nt.s0, 0]); pts.push([nt.s0, ys]); if (hh > .05) for (let i = 1; i <= 16; i++) { const t = PI - i / 16 * PI; pts.push([sc + w / 2 * Math.cos(t), ys + hh * Math.sin(t)]); } else pts.push([nt.s1, ys]); pts.push([nt.s1, 0]);
@@ -455,6 +460,9 @@
     // ----- dessus des murs (vus d'en haut) -----
     for (let z = 0; z < H; z++) { let x = 0; while (x < W) { if (!solid(T[z * W + x])) { x++; continue; } const wid = capW(x, z); let x2 = x; while (x2 + 1 < W && solid(T[z * W + x2 + 1]) && capW(x2 + 1, z) === wid) x2++;
         b.wid = wid; b.S(sk.stone); bx(b, x2 - x + 1, .06, 1, 0x6f6252, (x + x2 + 1) / 2, CH + .03, z + .5); b.S(null); x = x2 + 1; } }
+    // dessus de pierre des murs coupés (vue du village) : rangé sous le sol tant que le mur est debout ; pas sur les arches ni la porte
+    for (let z = 0; z < H; z++) { let x = 0; while (x < W) { const wid = T[z * W + x] === WALL ? capW(x, z) : 0; if (!wid) { x++; continue; } let x2 = x; while (x2 + 1 < W && T[z * W + x2 + 1] === WALL && capW(x2 + 1, z) === wid) x2++;
+        b.wid = wid + .5; b.S(sk.stone); b.fquad([x, -1, z + 1], [x2 + 1, -1, z + 1], [x2 + 1, -1, z], [x, -1, z], 0xd8ccb3); b.S(null); x = x2 + 1; } }
     b.wid = 0;
     // ----- sols (par pièce), bordure de frise le long des murs ; plafonds peints, rosaces sous les lustres -----
     for (const rm of pl.rooms) { const cells = new Uint8Array(W * H); let any = false; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR && R[i] === rm.id) { cells[i] = 1; any = true; } if (!any) continue;
@@ -501,7 +509,7 @@
     SD.copy(L.sun.position).sub(L.sun.target.position).normalize(); const day = L.sun.intensity > .25 && SD.y > .1, low = 1 - G.clamp((SD.y - .18) / .5, 0, 1), k = Math.min(1, (L.sun.intensity - .25) * 2.2);
     bMat.uniforms.uOp.value = (.1 + .09 * low) * k; bMat.uniforms.uCol.value.copy(CW.copy(L.sun.color).lerp(CS, .35 + .35 * low));
     const pos = pv.bm.geometry.attributes.position, uv = pv.bm.geometry.attributes.uv, p = G.player, live = []; let q = 0;
-    if (day && p) for (const be of pv.beams) { if (-(SD.x * be.nx + SD.z * be.nz) <= .04 || Math.abs(be.pts[0][0] - p.x) > 34 || Math.abs(be.pts[0][2] - p.z) > 34) continue; live.push(be);
+    if (day && p) for (const be of pv.beams) { if (-(SD.x * be.nx + SD.z * be.nz) <= .04 || (be.wid && pv.cut[be.wid] > .5) || Math.abs(be.pts[0][0] - p.x) > 34 || Math.abs(be.pts[0][2] - p.z) > 34) continue; live.push(be);
       const ends = be.pts.map(a => { let t = a[1] / Math.max(.1, SD.y); const [bx0, bz0, bx1, bz1] = be.box; for (let it = 0; it < 2; it++) { const fx = a[0] - SD.x * t, fz = a[2] - SD.z * t; if (fx < bx0 - .02 || fx > bx1 + .02 || fz < bz0 - .02 || fz > bz1 + .02) t *= .82; }
         return [a[0] - SD.x * t, a[1] - SD.y * t, a[2] - SD.z * t]; });
       for (const sc of [1, .55]) { const cx = be.pts.reduce((s, a) => s + a[0], 0) / 4, cy = be.pts.reduce((s, a) => s + a[1], 0) / 4, cz = be.pts.reduce((s, a) => s + a[2], 0) / 4, ex = ends.reduce((s, a) => s + a[0], 0) / 4, ey = ends.reduce((s, a) => s + a[1], 0) / 4, ez = ends.reduce((s, a) => s + a[2], 0) / 4;
@@ -514,13 +522,13 @@
     if (live.length && G.state === 'play') for (let i = 0; i < 3; i++) { const be = live[Math.floor(Math.random() * live.length)], a = be.pts[0], c2 = be.pts[2], f = Math.random(), y = a[1] + (c2[1] - a[1]) * Math.random(), x0 = a[0] + (c2[0] - a[0]) * f, z0 = a[2] + (c2[2] - a[2]) * f, t = Math.random() * y / Math.max(.1, SD.y);
       G.fx.one(x0 - SD.x * t, y - SD.y * t, z0 - SD.z * t, (Math.random() - .5) * .04, .015, (Math.random() - .5) * .04, 3.5 + Math.random() * 2, -.008, 0xfff1c4, .03, 0); }
   }
-  // ---------- les murs s'abaissent entre la caméra et le joueur ----------
+  // ---------- vue du village : les murs entre la caméra et le joueur sont coupés (à la souris : jamais) ----------
   function updCut(m, dt) {
-    const pv = m._pv, p = G.player, cam = G.camera; if (!pv || !p || !cam) return; CUT.tex.value = pv.tex; CUT.n.value = pv.segs.length;
-    const fp = G.firstPerson && G.firstPerson(), vx0 = cam.position.x - p.x, vz0 = cam.position.z - p.z, vl = Math.hypot(vx0, vz0) || 1, vx = vx0 / vl, vz = vz0 / vl, reach = Math.min(28, vl + 4);
+    const pv = m._pv, p = G.player, cam = G.camera; if (!pv || !p || !cam) return; CUT.tex.value = pv.tex; CUT.n.value = pv.segs.length; CUT.top.value = planData(m).CH + .12;
+    const inside = (G.firstPerson && G.firstPerson()) || (G.mouseMode && G.mouseMode()), vx0 = cam.position.x - p.x, vz0 = cam.position.z - p.z, vl = Math.hypot(vx0, vz0) || 1, vx = vx0 / vl, vz = vz0 / vl, reach = Math.min(28, vl + 4);
     let dirty = false;
     for (let i = 1; i < pv.segs.length; i++) { const s = pv.segs[i]; let want = 0;
-      if (!fp) { const ax = s.o === 'h' ? s.a : s.c + .5, az = s.o === 'h' ? s.c + .5 : s.a, bx2 = s.o === 'h' ? s.b + 1 : s.c + .5, bz2 = s.o === 'h' ? s.c + .5 : s.b + 1;
+      if (!inside) { const ax = s.o === 'h' ? s.a : s.c + .5, az = s.o === 'h' ? s.c + .5 : s.a, bx2 = s.o === 'h' ? s.b + 1 : s.c + .5, bz2 = s.o === 'h' ? s.c + .5 : s.b + 1;
         // le point du segment le plus proche du joueur, et sa position dans le couloir caméra → joueur
         const ex = bx2 - ax, ez = bz2 - az, ll = ex * ex + ez * ez || 1, tt = G.clamp(((p.x - ax) * ex + (p.z - az) * ez) / ll, 0, 1), qx = ax + ex * tt - p.x, qz = az + ez * tt - p.z, fw = qx * vx + qz * vz, lat = Math.abs(qx * vz - qz * vx);
         const cx = (ax + bx2) / 2 - p.x, cz = (az + bz2) / 2 - p.z, cf = cx * vx + cz * vz, perp = Math.abs(ex * vx + ez * vz) / Math.sqrt(ll) < .72;
@@ -543,6 +551,25 @@
     const m = G.map, p = G.player; if (!m || !m.interior || !m.meta.plan || !p) { if (lab && lab.style.opacity !== '0') lab.style.opacity = '0'; return; }
     const pl = m.meta.plan, d = pl.door; if (d && !G.ui.fading && p.x > d.x0 && p.x < d.x1 + 1 && p.z > d.z + .3) { G.act.exitHouse(); return; }
     if (bMat) bMat.uniforms.uT.value += dt; updCut(m, dt); updBeams(m, dt); roomLabel(m, dt);
+  });
+  // ---------- caméra à la souris : elle reste dans le château, devant les murs et sous le plafond ----------
+  // (elle se rapproche aussitôt quand un mur ou le plafond la gênerait, puis se recule doucement quand la place revient)
+  let camK = 1;
+  G.on('frame', dt => {
+    const m = G.map, p = G.player, cam = G.camera, C = G.cam;
+    if (!m || !m.interior || !m.meta || !m.meta.plan || !p || !cam || !C || p.vehicle || !(G.mouseMode && G.mouseMode()) || (G.firstPerson && G.firstPerson()) || (G.state !== 'play' && G.state !== 'pause')) { camK = 1; return; }
+    const pd = planData(m), { W, H, T, CH } = pd, dist = C.mdist || 5.5, pit = C.mp == null ? .35 : C.mp, hd = Math.cos(pit) * dist;
+    const x0 = C.cx, y0 = C.cy, z0 = C.cz, ex = Math.sin(C.yaw) * hd, ey = Math.sin(pit) * dist, ez = Math.cos(C.yaw) * hd;
+    // une place libre pour la caméra : du parquet tout autour (ou une arche, sous son cintre), ni dans le sol ni contre le plafond
+    const free = (x, y, z) => { if (y > CH - .35 || y < .25) return false;
+      for (const ox of [-.27, .27]) for (const oz of [-.27, .27]) { const tx = Math.floor(x + ox), tz = Math.floor(z + oz); if (tx < 0 || tz < 0 || tx >= W || tz >= H) return false; const t = T[tz * W + tx];
+        if (t !== FLOOR && !((t === OPEN || t === DOOR) && y < 2.8)) return false; }
+      return true; };
+    const n = Math.max(6, Math.ceil(dist / .08)); let k = 1;
+    for (let i = 1; i <= n; i++) { const t = i / n; if (!free(x0 + ex * t, y0 + ey * t, z0 + ez * t)) { k = (i - 1) / n; break; } }
+    k = Math.max(k, Math.min(1, .8 / dist)); // jamais dans la tête du personnage
+    camK = k < camK ? k : Math.min(k, camK + dt * 2.5 / dist);
+    cam.position.set(x0 + ex * camK, y0 + ey * camK, z0 + ez * camK); cam.lookAt(x0, y0, z0);
   });
   G.on('enterMap', m => { if (lab) lab.style.opacity = '0'; if (m && m.meta && m.meta.plan) m.meta.cam = Object.assign({}, CAM); if (m && m._pv) { m._pv.room = 0; CUT.tex.value = m._pv.tex; CUT.n.value = m._pv.segs.length; } if (m && m.meta && m.meta.plan && !m._pv) { G.buildShell(m); m.buildAll(); }
     if (m && m.meta && m.meta.plan && !m.isVisit && !G.flags.chPlanTip) { G.flags.chPlanTip = 1; setTimeout(() => G.ui.toast('⚜ Ton château a de vraies pièces ! Appuie sur H pour ouvrir le plan : murs, arches, fenêtres, rideaux, lustres, décor et meubles.', 7000), 1600); } });
