@@ -438,6 +438,15 @@
       for (const q of m.list) { if (q.t === 'paillasson') continue; const ex = {}; for (const k of ['v', 'f', 'g', 'iid', 'off', 'txt']) if (q[k] != null) ex[k] = q[k]; if (nm.canPlace(q.t, q.x, q.z, q.r)) nm.addObj(q.t, q.x, q.z, q.r, ex); }
       for (const k of ['door', 'title', 'fromId']) nm.meta[k] = m.meta[k]; G.scene.remove(m.group); G.interiors[m.id] = nm; G.scene.add(nm.group); nm.group.visible = false; G.enterMap(nm, Math.floor(nm.W / 2) + .5, nm.H - 1.4, PI); }, 0);
   });
+  // aimant : un château posé (ou déplacé avec B) près d'un château identique se cale pile à côté de lui, aligné et sans case vide, pour qu'ils s'assemblent.
+  // Posé à l'init, après tous les modules : c'est le dernier mot sur la case où va le château (fantôme et pose).
+  G.on('init', () => { const oan = G.act.anchor; G.act.anchor = (d, r, tx, tz) => {
+    const base = oan(d, r, tx, tz), m = G.map, p = G.player; if (!d || !CAST.includes(d.id) || !m || !m._cgList || !p) return base;
+    const mv = G.move && G.move.c && G.move.c.t === d.id ? G.move.c.ex : null, st = ((mv && mv.v != null ? mv.v : d.v) || 0) % 3, [w, dd] = G.fpDims(d, r), [x0, z0] = base, sv = G._deckY; let best = null, bd = 5;
+    G._deckY = p.y; try { for (const q of m._cgList) { if ((q.r & 3) !== (r & 3) || styleOf(q) !== st || Math.abs(q.x - x0) > w + 6 || Math.abs(q.z - z0) > dd + 6) continue;
+      for (const [cx, cz] of [[q.x + w, q.z], [q.x - w, q.z], [q.x, q.z + dd], [q.x, q.z - dd]]) { const dist = Math.max(Math.abs(cx - x0), Math.abs(cz - z0)); if (dist >= bd || !m.inb(cx, cz) || m.baseH(cx, cz) !== q.y) continue;
+        if (m.canPlace(d.id, cx, cz, r) && !G.act.occupiedByMe(d, r, cx, cz)) { best = [cx, cz]; bd = dist; } } } } finally { G._deckY = sv; }
+    return best || base; }; });
   for (let k = 0; k < 3; k++) { const it = G.ITEMS['chateau_cat' + k]; if (it) it.desc = 'Pose plusieurs fois ce même château côte à côte, sans case vide entre eux, en largeur comme en profondeur : ils s\'assemblent en un seul château, toujours plus grand, plus haut et plus beau !'; }
   G.chateauFusion = { build, plan, regroup };
 })();
