@@ -583,7 +583,8 @@
     add(b.done(), CM); add(bs.done(), G.MATS);
     for (const id in texW) add(texW[id].geo(), cutMat(wallTexMat(id)));
     for (const id in flA) add(flA[id].geo(), floorMat(id), false);
-    add(views.t.geo(), viewMat(false), false); add(views.s.geo(), viewMat(true), false); add(mir.geo(), cutMat(mirrorMat()), false);
+    // les vitres : le vrai dehors (photographié autour du château) dès qu'il est prêt, sinon la vue peinte
+    const vT = add(views.t.geo(), outReady(m) ? outMat() : viewMat(false), false), vS = add(views.s.geo(), outReady(m) ? outMat() : viewMat(true), false); add(mir.geo(), cutMat(mirrorMat()), false);
     for (const k in art) add(art[k].geo(), cutMat(artMat(+k)), false);
     add(ceil.geo(), ceilMat(), false);
     m.shell = g; m.group.add(g);
@@ -593,7 +594,7 @@
     // les murs déjà abaissés le restent quand on redessine (retouche du décor depuis le plan)
     const oc = m._pv && m._pv.segs.length === segs.length ? m._pv.cut : null, cut = oc ? oc.slice() : new Float32Array(segs.length), cv = new Uint8Array(segs.length * 4); for (let i = 0; i < segs.length; i++) cv[i * 4] = Math.round(cut[i] * 255);
     const tex = new THREE.DataTexture(cv, segs.length, 1, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true;
-    m._pv = { segs, cut, cv, tex, beams, bm, bt: 0, room: m._pv ? m._pv.room : 0 };
+    m._pv = { segs, cut, cv, tex, beams, bm, bt: 0, room: m._pv ? m._pv.room : 0, views: [vT, vS].filter(Boolean) };
   }
   // ---------- rayons de soleil : prismes de lumière qui partent des fenêtres ----------
   let bMat = null;
@@ -647,6 +648,81 @@
         lab.textContent = '⚜ ' + rm.n + ' ⚜'; lab.style.opacity = '1'; labT = 2.6; } }
     if (lab && labT > 0 && (labT -= dt) <= 0) lab.style.opacity = '0';
   }
+  // =====================================================================
+  // ============ 5. PAR LES FENÊTRES, LE VRAI DEHORS =====================
+  // =====================================================================
+  // Le monde autour du château est photographié tout autour (six vues, comme une caméra à 360° posée au milieu de l'avant-corps, à hauteur
+  // des fenêtres, tournée comme le château) : les vitres montrent le vrai village, les jardins du château, ses ailes, le ciel et le soleil de
+  // l'heure. La photo est refaite toutes les quelques secondes, une vue par image, pour que le jeu reste fluide.
+  const OUT = { rt: null, cam: null, mat: null, map: null, src: null, ready: false, face: 6, t: 0 };
+  const ZM = new THREE.Matrix4().makeScale(0, 0, 0);
+  const outQ = () => { const q = G.settings && G.settings.quality; return q === 'low' ? { s: 192, every: 60 } : q === 'high' ? { s: 384, every: 10 } : { s: 288, every: 20 }; };
+  function outRT() {
+    if (OUT.rt) return OUT.rt; const R = G.renderer, hf = R && R.capabilities && R.capabilities.isWebGL2;
+    OUT.rt = new THREE.WebGLCubeRenderTarget(outQ().s, { type: hf ? THREE.HalfFloatType : THREE.UnsignedByteType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    OUT.rt.texture.mapping = THREE.CubeRefractionMapping; OUT.cam = new THREE.CubeCamera(.3, 900, OUT.rt); return OUT.rt;
+  }
+  // la vitre laisse passer la vue tout droit (réfraction neutre), à peine teintée
+  function outMat() { return OUT.mat || (OUT.mat = cutMat(new THREE.MeshBasicMaterial({ envMap: outRT().texture, refractionRatio: 1, color: 0xf4f8ff, fog: false }))); }
+  function outReady(m) { return OUT.ready && OUT.map === m && !!OUT.src; }
+  // le château dans le monde (ou sur l'île) : sa place, sa hauteur, son orientation, et le milieu de l'avant-corps
+  function outSrc(m) {
+    if (!m || !m.meta || !m.meta.plan || !G.chateauInfo || !G.chateauFusion) return null;
+    for (const w of [G.world, G.island]) { if (!w || !w.list) continue; let o = null; for (const q of w.list) if (q.iid === m.id) { o = q; break; } if (!o) continue;
+      const info = G.chateauInfo(o); if (!info || info.cx == null) return null; let dx = 0, dz = 0;
+      try { const D = G.chateauFusion.layout(0, info.cols, info.rows).C.D; [dx, dz] = G.chateauFusion.toW(info.r, (D.x0 + D.x1) / 2, (D.z0 + D.z1) / 2); } catch (e) { }
+      const x = info.cx + dx, z = info.cz + dz, CL = G.CELL || 8, cw = Math.ceil(w.W / CL), ch = Math.ceil(w.H / CL), V = new Uint8Array(cw * ch);
+      for (let k = 0; k < V.length; k++) V[k] = Math.hypot((k % cw) * CL + CL / 2 - x, Math.floor(k / cw) * CL + CL / 2 - z) < 130 ? 1 : 0; // ce qu'on voit des fenêtres : jusqu'à 130 cases
+      for (const g of w.chunks) if (g) for (const me of g.children) me.frustumCulled = true;
+      return { w, o, x, z, V, y: w.terrainH(x, z) + 2.6, rot: (info.r & 3) * PI / 2 }; }
+    return null;
+  }
+  // photographier le dehors : le monde redevient visible le temps des vues (ciel, nuages, mer, lumière du jour), le château intérieur est caché
+  function outCapture() {
+    const R = G.renderer, sc = G.scene, src = OUT.src, w = src.w, L = G.lights, cam = outRT() && OUT.cam; if (!R || !sc || !L || !cam) return;
+    const P = new THREE.Vector3(src.x, src.y, src.z), cp = G.camera.position, info = G.skyInfo || { h: 12, n: 0, day: true };
+    const vis = sc.children.map(c => c.visible), keep = c => c.isLight || c === w.group || c === G.skyMesh || c === G.stars || c === G.sunMesh || c === G.moonMesh || (G.M.cloud && c.material === G.M.cloud) || (c.userData && c.userData.map === w);
+    const sv = { bg: sc.background, fn: sc.fog.near, ff: sc.fog.far, hemi: L.hemi.intensity, amb: L.amb.intensity, sun: L.sun.intensity, sp: L.sun.position.clone(), st: L.sun.target.position.clone(), room: L.roomLight ? L.roomLight.intensity : 0,
+      lamps: (L.lamps || []).map(l => l.intensity), cl: G.U.cloudAmt ? G.U.cloudAmt.value : 0, glow: G.M.glow ? G.M.glow.color.clone() : null, sky: G.skyMesh && G.skyMesh.position.clone(), stars: G.stars && G.stars.position.clone(),
+      so: G.stars && G.stars.material.opacity, sunP: G.sunMesh && G.sunMesh.position.clone(), sunQ: G.sunMesh && G.sunMesh.quaternion.clone(), moonP: G.moonMesh && G.moonMesh.position.clone(), moonQ: G.moonMesh && G.moonMesh.quaternion.clone(), wv: w.group.visible };
+    try {
+      // tout le monde autour (jusqu'à 170 cases), comme si on était dehors à la place du château
+      // le château lui-même est caché le temps de la photo (sinon on verrait l'envers de ses murs, ses rideaux, ses corniches)
+      const an = src.o._grp && src.o._grp.anchor ? src.o._grp.anchor : src.o; sv.an = an; sv.anA = an._anim; an._anim = ZM; w.objr.refresh(an);
+      const p = G.player, ox = p.x, oz = p.z; w.cullV = src.V; w.cullVer = (w.cullVer || 0) + 1; w.chunks.forEach((g, k) => { if (g) g.visible = Math.hypot((k % w.cw) * 24 + 12 - src.x, Math.floor(k / w.cw) * 24 + 12 - src.z) < 200; });
+      p.x = src.x; p.z = src.z; try { w.objr.cull(src.V, w.cullVer); } finally { p.x = ox; p.z = oz; } // (les objets lointains en version simplifiée, comptés depuis le château)
+      sc.children.forEach(c => { c.visible = keep(c); }); w.group.visible = true;
+      if (G.sunMesh) { G.sunMesh.visible = !!info.day; G.sunMesh.position.copy(sv.sunP).sub(cp).add(P); G.sunMesh.lookAt(P); }
+      if (G.moonMesh) { G.moonMesh.visible = !info.day; G.moonMesh.position.copy(sv.moonP).sub(cp).add(P); G.moonMesh.lookAt(P); }
+      if (G.skyMesh) G.skyMesh.position.copy(P); if (G.stars) { G.stars.position.copy(P); G.stars.material.opacity = (info.n || 0) * .9; }
+      sc.background = null; const vast = w.lazyT && w.lazyT(); sc.fog.near = vast ? 100 : 110; sc.fog.far = vast ? 330 : 420;
+      const [li, hi] = G.skyAt ? G.skyAt(info.h) : [.9, .62], n = info.n || 0; L.hemi.intensity = hi; L.amb.intensity = .1 + n * .08; L.sun.intensity = li;
+      const SDv = sv.sp.clone().sub(sv.st).normalize(); L.sun.position.copy(P).addScaledVector(SDv, 60); L.sun.target.position.copy(P); L.sun.target.updateMatrixWorld();
+      if (L.roomLight) L.roomLight.intensity = 0; for (const l of L.lamps || []) l.intensity = 0; if (G.U.cloudAmt) G.U.cloudAmt.value = .24 * (1 - n);
+      if (G.M.glow) G.M.glow.color.setRGB(G.lerp(.62, 1.08, n), G.lerp(.7, .98, n), .78);
+      cam.position.copy(P); cam.rotation.set(0, src.rot, 0); cam.updateMatrixWorld(true);
+      // les six vues d'un coup, avec les ombres du dehors calculées une seule fois ; vers le ciel et vers le sol, sans les objets
+      R.shadowMap.needsUpdate = true; for (const i of [0, 4, 1, 5, 2, 3]) { const up = i === 2, down = i === 3; w.group.visible = !up; w.objr.group.visible = !down; R.setRenderTarget(OUT.rt, i); R.render(sc, cam.children[i]); }
+      w.group.visible = true; w.objr.group.visible = true;
+    } catch (e) { console.warn('vue du dehors', e); }
+    finally {
+      if (sv.an) { sv.an._anim = sv.anA || null; try { w.objr.refresh(sv.an); } catch (e) { } }
+      R.setRenderTarget(null); R.shadowMap.needsUpdate = true; sc.children.forEach((c, i) => { c.visible = vis[i]; }); w.group.visible = sv.wv;
+      sc.background = sv.bg; sc.fog.near = sv.fn; sc.fog.far = sv.ff; L.hemi.intensity = sv.hemi; L.amb.intensity = sv.amb; L.sun.intensity = sv.sun; L.sun.position.copy(sv.sp); L.sun.target.position.copy(sv.st); L.sun.target.updateMatrixWorld();
+      if (L.roomLight) L.roomLight.intensity = sv.room; (L.lamps || []).forEach((l, i) => { l.intensity = sv.lamps[i]; }); if (G.U.cloudAmt) G.U.cloudAmt.value = sv.cl; if (sv.glow) G.M.glow.color.copy(sv.glow);
+      if (G.skyMesh) G.skyMesh.position.copy(sv.sky); if (G.stars) { G.stars.position.copy(sv.stars); G.stars.material.opacity = sv.so; }
+      if (G.sunMesh) { G.sunMesh.position.copy(sv.sunP); G.sunMesh.quaternion.copy(sv.sunQ); } if (G.moonMesh) { G.moonMesh.position.copy(sv.moonP); G.moonMesh.quaternion.copy(sv.moonQ); }
+    }
+  }
+  // les vitres de l'intérieur passent sur la vraie vue
+  function outApply(m) { const pv = m._pv; if (!pv || !pv.views) return; for (const me of pv.views) me.material = outMat(); }
+  G.on('frame', dt => {
+    const m = G.map; if (!m || !m.interior || !m.meta || !m.meta.plan || !m._pv || G.state === 'editor' || G.state === 'title') return;
+    if (OUT.map !== m) { OUT.map = m; OUT.ready = false; OUT.src = outSrc(m); if (!OUT.src) return; outCapture(); OUT.ready = true; outApply(m); OUT.t = outQ().every; return; }
+    if (OUT.src && (OUT.t -= dt) <= 0) { OUT.t = outQ().every; outCapture(); } // le ciel et la lumière changent avec l'heure
+  });
+  G.on('enterMap', () => { OUT.map = null; OUT.ready = false; });
+  G.chateauOutside = OUT;
   // ---------- branchements ----------
   const obs = G.buildShell; G.buildShell = m => { if (m && m.meta && m.meta.plan) return planShell(m); return obs(m); };
   G.on('update', dt => {
