@@ -118,11 +118,11 @@
     for (const T of C.tw) tower(C, T);
     const n0 = C.b.parts.map(p => p.length); grandDoor(C, D);
     gardens(C); for (let m = 0; m < C.b.parts.length; m++) for (let i = n0[m]; i < C.b.parts[m].length; i++) { const g = C.b.parts[m][i]; if (g.userData.sk === G.SK.gold) g.userData.sk = G.SK.ceramic; }
-    const geo = b.done(); return { geo, mask: mask(C), door: { z: D.z1, hw: Math.max(1.1, .55 * u) }, P: C, fx: { door: C.doorFx, gates: C.gates || [], founts: C.founts || [] } };
+    const geo = b.done(); return { geo, mask: mask(C), door: { z: D.z1, hw: Math.max(1.1, .55 * u), out: C.kind === 'U' ? 1.1 : .42 }, P: C, fx: { door: C.doorFx, gates: C.gates || [], founts: C.founts || [] } };
   }
   // le plan et les fenêtres du rez-de-chaussée, pour dessiner l'intérieur exactement comme l'extérieur
   function layout(st, cols, rows) { const C = ctx(st, cols, rows), wins = []; for (const B of C.B) for (let f = 0; f < 4; f++) for (const w of bays(C, B, f)) wins.push({ B, f, a: w.a, door: w.door, k: w.k });
-    return { C, wins, door: { z: C.D.z1, hw: Math.max(1.1, .55 * C.u) } }; }
+    return { C, wins, door: { z: C.D.z1, hw: Math.max(1.1, .55 * C.u), out: C.kind === 'U' ? 1.1 : .42 } }; }
   // fenêtres classiques ouvragées : clé de voûte à mascaron et impostes au rez-de-chaussée, frontons alternés (triangle, arc) et balcons
   // en fer forgé à l'étage noble, allèges moulurées, crossettes aux étages
   function decoWin(C, B, f, a, y, w, h, fl, k) {
@@ -733,7 +733,7 @@
   const ofront = G.act.front; G.act.front = o => { const g = o && (o._grp || solo(o)); if (!g) return ofront(o); const p = G.player, D = doorG(g), [lx, lz] = toL(g.r, p.x - g.cx, p.z - g.cz); return Math.abs(lx) < D.hw && lz > D.z - .5 && lz < D.z + 2.6; };
   const oenter = G.act.enterHouse; G.act.enterHouse = o => {
     const g = o && (o._grp || solo(o)); if (!g) return oenter(o); const q = g.single ? o : mainOf(g), res = oenter(q), key = q.iid || ('b' + q.t + '_' + q.x + '_' + q.z), v = G.net && G.net.visit;
-    const im = (v && v.interiors && v.interiors[key]) || G.interiors[key]; if (im) { const D = doorG(g), [dx, dz] = toW(g.r, 0, D.z + 1.1); im.meta.door = { x: g.cx + dx, z: g.cz + dz, yaw: g.r * PI / 2 }; im.meta.title = G.chateauName(g.st, g.n); }
+    const im = (v && v.interiors && v.interiors[key]) || G.interiors[key]; if (im) { const D = doorG(g), [dx, dz] = toW(g.r, 0, D.z + (D.out || 1.1)); im.meta.door = { x: g.cx + dx, z: g.cz + dz, yaw: g.r * PI / 2 }; im.meta.title = G.chateauName(g.st, g.n); }
     return res;
   };
   // le château classique seul : même dessin ultra détaillé que les châteaux assemblés
