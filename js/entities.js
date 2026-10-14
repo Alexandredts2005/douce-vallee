@@ -255,7 +255,7 @@
     E.fallDist = near;
     E.fireT -= dt; if (E.fireT < 0) { E.fireT = .12; for (const l of m.lights) { const d = G.OBJ[l.t]; if (!d.fire) continue; const [cx, cz] = m.center(l); if (Math.hypot(cx - p.x, cz - p.z) > 22) continue; const top = l.t === 'torche' ? 1.3 : l.t === 'cheminee' ? .6 : .5;
       G.fx.one(cx + (Math.random() - .5) * .2, l.y + top, cz + (Math.random() - .5) * .2, (Math.random() - .5) * .3, 1.2 + Math.random(), (Math.random() - .5) * .3, .7, -.5, Math.random() < .5 ? 0xffb347 : 0xffe14a, .1, 0);
-      if (Math.random() < .35 && l.t !== 'cheminee') G.fx.one(cx, l.y + top + .4, cz, (Math.random() - .5) * .2, .7, (Math.random() - .5) * .2, 1.6, -.1, 0x9a9a9a, .35, 2); } }
+      if (Math.random() < .35 && !/^cheminee/.test(l.t)) G.fx.one(cx, l.y + top + .4, cz, (Math.random() - .5) * .2, .7, (Math.random() - .5) * .2, 1.6, -.1, 0x9a9a9a, .35, 2); } }
     updCursor(p); G.anim.update(dt); G.fx.update(dt); updPops(dt); G.feat.updFish(dt); if (G.mini) G.mini.update(dt);
   };
 })();

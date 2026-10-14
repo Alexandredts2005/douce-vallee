@@ -8,7 +8,7 @@
 // rayons et de la poussière dorée, longs et chauds au lever et au coucher. Les murs entre la caméra et le joueur s'abaissent (comme dans
 // les Sims) mais gardent leur ombre. Le plan se modifie avec la touche H (chateau_plan.js). =====
 (function () {
-  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 1, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
+  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 2, KS = 3.3, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
   const VOID = 0, WALL = 1, FLOOR = 2, OPEN = 3, DOOR = 4, NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, dz: -1.7 };
   // ---------- décors ----------
@@ -24,8 +24,11 @@
     manger: ['Salle à manger', 'peinture_sauge', 'batons_noyer', 'vert', 'lustre_bougies'], biblio: ['Bibliothèque', 'peinture_empire', 'chevrons_noyer', 'or', 'lustre_lanterne'],
     chambre: ['Chambre du Roi', 'peinture_bleu', 'batons_rompus', 'bleu', 'lustre_murano'], musique: ['Salon de musique', 'peinture_or', 'chevrons_chene', 'rouge', 'lustre_cascade'],
     reine: ['Chambre de la Reine', 'peinture_rose', 'batons_rompus', 'rose', 'lustre_tulipes'], cabinet: ['Cabinet', 'peinture_nuit', 'chevrons_noyer', 'or', 'lustre_globe'],
-    anti: ['Antichambre', 'peinture_lin', 'marbre', 'lin', 'lustre_anneaux'] };
-  const ORDER = ['manger', 'galerie', 'biblio', 'chambre', 'musique', 'reine', 'cabinet', 'anti'];
+    anti: ['Antichambre', 'peinture_lin', 'marbre', 'lin', 'lustre_anneaux'], vestibule: ['Vestibule', 'pierre_taille', 'damier_marbre', 'aucun', 'lustre_lanterne'],
+    bal: ['Salle de bal', 'peinture_or', 'chevrons_chene', 'or', 'lustre_cristal'], chapelle: ['Chapelle', 'pierre_taille', 'dalles_ivoire', 'voile', 'lustre_bougies'],
+    billard: ['Salle de billard', 'peinture_empire', 'chevrons_noyer', 'vert', 'lustre_lanterne'], boudoir: ['Boudoir', 'peinture_rose', 'batons_rompus', 'rose', 'lustre_tulipes'],
+    jeux: ['Salon des jeux', 'peinture_bleu', 'chevrons_chene', 'bleu', 'lustre_globe'], gardes: ['Salle des gardes', 'pierre_taille', 'pierre', 'rouge', 'lustre_anneaux'] };
+  const ORDER = ['manger', 'chambre', 'biblio', 'musique', 'reine', 'cabinet', 'billard', 'boudoir', 'jeux', 'gardes', 'anti'];
   const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
   G.CHPLAN = { PAINTS, FLOORK, CURT, WSTY, OPS, LUS, KIND };
 
@@ -33,29 +36,37 @@
   // ============ 1. LE PLAN : une grille de cases tirée de l'extérieur =====
   // =====================================================================
   function genPlan(info) {
-    const { C, wins } = G.chateauFusion.layout(0, info.cols, info.rows), onW = G.chateauFusion.onW, u = C.u, n = info.cols * info.rows;
+    const { C, wins } = G.chateauFusion.layout(0, info.cols, info.rows), onW = G.chateauFusion.onW, n = info.cols * info.rows;
     let ex0 = Infinity, ex1 = -Infinity, ez0 = Infinity, ez1 = -Infinity; for (const B of C.B) { ex0 = Math.min(ex0, B.x0); ex1 = Math.max(ex1, B.x1); ez0 = Math.min(ez0, B.z0); ez1 = Math.max(ez1, B.z1); }
-    let k = G.clamp(3.3 / u, .9, 3.4); const ar = (ex1 - ex0) * (ez1 - ez0) * k * k; if (ar > 9000) k *= Math.sqrt(9000 / ar); // cases par unité de l'extérieur
+    // la même échelle pour tous les châteaux, seuls ou assemblés : les pièces ont toujours la surface du bâtiment de pierre (sans les jardins ni la cour),
+    // et plus le château est grand, plus il y a de pièces (seuls les palais immenses sont un peu resserrés)
+    let k = KS; const ar = (ex1 - ex0) * (ez1 - ez0) * k * k; if (ar > 26000) k *= Math.sqrt(26000 / ar);
     const bw = Math.ceil((ex1 - ex0) * k), px = Math.max(1, Math.ceil((24 - bw) / 2)), W = bw + 2 * px, H = Math.ceil((ez1 - ez0) * k) + 2, N = W * H;
     const X = x => (x - ex0) * k + px, Z = z => (z - ez0) * k + 1, id = new Int16Array(N).fill(-1), at = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? -1 : id[z * W + x];
-    // une pièce par bloc ; les blocs très longs (galeries) sont coupés en pièces de 18 cases au plus
-    const parts = [];
+    // chaque bloc est découpé en pièces de vraie taille (8 à 13 cases) : l'avant-corps donne le vestibule (devant, derrière la porte) et le grand salon (derrière) ;
+    // les corps épais ont deux enfilades (côté cour, côté jardin) ; une aile longue et étroite reste une galerie
+    const parts = [], cuts = (L, m) => { const c = []; for (let s = 0; s <= m; s++) c.push(Math.round(s * L / m)); return c; }; let gals = 0;
     C.B.forEach((B, bi) => { const x0 = Math.round(X(B.x0)), x1 = Math.round(X(B.x1)), z0 = Math.round(Z(B.z0)), z1 = Math.round(Z(B.z1)), w = x1 - x0, d = z1 - z0; if (w < 1 || d < 1) return;
-      const long = w >= d, Lc = long ? w : d, ns = Math.max(1, Math.round(Lc / 18));
-      for (let s = 0; s < ns; s++) { const a = Math.round(s * Lc / ns), b = Math.round((s + 1) * Lc / ns); parts.push({ bi, k: B.k, x0: long ? x0 + a : x0, x1: long ? x0 + b : x1, z0: long ? z0 : z0 + a, z1: long ? z1 : z0 + b }); } });
+      const push = (a, b, c, e, role) => parts.push({ bi, k: B.k, role, x0: x0 + a, x1: x0 + b, z0: z0 + c, z1: z0 + e });
+      if (B.k === 'centre') { const zs = d >= 14 ? [0, Math.round(d * .56), d] : [0, d], xs = cuts(w, Math.max(1, Math.round(w / 16)));
+        for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) push(xs[i], xs[i + 1], zs[j], zs[j + 1], zs.length > 2 && j === 0 ? 'salon' : 'vest'); return; }
+      const lg = Math.max(w, d), sh = Math.min(w, d), gal = lg / sh >= 2.3 && sh <= 14 && lg >= 20 && gals < 2; if (gal) gals++;
+      const xs = cuts(w, gal && w >= d ? 1 : Math.max(1, Math.round(w / 10.5))), zs = cuts(d, gal && d > w ? 1 : Math.max(1, Math.round(d / 10.5)));
+      for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) push(xs[i], xs[i + 1], zs[j], zs[j + 1], gal ? 'gal' : ''); });
     parts.forEach((P, i) => { for (let z = Math.max(0, P.z0); z < Math.min(H, P.z1); z++) for (let x = Math.max(0, P.x0); x < Math.min(W, P.x1); x++) id[z * W + x] = i; });
-    // une pièce trop étroite (moins de 4 cases de sol) rejoint sa voisine
+    // une pièce trop étroite (moins de 6 cases) rejoint sa voisine
     const rep = parts.map((_, i) => i), find = i => rep[i] === i ? i : (rep[i] = find(rep[i]));
-    parts.forEach((P, i) => { if (Math.min(P.x1 - P.x0, P.z1 - P.z0) >= 6) return; const cnt = new Map();
+    parts.forEach((P, i) => { if (Math.min(P.x1 - P.x0, P.z1 - P.z0) >= 6 || P.role === 'vest' || P.role === 'salon') return; const cnt = new Map();
       for (let z = P.z0; z < P.z1; z++) for (let x = P.x0; x < P.x1; x++) for (const [dx, dz] of NB4) { const q = at(x + dx, z + dz); if (q >= 0 && q !== i) cnt.set(q, (cnt.get(q) || 0) + 1); }
-      let best = -1, bc = 0; for (const [q, c] of cnt) if (c > bc || (c === bc && parts[q].k === 'pav')) { best = q; bc = c; } if (best >= 0) rep[find(i)] = find(best); });
+      let best = -1, bc = 0; for (const [q, c] of cnt) { if (parts[q].role === 'vest') continue; if (c > bc || (c === bc && parts[q].k === 'pav')) { best = q; bc = c; } } if (best >= 0) rep[find(i)] = find(best); });
     for (let i = 0; i < N; i++) if (id[i] >= 0) id[i] = find(id[i]);
     // murs : le tour du château et une cloison (une case d'épaisseur) entre deux pièces
     const T = new Uint8Array(N);
     for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const i = z * W + x, r = id[i]; if (r < 0) continue;
       const ext = at(x - 1, z) < 0 || at(x + 1, z) < 0 || at(x, z - 1) < 0 || at(x, z + 1) < 0, cl = at(x + 1, z) !== r || at(x, z + 1) !== r; T[i] = ext || cl ? WALL : FLOOR; }
-    // numéros de pièces 1..n
-    const num = new Map(), Rg = new Uint8Array(N); for (let i = 0; i < N; i++) if (T[i] === FLOOR) { const r = id[i]; if (!num.has(r)) num.set(r, num.size + 1); Rg[i] = num.get(r); }
+    // numéros de pièces 1..n, et le rôle de chacune (vestibule, salon, galerie)
+    const num = new Map(), Rg = new Uint8Array(N), role = {}; for (let i = 0; i < N; i++) if (T[i] === FLOOR) { const r = id[i]; if (!num.has(r)) num.set(r, num.size + 1); Rg[i] = num.get(r); }
+    parts.forEach((P, i) => { const r = num.get(find(i)); if (!r || !P.role) return; const pr = { vest: 3, salon: 2, gal: 1 }; if (!role[r] || pr[P.role] > pr[role[r]]) role[r] = P.role; });
     const fl = (x, z) => x < 0 || z < 0 || x >= W || z >= H || T[z * W + x] !== FLOOR ? 0 : Rg[z * W + x];
     // une grande arche au milieu de chaque cloison entre deux pièces
     const pairs = new Map(); for (let z = 1; z < H - 1; z++) for (let x = 1; x < W - 1; x++) { if (T[z * W + x] !== WALL) continue; const L = fl(x - 1, z), Rr = fl(x + 1, z), U = fl(x, z - 1), D = fl(x, z + 1);
@@ -74,23 +85,28 @@
     const ww = G.clamp(C.sp * k * .6, 1.2, 1.9), wl = [];
     for (const w of wins) { if (w.door) continue; const B = w.B, p = onW(B.H, w.f, w.a, 0, 0), f = w.f;
       let cx, cz, nx = 0, nz = 0, uu; if (f === 0) { cz = Math.round(Z(B.z1)) - 1; uu = X(p[0]); nz = -1; } else if (f === 1) { cz = Math.round(Z(B.z0)); uu = X(p[0]); nz = 1; } else if (f === 2) { cx = Math.round(X(B.x1)) - 1; uu = Z(p[2]); nx = -1; } else { cx = Math.round(X(B.x0)); uu = Z(p[2]); nx = 1; }
-      // la baie va sur des cases de mur extérieur (dehors d'un côté, la même pièce de l'autre) ; elle se rétrécit un peu si une porte ou une cloison est tout près
       const good = s => { const x = nz ? s : cx, z = nz ? cz : s; if (x < 0 || z < 0 || x >= W || z >= H || T[z * W + x] !== WALL) return 0; const inn = fl(x + nx, z + nz), ox = x - nx, oz = z - nz, out = ox >= 0 && oz >= 0 && ox < W && oz < H ? T[oz * W + ox] : VOID; return inn && out === VOID ? inn : 0; };
       const c0 = Math.floor(uu), room = good(c0); if (!room) continue; let a = c0, b = c0; while (a > 0 && good(a - 1) === room) a--; while (good(b + 1) === room) b++;
       const wfit = Math.min(ww, 2 * (Math.min(uu - a, b + 1 - uu) - .1)); if (wfit < .9) continue;
       wl.push({ x: nz ? c0 : cx, z: nz ? cz : c0, nx, nz, u: uu, w: +wfit.toFixed(3), st: 'cintree', c: '', r: room }); }
-    // les pièces : nom, peinture, sol, rideaux, lustre (le grand salon est derrière la porte)
-    const R = num.size, rooms = []; const box = []; for (let r = 1; r <= R; r++) box[r] = { x0: W, x1: 0, z0: H, z1: 0, a: 0 };
+    // les pièces : le vestibule derrière la porte, le grand salon derrière lui, puis les appartements en enfilade (galeries, salle de bal, chapelle…)
+    const R = num.size, rooms = [], box = []; for (let r = 1; r <= R; r++) box[r] = { x0: W, x1: 0, z0: H, z1: 0, a: 0 };
     for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const r = Rg[z * W + x]; if (!r) continue; const b = box[r]; b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.z0 = Math.min(b.z0, z); b.z1 = Math.max(b.z1, z); b.a++; }
-    const salon = door ? fl(door.x0 + 1, door.z - 1) : 1, sb = box[salon] || box[1], order = []; for (let r = 1; r <= R; r++) if (r !== salon) order.push(r);
-    const cen = r => [(box[r].x0 + box[r].x1) / 2, (box[r].z0 + box[r].z1) / 2]; order.sort((a, b) => { const [ax, az] = cen(a), [bx, bz] = cen(b), [sx, sz] = cen(salon); return Math.hypot(ax - sx, az - sz) - Math.hypot(bx - sx, bz - sz) || ax - bx; });
-    const used = {}, kindOf = {}; kindOf[salon] = 'salon'; let oi = 0;
-    for (const r of order) { const b = box[r], w = b.x1 - b.x0 + 1, d = b.z1 - b.z0 + 1, lg = Math.max(w, d) / Math.min(w, d) >= 2.3 && Math.max(w, d) >= 12;
-      kindOf[r] = lg && !(used.galerie >= 2) ? 'galerie' : ORDER[oi++ % ORDER.length]; if (kindOf[r] === 'galerie' && !lg) kindOf[r] = ORDER[oi++ % ORDER.length]; }
+    const cen = r => [(box[r].x0 + box[r].x1) / 2, (box[r].z0 + box[r].z1) / 2], dist = (a, b) => { const [ax, az] = cen(a), [bx2, bz] = cen(b); return Math.hypot(ax - bx2, az - bz); };
+    let vest = door ? fl(door.x0 + 1, door.z - 1) : 0; if (!vest) for (let r = 1; r <= R; r++) if (role[r] === 'vest') { vest = r; break; } if (!vest) vest = 1;
+    let salon = 0; for (let r = 1; r <= R; r++) if (role[r] === 'salon' && (!salon || dist(r, vest) < dist(salon, vest))) salon = r;
+    const kindOf = {}; kindOf[vest] = salon ? 'vestibule' : 'salon'; if (salon) kindOf[salon] = 'salon';
+    const rest = []; for (let r = 1; r <= R; r++) if (!kindOf[r]) rest.push(r); const ref = salon || vest; rest.sort((a, b) => dist(a, ref) - dist(b, ref) || cen(a)[0] - cen(b)[0]);
+    let ng = 0; for (const r of rest) if (role[r] === 'gal' && ng < 2) { kindOf[r] = 'galerie'; ng++; }
+    if (rest.length >= 5) { let big = 0; for (const r of rest) if (!kindOf[r] && box[r].a >= 120 && (!big || box[r].a > box[big].a)) big = r; if (big) kindOf[big] = 'bal'; }
+    if (rest.length >= 6) { let far = 0; for (const r of rest) if (!kindOf[r] && box[r].a >= 40 && box[r].a <= 170 && (!far || dist(r, ref) > dist(far, ref))) far = r; if (far) kindOf[far] = 'chapelle'; }
+    let oi = 0; for (const r of rest) if (!kindOf[r]) kindOf[r] = ORDER[oi++ % ORDER.length];
+    const used = {};
     for (let r = 1; r <= R; r++) { const kd = kindOf[r] || 'anti', K = KIND[kd], c = used[kd] = (used[kd] || 0) + 1, b = box[r];
       rooms.push({ id: r, k: kd, n: K[0] + (c > 1 ? ROMAN[c - 1] || ' ' + c : ''), wall: K[1], floor: K[2], curt: K[3], lus: K[4], app: 1, x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1 }); }
     for (const w of wl) w.c = ''; // rideaux : ceux de la pièce
-    return { v: VER, sig: planSig(info), W, H, k, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
+    const court = C.court ? [X(C.court[0]), Z(C.court[1]), X(C.court[2]), Z(C.court[3])].map(v => +v.toFixed(2)) : null;
+    return { v: VER, sig: planSig(info), W, H, k, px, court, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
   }
   const planSig = info => '0|' + info.cols + '|' + info.rows;
   G.genChateauPlan = genPlan;
@@ -122,7 +138,8 @@
     m.surf.fill(6); Object.assign(m.meta, { shell: { kind: 'maison' }, stage: G.HOME_STAGES.length, plan: pl, noExit: 1, ceilH: pl.CH, sunny: 1, bright: 1, cam: Object.assign({}, CAM) });
     if (old) for (const k of ['door', 'title', 'fromId']) if (old.meta[k] != null) m.meta[k] = old.meta[k];
     if (pl.door) m.addObj('paillasson', pl.door.x0 + 1, pl.door.z - 1);
-    if (old) for (const q of old.list) { if (q.t === 'paillasson' || !O[q.t]) continue; const ex = {}; for (const k of KEEP) if (q[k] != null) ex[k] = q[k]; if (!relocate(m, q.t, q.x, q.z, q.r || 0, ex)) stash(q.t); }
+    const op = old && old.meta.plan, ok2 = op && op.k ? op.k : pl.k, sc = pl.k / ok2, opx = op ? (op.px != null ? op.px : op.W > 25 ? 1 : Math.max(1, Math.round((op.W - (pl.W - 2 * pl.px) / pl.k * ok2) / 2))) : pl.px;
+    if (old) for (const q of old.list) { if (q.t === 'paillasson' || !O[q.t]) continue; const ex = {}; for (const k of KEEP) if (q[k] != null) ex[k] = q[k]; const nx = op ? Math.round((q.x - opx) * sc + pl.px) : q.x, nz = op ? Math.round((q.z - 1) * sc + 1) : q.z; if (!relocate(m, q.t, nx, nz, q.r || 0, ex)) stash(q.t); }
     lustres(m); furnish(m);
     G.buildShell(m); m.buildAll(); return m;
   }
@@ -146,12 +163,13 @@
         for (const [ox, oz] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) { const xx = x + ox, zz = z + oz, j = zz * W + xx; if (T[j] === FLOOR && R[j] === rm.id && m.canPlace(rm.lus, xx, zz)) { if (take && !take(rm.lus)) stop = true; else m.addObj(rm.lus, xx, zz); break; } }
         if (stop) break; } }
   }
-  // ---------- ameublement de départ, selon la pièce ----------
-  function furnish(m, onlyRoom) {
+  // ---------- ameublement de départ, selon la pièce (comme dans un vrai château : cheminée sur le mur plein, consoles entre les fenêtres, symétrie) ----------
+  function furnish(m, onlyRoom) { const sv = G._deckY; G._deckY = 0; try { furnish0(m, onlyRoom); } finally { G._deckY = sv; } } // les meubles se posent aussi sur les tapis
+  function furnish0(m, onlyRoom) {
     const pd = planData(m), { W, H, T, R, pl } = pd, ti = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? VOID : T[z * W + x];
     const keep = new Uint8Array(W * H); // garder libres les passages : devant les arches, les portes et la porte d'entrée
-    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const t = T[z * W + x]; if (t !== OPEN && t !== DOOR) continue; for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) keep[zz * W + xx] = 1; } }
-    const winAt = new Set(); for (const w of pl.wins) for (let s = Math.floor(w.u - w.w / 2); s <= Math.floor(w.u + w.w / 2); s++) winAt.add(w.nz ? s + ',' + (w.z + w.nz) : (w.x + w.nx) + ',' + s);
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const t = T[z * W + x]; if (t !== OPEN && t !== DOOR) continue; const kr = t === DOOR ? 2 : 1; for (let dz = -kr; dz <= kr; dz++) for (let dx = -kr; dx <= kr; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) keep[zz * W + xx] = 1; } }
+    const winAt = new Set(); for (const w of pl.wins) for (let s = Math.floor(w.u - w.w / 2 - .55); s <= Math.floor(w.u + w.w / 2 + .55); s++) winAt.add(w.nz ? s + ',' + (w.z + w.nz) : (w.x + w.nx) + ',' + s);
     for (const rm of pl.rooms) { if (onlyRoom && rm.id !== onlyRoom) continue;
       let busy = false; for (const o of m.list) if (!O[o.t].ceil && o.t !== 'paillasson' && R[o.z * W + o.x] === rm.id) { busy = true; break; } if (busy) continue;
       const inRoom = (x, z) => x >= 0 && z >= 0 && x < W && z < H && T[z * W + x] === FLOOR && R[z * W + x] === rm.id;
@@ -159,24 +177,48 @@
         for (let zz = z; zz < z + dd; zz++) for (let xx = x; xx < x + w; xx++) if (!inRoom(xx, zz) || keep[zz * W + xx] || (tall && winAt.has(xx + ',' + zz))) return false;
         if (!m.canPlace(t, x, z, r)) return false; m.addObj(t, x, z, r); return true; };
       const x0 = rm.x0, x1 = rm.x1, z0 = rm.z0, z1 = rm.z1, cx = Math.floor((x0 + x1) / 2), cz = Math.floor((z0 + z1) / 2), w = x1 - x0 + 1, d = z1 - z0 + 1, long = w >= d;
-      const along = (fn, step = 1) => { if (long) for (let x = x0; x <= x1; x += step) fn(x, null); else for (let z = z0; z <= z1; z += step) fn(null, z); };
-      const wallLine = (side, t, step, tall) => { for (let i = 0; ; i += step) { let x, z, r; if (side === 'n') { x = x0 + i; z = z0; r = 0; } else if (side === 's') { x = x0 + i; z = z1; r = 2; } else if (side === 'w') { x = x0; z = z0 + i; r = 1; } else { x = x1; z = z0 + i; r = 3; }
-          if (x > x1 || z > z1) break; if (ti(x + (side === 'w' ? -1 : side === 'e' ? 1 : 0), z + (side === 'n' ? -1 : side === 's' ? 1 : 0)) !== WALL) continue; P(t, x, z, r, tall); } };
-      const corners = t => { P(t, x0, z0); P(t, x1, z0); P(t, x0, z1); P(t, x1, z1); };
+      // contre un mur plein : dos au mur, la place libre la plus proche de « pos » le long du côté (0 = début, 1 = fin)
+      const atWall = (t, s, pos = .5, tall = false) => { const d0 = O[t]; if (!d0) return false; const r = { n: 0, s: 2, w: 1, e: 3 }[s], [fw, fd] = G.fpDims(d0, r), along = s === 'n' || s === 's', span = along ? fw : fd, L = along ? w : d;
+        const cand = []; for (let i = 0; i + span <= L; i++) cand.push(i); cand.sort((a, b) => Math.abs(a + span / 2 - L * pos) - Math.abs(b + span / 2 - L * pos));
+        for (const i of cand) { const x = s === 'e' ? x1 - fw + 1 : along ? x0 + i : x0, z = s === 's' ? z1 - fd + 1 : along ? z0 : z0 + i; let ok = true;
+          for (let j = 0; j < span && ok; j++) { const bx2 = along ? x + j : (s === 'w' ? x - 1 : x1 + 1), bz = along ? (s === 'n' ? z - 1 : z1 + 1) : z + j; if (ti(bx2, bz) !== WALL || winAt.has((along ? bx2 : (s === 'w' ? x : x1)) + ',' + (along ? (s === 'n' ? z : z1) : bz)) && tall) ok = false; }
+          if (ok && P(t, x, z, r, tall)) return true; } return false; };
+      const corners = (t, inset = 0) => { P(t, x0 + inset, z0 + inset); P(t, x1 - inset, z0 + inset); P(t, x0 + inset, z1 - inset); P(t, x1 - inset, z1 - inset); };
+      const pairWall = (t, s, tall) => { atWall(t, s, .22, tall); atWall(t, s, .78, tall); };
+      const group = (gx, gz) => { P('tapis_savonnerie', gx - 1, gz - 1) || P('tapis', gx - 1, gz); P('gueridon', gx, gz - 1) || P('table_basse', gx, gz - 1); P('fauteuil_louis', gx - 2, gz - 1, 1); P('fauteuil_louis', gx + 1, gz - 1, 3); P('canape_velours', gx - 1, gz + 1, 2); };
+      const fire = (s = 'n') => atWall('cheminee_marbre', s, .5, true) || atWall('cheminee_marbre', s === 'n' ? 's' : 'n', .5, true) || atWall('cheminee_marbre', s === 'w' ? 'e' : 'w', .5, true) || atWall('cheminee_marbre', s === 'e' ? 'w' : 'e', .5, true);
       switch (rm.k) {
-        case 'salon': P('trone', cx, z0, 0); P('tapis', cx - 1, cz); P('canape_velours', cx - 1, cz - 2, 0); P('canape_velours', cx - 1, cz + 2, 2); P('table_marbre', cx, cz + 1); P('chaise_bergere', cx - 3, cz, 1); P('chaise_bergere', cx + 2, cz, 3);
-          P('statue', x0 + 1, z0 + 1); P('statue', x1 - 1, z0 + 1); corners('pl_10'); P('horloge', x1, cz, 3); break;
-        case 'galerie': along((x, z) => { if (x != null && (x - x0) % 5 === 2) { P('banc_coussins', x, cz, 0); P('statue', x, z0 + 1); } if (z != null && (z - z0) % 5 === 2) { P('banc_coussins', cx, z, 1); P('statue', x0 + 1, z); } }); corners('pl_2'); break;
+        case 'vestibule': atWall('console_doree', 'n', .5, true) || atWall('console_doree', 'w', .5, true); P('statue_antique', x0, z0) || P('statue_antique', x0 + 1, z0 + 1); P('statue_antique', x1, z0) || P('statue_antique', x1 - 1, z0 + 1);
+          for (const s of ['w', 'e']) { atWall('buste', s, .25, true); atWall('buste', s, .75, true); atWall('banc_coussins', s, .5); }
+          P('gueridon', cx, cz) || P('gueridon', cx, cz - 1); corners('vase_chine'); P('torchere', x0 + 1, z1 - 1); P('torchere', x1 - 1, z1 - 1); break;
+        case 'salon': fire('n'); group(cx, cz + 1); pairWall('console_doree', 'w', true); pairWall('console_doree', 'e', true); corners('torchere');
+          P('harpe', x0 + 1, z1 - 1); P('statue_antique', x1 - 1, z1 - 1); if (pl.n >= 4) atWall('trone', 's', .5); corners('vase_chine', 1); break;
+        case 'galerie': { const L = long ? w : d; for (let i = 2, k = 0; i < L - 2; i += 3, k++) { const a = (long ? x0 : z0) + i;
+            for (const s of long ? ['n', 's'] : ['w', 'e']) { const t = k % 2 ? 'buste' : 'statue_antique', x = long ? a : (s === 'w' ? x0 : x1), z = long ? (s === 'n' ? z0 : z1) : a; P(t, x, z, 0, true); }
+            if (k % 2 === 0) P('banc_coussins', long ? a - 1 : cx, long ? cz : a, long ? 0 : 1); else P('vase_chine', long ? a : cx, long ? cz : a); }
+          corners('torchere'); break; }
+        case 'bal': for (const s of ['n', 's', 'w', 'e']) for (const p of [.15, .3, .7, .85]) atWall('chaise_louis', s, p); pairWall('console_doree', 'w', true); pairWall('console_doree', 'e', true);
+          corners('torchere'); P('harpe', x0 + 2, z0 + 2); P('clavecin', x0 + 3, z0 + 1); P('chaise_louis', x0 + 3, z0 + 2, 2); fire('n'); break;
         case 'manger': { const n = G.clamp((long ? w : d) - 6, 2, 9), s0 = (long ? cx : cz) - Math.floor(n / 2);
           for (let i = 0; i < n; i++) { const x = long ? s0 + i : cx, z = long ? cz : s0 + i; if (P('table_noyer', x, z)) { if (long) { P('chaise_louis', x, z - 1, 0); P('chaise_louis', x, z + 1, 2); } else { P('chaise_louis', x - 1, z, 1); P('chaise_louis', x + 1, z, 3); } } }
+          P('fauteuil_louis', long ? s0 - 1 : cx, long ? cz : s0 - 1, long ? 1 : 0); P('fauteuil_louis', long ? s0 + n : cx, long ? cz : s0 + n, long ? 3 : 2);
           const tb = m.objAt(long ? s0 : cx, long ? cz : s0); if (tb && tb.t === 'table_noyer' && G.mergeFurniture) { const sv = G.ui.toast, sf = G.sfx; G.ui.toast = () => { }; G.sfx = () => { }; try { G.mergeFurniture(m, tb); } finally { G.ui.toast = sv; G.sfx = sf; } }
-          P('cheminee', cx - 1, z0, 0) || P('cheminee', x0, cz, 1); corners('pl_1'); P('horloge', x1, z0 + 1, 3); break; }
-        case 'biblio': wallLine('n', 'bibliotheque', 1, true); wallLine('w', 'bibliotheque', 2, true); wallLine('e', 'bibliotheque', 2, true); P('bureau_ecritoire', cx - 1, cz, 0); P('chaise_club', cx, cz - 1, 2); P('chaise_club', cx - 2, cz + 2, 1); P('table_basse', cx - 1, cz + 2); P('lampe_arc', x1 - 1, z1 - 1); break;
-        case 'chambre': case 'reine': if (!P('lit_fleuri', cx - 1, z0, 0)) P('lit', cx, z0, 0); P('commode_fleurie', cx - 2, z0, 0); P('commode_fleurie', cx + 1, z0, 0); P('tapis', cx - 1, z0 + 3); P('armoire', x0, cz, 1, true); P('miroir', x1, cz, 3, true);
-          P('chaise_bergere', cx - 2, z1 - 1, 0); P('chaise_bergere', cx + 1, z1 - 1, 0); P('table_basse', cx - 1, z1 - 1); P('lampe', x0, z0); P('paravent', x1 - 1, z1, 2); P(rm.k === 'reine' ? 'pl_12' : 'pl_13', x1, z0); break;
-        case 'musique': P('piano_droit', cx - 1, z0, 0); for (const [dx, dz] of [[-2, 3], [-1, 3], [1, 3], [2, 3]]) P('chaise_louis', cx + dx, z0 + dz, 2); P('canape_velours', cx - 1, z1, 2); P('pl_10', x0, z0); P('pl_10', x1, z0); P('lampe_arc', x1, z1); break;
-        case 'cabinet': P('bureau', cx - 1, cz, 0); P('chaise_velours', cx, cz - 1, 2); wallLine('n', 'bibliotheque', 2, true); P('boule_cristal', x0, z1); P('horloge', x1, cz, 3); P('chaise_club', x0, cz, 1); break;
-        default: P('banc_coussins', cx - 1, z0, 0); P('banc_coussins', cx - 1, z1, 2); P('statue', cx, cz); corners('pot_fleurs'); break;
+          fire(long ? 'n' : 'w'); atWall('console_doree', long ? 's' : 'e', .5, true); corners('torchere'); corners('vase_chine', 1); break; }
+        case 'biblio': P('tapis_savonnerie', cx - 2, cz + 1); for (const s of ['n', 'w', 'e']) for (let p = .1; p < .95; p += .14) atWall('bibliotheque', s, p, true); P('bureau_ecritoire', cx - 1, cz, 0); P('fauteuil_louis', cx, cz - 1, 2);
+          P('globe_terrestre', x1 - 1, z1 - 1); P('buste', x0 + 1, z1 - 1); P('fauteuil_louis', cx - 2, cz + 2, 1); P('gueridon', cx - 1, cz + 2); P('fauteuil_louis', cx, cz + 2, 3); break;
+        case 'chambre': case 'reine': atWall('lit_baldaquin', 'n', .5, true) || atWall('lit_baldaquin', 'w', .5, true) || atWall('lit_baldaquin', 'e', .5, true) || atWall('lit_baldaquin', 's', .5, true) || atWall('lit_baldaquin', 'n', .5);
+          atWall('commode_fleurie', 'n', .15); atWall('commode_fleurie', 'n', .85); fire('w') ; atWall('console_doree', 'e', .5, true); atWall('armoire', 's', .2, true);
+          group(cx, z1 - 2); P('paravent', x1 - 1, z1, 2); P(rm.k === 'reine' ? 'harpe' : 'globe_terrestre', x0 + 1, z1 - 1); P('vase_chine', x1, z0 + 2); break;
+        case 'musique': atWall('clavecin', 'n', .35) || P('clavecin', cx - 1, z0 + 1); P('harpe', cx + 1, z0 + 1); atWall('piano_droit', 'w', .5, true);
+          for (const [dx, dz] of [[-2, 3], [-1, 3], [1, 3], [2, 3], [-1, 4], [1, 4]]) P('chaise_louis', cx + dx, z0 + dz, 2); atWall('canape_velours', 's', .5); corners('torchere'); atWall('buste', 'e', .5, true); break;
+        case 'cabinet': P('bureau', cx - 1, cz, 0); P('fauteuil_louis', cx, cz - 1, 2); pairWall('bibliotheque', 'n', true); fire('w'); P('globe_terrestre', x1 - 1, z1 - 1); P('buste', x1 - 1, z0 + 1); P('chaise_club', x0 + 1, z1 - 1); break;
+        case 'chapelle': atWall('autel', 'n', .5, true) || atWall('autel', 'w', .5, true) || atWall('autel', 'e', .5, true) || atWall('autel', 's', .5, true); for (let z = z0 + 3, k = 0; z < z1 - 1 && k < 8; z += 2, k++) { P('banc_coussins', cx - 2, z, 0); P('banc_coussins', cx + 1, z, 0); }
+          P('torchere', cx - 2, z0 + 1); P('torchere', cx + 2, z0 + 1); P('statue_antique', x0 + 1, z0 + 1); P('statue_antique', x1 - 1, z0 + 1); corners('vase_chine', 0); break;
+        case 'billard': P('billard', cx - 1, cz - 1) || P('billard', cx - 1, cz - 1, 1); pairWall('chaise_club', 'w'); pairWall('chaise_club', 'e'); fire('n'); corners('torchere'); P('globe_terrestre', x1 - 1, z1 - 1); break;
+        case 'boudoir': group(cx, cz); P('paravent', x0 + 1, z0, 0); P('harpe', x1 - 1, z0 + 1); fire('w'); atWall('commode_fleurie', 'e', .5); P('vase_chine', x1, z1); break;
+        case 'jeux': for (const [gx, gz] of [[cx - 2, cz], [cx + 2, cz]]) { if (P('gueridon', gx, gz)) { P('fauteuil_louis', gx - 1, gz, 1); P('fauteuil_louis', gx + 1, gz, 3); P('chaise_louis', gx, gz + 1, 2); } } fire('n'); atWall('console_doree', 's', .5, true); corners('torchere'); break;
+        case 'gardes': for (const s of ['w', 'e']) for (const p of [.2, .5, .8]) atWall(p === .5 ? 'banc_coussins' : 'armure', s, p, true); fire('n'); corners('torchere'); P('coffre', x1 - 1, z1 - 1); break;
+        default: pairWall('banc_coussins', 'w'); pairWall('banc_coussins', 'e'); atWall('console_doree', 'n', .5, true); P('buste', cx, cz) || P('statue_antique', cx, cz); corners('vase_chine'); break;
       }
     }
   }
@@ -234,6 +276,17 @@
     for (let i = 0; i < 7; i++) { const px = 16 + r() * 224, py = 128 + r() * 40; x.fillStyle = '#3f5a32'; x.beginPath(); x.ellipse(px, py, 10, 16, 0, 0, TAU); x.fill(); x.fillStyle = '#5a3a22'; x.fillRect(px - 1.5, py + 12, 3, 8); }
     x.globalAlpha = .08; for (let i = 0; i < 900; i++) { x.fillStyle = r() < .5 ? '#000' : '#fff'; x.fillRect(r() * 256, r() * 200, 2, 1); } x.globalAlpha = 1;
     const tx = new THREE.CanvasTexture(c); tx.anisotropy = 4; return arts[k] = G.premiumMat({ map: tx }, { cloud: false, rough: .55 }); }
+  // plafond peint : ciel d'apothéose, nuées, figures drapées, putti, gloire dorée, cadre en trompe-l'œil
+  let ceilM = null; function ceilMat() { if (ceilM) return ceilM; const c = G.cv(512, 512), x = c.getContext('2d'), r = G.rng(911);
+    const g = x.createRadialGradient(256, 256, 30, 256, 256, 360); g.addColorStop(0, '#fff6d8'); g.addColorStop(.35, '#cfe3f4'); g.addColorStop(.8, '#8fb3d9'); g.addColorStop(1, '#e8c98a'); x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 80; i++) { const a = r() * TAU, d = 110 + r() * 150, px = 256 + Math.cos(a) * d, py = 256 + Math.sin(a) * d, rr = 18 + r() * 36, cg = x.createRadialGradient(px, py - rr * .3, 2, px, py, rr); cg.addColorStop(0, 'rgba(255,252,244,.95)'); cg.addColorStop(1, 'rgba(240,226,206,0)'); x.fillStyle = cg; x.beginPath(); x.arc(px, py, rr, 0, TAU); x.fill(); }
+    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU + r() * .3, d = 150 + r() * 40; x.save(); x.translate(256 + Math.cos(a) * d, 256 + Math.sin(a) * d); x.rotate(a + PI / 2);
+      x.fillStyle = ['#c0392b', '#2f5fa8', '#d9a84a', '#7a3d8a', '#3f8a5a'][i % 5]; x.beginPath(); x.ellipse(0, 6, 11, 21, .3, 0, TAU); x.fill(); x.fillStyle = '#f2cfae'; x.beginPath(); x.arc(0, -16, 7, 0, TAU); x.fill(); x.fillRect(-15, -7, 30, 4); x.restore(); }
+    for (let i = 0; i < 7; i++) { const a = r() * TAU, d = 70 + r() * 60, px = 256 + Math.cos(a) * d, py = 256 + Math.sin(a) * d; x.fillStyle = '#f4d3b5'; x.beginPath(); x.arc(px, py, 7, 0, TAU); x.arc(px + 5, py - 9, 5, 0, TAU); x.fill(); x.fillStyle = 'rgba(255,255,255,.9)'; x.beginPath(); x.ellipse(px - 8, py - 4, 7, 3, -.6, 0, TAU); x.ellipse(px + 8, py - 4, 7, 3, .6, 0, TAU); x.fill(); }
+    const gg = x.createRadialGradient(256, 256, 0, 256, 256, 72); gg.addColorStop(0, 'rgba(255,240,180,1)'); gg.addColorStop(1, 'rgba(255,230,150,0)'); x.fillStyle = gg; x.beginPath(); x.arc(256, 256, 72, 0, TAU); x.fill();
+    x.strokeStyle = 'rgba(255,225,140,.5)'; x.lineWidth = 3; for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; x.beginPath(); x.moveTo(256 + Math.cos(a) * 30, 256 + Math.sin(a) * 30); x.lineTo(256 + Math.cos(a) * 96, 256 + Math.sin(a) * 96); x.stroke(); }
+    x.strokeStyle = '#c9a23a'; x.lineWidth = 14; x.strokeRect(7, 7, 498, 498); x.strokeStyle = '#8a6a2a'; x.lineWidth = 3; x.strokeRect(18, 18, 476, 476);
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return ceilM = G.premiumMat({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: .42 }, { cloud: false, rough: .7 }); }
   // constructeur de modèle qui marque chaque pièce avec son segment de mur
   // boîte unité (36 sommets, bon sens des faces) pour la voie rapide
   let UB = null; const unitBox = () => UB || (UB = (() => { const g = new THREE.BoxGeometry(1, 1, 1).toNonIndexed(); return { p: g.attributes.position.array, n: g.attributes.normal.array }; })());
@@ -298,9 +351,9 @@
     if (m.shell) { m.group.remove(m.shell); m.shell.traverse(c => c.geometry && c.geometry.dispose()); } if (m._pv && m._pv.tex) m._pv.tex.dispose();
     delete m._cx; delete m._fw; delete m._gl; m._pd = null; const pd = planData(m), { W, H, T, R, CH, pl } = pd, sk = SK(), n = pl.n || 1;
     let edges = 0; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR) { const x = i % W, z = (i - x) / W; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && T[zz * W + xx] !== FLOOR) edges++; } }
-    const rich = edges < 420; // petits châteaux : denticules, filets dorés partout
+    const rich = edges < 1700; // denticules, filets dorés partout (sauf dans les palais immenses)
     const ti = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? VOID : T[z * W + x], isF = (x, z) => ti(x, z) === FLOOR, solid = t => t === WALL || t === OPEN || t === DOOR;
-    const g = new THREE.Group(), b = new CB(990), bs = new CB(991), texW = {}, flA = {}, views = { t: new Acc(), s: new Acc() }, mir = new Acc(), art = {};
+    const g = new THREE.Group(), b = new CB(990), bs = new CB(991), texW = {}, flA = {}, views = { t: new Acc(), s: new Acc() }, mir = new Acc(), art = {}, ceil = new Acc();
     const roomOf = r => pd.room(r);
     // ----- segments de mur (ce qui s'abaisse ensemble) -----
     const hs = new Int32Array(W * H).fill(-1), vs = new Int32Array(W * H).fill(-1), segs = [null];
@@ -475,8 +528,45 @@
     // rosaces du plafond au-dessus des lustres : tournées vers le bas seulement (vues d'en haut, quand le plafond s'efface, elles disparaissent aussi)
     for (const o of m.list) if (O[o.t].ceil) { const x = o.x + .5, z = o.z + .5; bs.S(sk.paint); bs.add(new THREE.CircleGeometry(.58, 28), 0xfbf8f1, bs.M(x, CH - .015, z, PI / 2, 0, 0)); bs.S(sk.gold);
       bs.add(new THREE.RingGeometry(.46, .53, 28), GOLD, bs.M(x, CH - .022, z, PI / 2, 0, 0)); bs.add(new THREE.RingGeometry(.2, .24, 20), GOLD, bs.M(x, CH - .024, z, PI / 2, 0, 0)); bs.add(new THREE.CircleGeometry(.08, 12), GOLD, bs.M(x, CH - .026, z, PI / 2, 0, 0)); bs.S(null); }
-    // sol du dehors (cour, jardin) sous le château
-    bs.S(sk.stone); bx(bs, W + 6, .04, H + 6, 0x8c8371, W / 2, -.04, H / 2); bs.S(null);
+    // dehors (la cour d'honneur et les jardins, vus des fenêtres et d'en haut) : gazon tondu à bandes, allées de gravier le long des façades,
+    // et dans chaque cour fermée, un bassin à vasque au milieu d'une croisée d'allées
+    bs.P(G.PAT.gazon); bx(bs, W + 8, .04, H + 8, 0x6ea946, W / 2, -.03, H / 2); bs.P(0);
+    { const dW = new Uint8Array(W * H).fill(9), q = []; for (let i = 0; i < W * H; i++) if (solid(T[i])) { dW[i] = 0; q.push(i); }
+      for (let h = 0; h < q.length; h++) { const i = q[h], x = i % W, z = (i - x) / W; if (dW[i] >= 2) continue; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === VOID && dW[j] > dW[i] + 1) { dW[j] = dW[i] + 1; q.push(j); } } }
+      bs.P(G.PAT.gravier); for (let z = 0; z < H; z++) { let x = 0; while (x < W) { const i = z * W + x; if (T[i] !== VOID || dW[i] > 2) { x++; continue; } let x2 = x; while (x2 + 1 < W && T[z * W + x2 + 1] === VOID && dW[z * W + x2 + 1] <= 2) x2++; bx(bs, x2 - x + 1, .03, 1, 0xdccdab, (x + x2 + 1) / 2, 0, z + .5); x = x2 + 1; } } bs.P(0);
+      // la cour d'honneur (ou une cour fermée) : croisée d'allées, quatre parterres de buis à broderies, ifs taillés, et la grande fontaine au milieu
+      const courtGarden = (a0, c0, a1, c1) => { const cw = a1 - a0, cd = c1 - c0, ccx = (a0 + a1) / 2, ccz = (c0 + c1) / 2; if (cw < 6 || cd < 6) return; const Rb = G.clamp(Math.min(cw, cd) * .15, 1.2, 4.5), aw = G.clamp(cw * .14, 1.6, 3.2);
+        bs.P(G.PAT.gravier); bx(bs, cw, .03, cd, 0xdccdab, ccx, .002, ccz); bs.P(0);
+        for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const xa = sx < 0 ? a0 + 1 : ccx + aw / 2, xb2 = sx < 0 ? ccx - aw / 2 : a1 - 1, za = sz < 0 ? c0 + 1 : ccz + aw / 2, zb = sz < 0 ? ccz - aw / 2 : c1 - 1; if (xb2 - xa < 2 || zb - za < 2) continue;
+          // pelouse ou broderie (brique pilée), cadre de buis, ifs en cône aux angles, médaillon
+          const brod = (sx + sz) % 4 === 0; bs.P(brod ? G.PAT.gravier : G.PAT.gazon); bx(bs, xb2 - xa, .06, zb - za, brod ? 0xb35f45 : 0x7cbc50, (xa + xb2) / 2, .01, (za + zb) / 2); bs.P(0);
+          bs.P(G.PAT.buis); for (const [ww, dd, x, z] of [[xb2 - xa, .35, (xa + xb2) / 2, za + .17], [xb2 - xa, .35, (xa + xb2) / 2, zb - .17], [.35, zb - za, xa + .17, (za + zb) / 2], [.35, zb - za, xb2 - .17, (za + zb) / 2]]) bx(bs, ww, .55, dd, 0x3d6e31, x, .27, z);
+          if (brod) { const mx = (xa + xb2) / 2, mz = (za + zb) / 2, rr = Math.min(xb2 - xa, zb - za) * .28; for (const r2 of [rr, rr * .55]) bs.add(new THREE.TorusGeometry(r2, .12, 4, 28), 0x3d6e31, bs.M(mx, .1, mz, PI / 2, 0, 0, 1, 1, 1.6));
+            for (const [qx, qz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) bs.add(new THREE.TorusGeometry(rr * .55, .1, 4, 18, PI * 1.4), 0x3d6e31, bs.M(mx + qx * (xb2 - xa) * .3, .1, mz + qz * (zb - za) * .3, PI / 2, 0, Math.atan2(qz, qx) + PI * .3, 1, 1, 1.6)); }
+          else { const mx = (xa + xb2) / 2, mz = (za + zb) / 2; bs.add(new THREE.IcosahedronGeometry(.6, 1), 0x2b5a2a, bs.M(mx, .6, mz)); }
+          bs.P(0); for (const [x, z] of [[xa + .6, za + .6], [xb2 - .6, za + .6], [xa + .6, zb - .6], [xb2 - .6, zb - .6]]) { bs.P(G.PAT.buis); bs.add(new THREE.ConeGeometry(.5, 2.1, 12), 0x2b5a2a, bs.M(x, 1.05, z)); bs.P(0); } }
+        // la fontaine : bassin mouluré, vasque, jet et nappes d'eau
+        bs.S(sk.stone); bs.add(new THREE.CylinderGeometry(Rb + .35, Rb + .45, 1.1, 48), 0xece5d5, bs.M(ccx, .55, ccz)); bs.S(null); bs.add(new THREE.CylinderGeometry(Rb, Rb, .02, 48), 0x7cc6de, bs.M(ccx, 1.0, ccz), 2);
+        bs.S(sk.stone); bs.add(new THREE.CylinderGeometry(.4, .6, 2.4, 12), 0xece5d5, bs.M(ccx, 1.7, ccz)); bs.add(new THREE.CylinderGeometry(Rb * .48, .35, .5, 28), 0xece5d5, bs.M(ccx, 3.1, ccz)); bs.add(new THREE.CylinderGeometry(.2, .3, 1.2, 10), 0xece5d5, bs.M(ccx, 3.9, ccz)); bs.add(new THREE.CylinderGeometry(Rb * .25, .15, .3, 20), 0xece5d5, bs.M(ccx, 4.6, ccz)); bs.S(null);
+        bs.add(new THREE.CylinderGeometry(Rb * .43, Rb * .43, .02, 28), 0x7cc6de, bs.M(ccx, 3.33, ccz), 2); bs.add(new THREE.CylinderGeometry(Rb * .47, Rb * .66, 2.3, 28, 1, true), 0xe2f4fa, bs.M(ccx, 2.18, ccz), 2);
+        bs.add(new THREE.CylinderGeometry(Rb * .26, Rb * .36, 1.4, 20, 1, true), 0xe2f4fa, bs.M(ccx, 4.05, ccz), 2); bs.add(new THREE.CylinderGeometry(.07, .14, 2.2, 8, 1, true), 0xeef8fc, bs.M(ccx, 5.85, ccz), 2);
+        bs.S(sk.gold); bs.add(new THREE.SphereGeometry(.22, 12, 10), GOLD, bs.M(ccx, 4.82, ccz)); bs.S(null); };
+      if (pl.court) courtGarden(...pl.court);
+      // cours fermées : le vide qu'on n'atteint pas depuis le bord du plan
+      const out = new Uint8Array(W * H), st = []; for (let x = 0; x < W; x++) for (const z of [0, H - 1]) if (T[z * W + x] === VOID) { out[z * W + x] = 1; st.push(z * W + x); } for (let z = 0; z < H; z++) for (const x of [0, W - 1]) if (T[z * W + x] === VOID && !out[z * W + x]) { out[z * W + x] = 1; st.push(z * W + x); }
+      while (st.length) { const i = st.pop(), x = i % W, z = (i - x) / W; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === VOID && !out[j]) { out[j] = 1; st.push(j); } } }
+      const seen = new Uint8Array(W * H); for (let i0 = 0; i0 < W * H; i0++) { if (T[i0] !== VOID || out[i0] || seen[i0]) continue; let a0 = W, a1 = 0, c0 = H, c1 = 0; const st2 = [i0]; seen[i0] = 1;
+        while (st2.length) { const i = st2.pop(), x = i % W, z = (i - x) / W; a0 = Math.min(a0, x); a1 = Math.max(a1, x); c0 = Math.min(c0, z); c1 = Math.max(c1, z); for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === VOID && !seen[j]) { seen[j] = 1; st2.push(j); } } }
+        const inC = pl.court && (a0 + a1) / 2 > pl.court[0] && (a0 + a1) / 2 < pl.court[2] && (c0 + c1) / 2 > pl.court[1] - 2 && (c0 + c1) / 2 < pl.court[3]; if (!inC) courtGarden(a0, c0, a1 + 1, c1 + 1); } }
+    // plafonds peints (salon, galerie, salle de bal, chapelle, salon de musique) : ciel, nuées et figures, voussure à cadre doré — on les voit d'en bas
+    const PAINTED = { salon: 1, galerie: 1, bal: 1, chapelle: 1, musique: 1, vestibule: 1 };
+    for (const rm of pl.rooms) { if (!PAINTED[rm.k]) continue; const w = rm.x1 - rm.x0 + 1, d = rm.z1 - rm.z0 + 1; let cnt = 0; for (let z = rm.z0; z <= rm.z1; z++) for (let x = rm.x0; x <= rm.x1; x++) if (T[z * W + x] === FLOOR && R[z * W + x] === rm.id) cnt++;
+      if (cnt < w * d * .97) continue; const iw = w - 2.4, id = d - 2.4; if (iw < 2 || id < 2) continue; const cx = rm.x0 + w / 2, cz = rm.z0 + d / 2;
+      ceil.add(new THREE.PlaneGeometry(iw, id), new THREE.Matrix4().makeRotationX(PI / 2).premultiply(new THREE.Matrix4().makeTranslation(cx, CH - .035, cz)), 0, 1, 1);
+      const strip = (x, z, ww, dd, y, col, kk) => { bs.S(kk); bs.add(new THREE.PlaneGeometry(ww, dd), col, new THREE.Matrix4().makeRotationX(PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x, y, z))); bs.S(null); }; // tournés vers le bas : invisibles d'en haut
+      for (const [ww, dd, x, z] of [[iw + .3, .16, cx, cz - id / 2 - .07], [iw + .3, .16, cx, cz + id / 2 + .07], [.16, id + .3, cx - iw / 2 - .07, cz], [.16, id + .3, cx + iw / 2 + .07, cz]]) strip(x, z, ww, dd, CH - .03, GOLD, sk.gold);
+      for (const [ww, dd, x, z] of [[iw + 1.4, .5, cx, cz - id / 2 - .45], [iw + 1.4, .5, cx, cz + id / 2 + .45], [.5, id + .4, cx - iw / 2 - .45, cz], [.5, id + .4, cx + iw / 2 + .45, cz]]) strip(x, z, ww, dd, CH - .025, 0xf3e7c4, sk.paint);
+      for (const [x, z] of [[cx - iw / 2 - .45, cz - id / 2 - .45], [cx + iw / 2 + .45, cz - id / 2 - .45], [cx - iw / 2 - .45, cz + id / 2 + .45], [cx + iw / 2 + .45, cz + id / 2 + .45]]) { bs.S(sk.gold); bs.add(new THREE.CircleGeometry(.32, 16), GOLD, bs.M(x, CH - .028, z, PI / 2, 0, 0)); bs.S(null); } }
     // ----- assemblage -----
     const CM = cutMats(), add = (geo, mat, shadow = true) => { if (!geo) return; const me = new THREE.Mesh(geo, mat); me.castShadow = shadow; me.receiveShadow = true; me.frustumCulled = false; g.add(me); return me; };
     add(b.done(), CM); add(bs.done(), G.MATS);
@@ -484,6 +574,7 @@
     for (const id in flA) add(flA[id].geo(), floorMat(id), false);
     add(views.t.geo(), viewMat(false), false); add(views.s.geo(), viewMat(true), false); add(mir.geo(), cutMat(mirrorMat()), false);
     for (const k in art) add(art[k].geo(), cutMat(artMat(+k)), false);
+    add(ceil.geo(), ceilMat(), false);
     m.shell = g; m.group.add(g);
     // rayons de soleil (une seule géométrie, mise à jour quand le soleil bouge)
     const NB = beams.length * 2, bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NB * 24 * 3), 3)); bg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(NB * 24 * 2), 2)); bg.setDrawRange(0, 0);

@@ -13,7 +13,7 @@
   const TIPS = { piece: 'Clique une pièce pour changer son nom, ses murs, son sol, ses rideaux…', mur: 'Glisse sur le parquet pour monter une cloison, sur une cloison pour l\'abattre.',
     arche: 'Glisse sur un mur entre deux pièces pour l\'ouvrir (« Mur plein » pour refermer).', fen: 'Clique une fenêtre, ou une pièce pour toutes ses fenêtres.',
     rideau: 'Clique une fenêtre, ou une pièce pour toutes ses fenêtres.', lustre: 'Clique une pièce pour y accrocher ce lustre.', meuble: 'Clique pour poser ; clique un meuble pour le reprendre (R ou clic droit : tourner).' };
-  const KICO = { salon: '⚜', galerie: '🪞', manger: '🍽️', biblio: '📚', chambre: '🛏️', musique: '🎼', reine: '👑', cabinet: '✒️', anti: '🏛️' };
+  const KICO = { salon: '⚜', galerie: '🪞', manger: '🍽️', biblio: '📚', chambre: '🛏️', musique: '🎼', reine: '👑', cabinet: '✒️', anti: '🏛️', vestibule: '🚪', bal: '💃', chapelle: '⛪', billard: '🎱', boudoir: '🌸', jeux: '🃏', gardes: '🛡️' };
   // petits dessins des styles de fenêtre
   const WICO = { cintree: '<path d="M3 27V10a7 7 0 0 1 14 0v17z"/><path d="M10 4v23M3 14h14M3 20.5h14" fill="none"/>', pf: '<path d="M3 27V3h14v24z"/><path d="M10 3v24M3 11h14M3 19h14" fill="none"/>',
     fen: '<path d="M3 20V3h14v17z"/><path d="M10 3v17M3 11.5h14M1.5 22.5h17" fill="none"/>', oeil: '<circle cx="10" cy="11" r="7"/><path d="M10 4v14M3 11h14" fill="none"/>' };
@@ -25,6 +25,7 @@
     ['art', '🖼️ Art', /tableau|statue/], ['plante', '🪴 Plantes', /^pl_\d|plante|pot_fleurs/], ['autre', '✨ Autres', /./]];
   let st = null, rbT = 0, rq = 0, wasOpen = false, hDown = false, catC = null; const imgs = {}, avg = {}, urls = {};
   const cre = () => G.mode !== 'survie', ro = () => !!(st && st.m.isVisit);
+  const floorArea = () => { const pd = CI().planData(st.m); let n = 0; for (let i = 0; i < pd.T.length; i++) if (pd.T[i] === FLOOR) n++; return n; }; // surface des pièces (cases)
   const col = c => '#' + new THREE.Color(c).getHexString();
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const nm = t => (G.ITEMS[t] && G.ITEMS[t].n) || t;
@@ -319,7 +320,7 @@
     const swc = bg => `<span class="pl-sw" style="background:${bg};background-size:cover"></span>`, row = s => `<div class="pl-row">${s}</div>`;
     let h = '';
     if (st.tool === 'piece') { const rm = pl.rooms.find(q => q.id === st.sel);
-      if (!rm) h = `<h4>🏛️ ${pl.rooms.length} pièces · ${pl.wins.length} fenêtres</h4><p>Clique une pièce sur le plan (ou ici) pour la décorer : son nom, ses murs, son sol, ses rideaux, ses appliques.</p>` + row(pl.rooms.map(r => chip('sel', r.id, false, (KICO[r.k] || '⚜') + ' ' + esc(r.n), r.n)).join(''));
+      if (!rm) h = `<h4>🏛️ ${pl.rooms.length} pièces · ${pl.wins.length} fenêtres · ${Math.round(floorArea() * 1.64).toLocaleString('fr-FR')} m²</h4><p style="margin:-4px 0 6px;opacity:.8">Les pièces ont la surface du château de pierre (sans les jardins) : plus le château est grand, plus il a de pièces.</p><p>Clique une pièce sur le plan (ou ici) pour la décorer : son nom, ses murs, son sol, ses rideaux, ses appliques.</p>` + row(pl.rooms.map(r => chip('sel', r.id, false, (KICO[r.k] || '⚜') + ' ' + esc(r.n), r.n)).join(''));
       else { h = `<h4>${KICO[rm.k] || '⚜'} Pièce</h4><input class="pl-in" id="pl-name" maxlength="32" value="${esc(rm.n)}"${dis}>`;
         h += '<h4>Murs : peinture et moulures</h4>' + row(Object.entries(K.PAINTS).map(([id, [cc, n]]) => chip('wall', id, rm.wall === id, swc(col(cc)), n, 1)).join(''));
         const des = (G.designs || []).map((d, k) => d && d.img ? ['design:' + k, '✏️ ' + (d.name || 'Motif ' + (k + 1))] : null).filter(Boolean);
