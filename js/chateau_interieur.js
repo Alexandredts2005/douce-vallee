@@ -1,0 +1,552 @@
+'use strict';
+// ===== Intérieur des châteaux classiques à la française : les pièces suivent vraiment l'extérieur =====
+// Chaque pavillon, corps de logis, avant-corps ou aile du château (seul ou assemblé) devient une pièce, à la même place et dans les mêmes
+// proportions, avec ses fenêtres exactement là où elles sont sur la façade : plus le château est grand, plus il y a de pièces.
+// Entre les pièces, de grandes arches ouvertes en enfilade. Murs épais à embrasures et volets intérieurs, boiseries à filets dorés,
+// pilastres, corniches à denticules, portes-fenêtres cintrées à petits bois, rideaux de velours à embrasses, appliques, glaces, tableaux,
+// parquets Versailles et marbre, lustres. Le soleil entre vraiment par les fenêtres (ombres des petits bois sur le parquet), avec des
+// rayons et de la poussière dorée, longs et chauds au lever et au coucher. Les murs entre la caméra et le joueur s'abaissent (comme dans
+// les Sims) mais gardent leur ombre. Le plan se modifie avec la touche H (chateau_plan.js). =====
+(function () {
+  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 1, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
+  const VOID = 0, WALL = 1, FLOOR = 2, OPEN = 3, DOOR = 4, NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, dz: -1.7 };
+  // ---------- décors ----------
+  const PAINTS = { peinture_ivoire: [0xf7f3ea, 'Blanc ivoire'], peinture_lin: [0xf1ebe0, 'Lin'], peinture_or: [0xead9a8, 'Jaune Louis XV'], peinture_sauge: [0xc9d4c2, 'Vert sauge'],
+    peinture_bleu: [0xbfcad6, 'Bleu Trianon'], peinture_rose: [0xead2cf, 'Rose poudré'], peinture_rouge: [0x7c2c30, 'Rouge Pompadour'], peinture_empire: [0x3f5a4a, 'Vert Empire'], peinture_nuit: [0x2c3548, 'Bleu nuit'] };
+  const FLOORK = { chevrons_chene: 1, batons_rompus: 2, damier_marbre: 3, chevrons_noyer: 4, batons_noyer: 5 };
+  const CURT = { rouge: [0x8a2f3a, 'Velours rouge'], bleu: [0x2f4a8a, 'Velours bleu roi'], vert: [0x2f5a3f, 'Velours vert Empire'], or: [0xc9a23a, 'Damas or'], rose: [0xd98a9a, 'Soie rose'],
+    lin: [0xe8dcc0, 'Lin écru'], voile: [0xf6f4ee, 'Voilage blanc'], aucun: [0, 'Sans rideaux'] };
+  const WSTY = { cintree: 'Porte-fenêtre cintrée', pf: 'Porte-fenêtre', fen: 'Fenêtre à allège', oeil: 'Œil-de-bœuf' };
+  const OPS = { a: 'Grande arche ouverte', p: 'Double porte', o: 'Passage' };
+  const LUS = ['lustre_versailles', 'lustre_cristal', 'lustre_bougies', 'lustre_cascade', 'lustre_murano', 'lustre_tulipes', 'lustre_globe', 'lustre_anneaux', 'lustre_lanterne'];
+  const KIND = { salon: ['Grand salon', 'peinture_ivoire', 'damier_marbre', 'rouge', 'lustre_versailles'], galerie: ['Galerie des Glaces', 'peinture_lin', 'chevrons_chene', 'or', 'lustre_cristal'],
+    manger: ['Salle à manger', 'peinture_sauge', 'batons_noyer', 'vert', 'lustre_bougies'], biblio: ['Bibliothèque', 'peinture_empire', 'chevrons_noyer', 'or', 'lustre_lanterne'],
+    chambre: ['Chambre du Roi', 'peinture_bleu', 'batons_rompus', 'bleu', 'lustre_murano'], musique: ['Salon de musique', 'peinture_or', 'chevrons_chene', 'rouge', 'lustre_cascade'],
+    reine: ['Chambre de la Reine', 'peinture_rose', 'batons_rompus', 'rose', 'lustre_tulipes'], cabinet: ['Cabinet', 'peinture_nuit', 'chevrons_noyer', 'or', 'lustre_globe'],
+    anti: ['Antichambre', 'peinture_lin', 'marbre', 'lin', 'lustre_anneaux'] };
+  const ORDER = ['manger', 'galerie', 'biblio', 'chambre', 'musique', 'reine', 'cabinet', 'anti'];
+  const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
+  G.CHPLAN = { PAINTS, FLOORK, CURT, WSTY, OPS, LUS, KIND };
+
+  // =====================================================================
+  // ============ 1. LE PLAN : une grille de cases tirée de l'extérieur =====
+  // =====================================================================
+  function genPlan(info) {
+    const { C, wins } = G.chateauFusion.layout(0, info.cols, info.rows), onW = G.chateauFusion.onW, u = C.u, n = info.cols * info.rows;
+    let ex0 = Infinity, ex1 = -Infinity, ez0 = Infinity, ez1 = -Infinity; for (const B of C.B) { ex0 = Math.min(ex0, B.x0); ex1 = Math.max(ex1, B.x1); ez0 = Math.min(ez0, B.z0); ez1 = Math.max(ez1, B.z1); }
+    let k = G.clamp(3.3 / u, .9, 3.4); const ar = (ex1 - ex0) * (ez1 - ez0) * k * k; if (ar > 9000) k *= Math.sqrt(9000 / ar); // cases par unité de l'extérieur
+    const bw = Math.ceil((ex1 - ex0) * k), px = Math.max(1, Math.ceil((24 - bw) / 2)), W = bw + 2 * px, H = Math.ceil((ez1 - ez0) * k) + 2, N = W * H;
+    const X = x => (x - ex0) * k + px, Z = z => (z - ez0) * k + 1, id = new Int16Array(N).fill(-1), at = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? -1 : id[z * W + x];
+    // une pièce par bloc ; les blocs très longs (galeries) sont coupés en pièces de 18 cases au plus
+    const parts = [];
+    C.B.forEach((B, bi) => { const x0 = Math.round(X(B.x0)), x1 = Math.round(X(B.x1)), z0 = Math.round(Z(B.z0)), z1 = Math.round(Z(B.z1)), w = x1 - x0, d = z1 - z0; if (w < 1 || d < 1) return;
+      const long = w >= d, Lc = long ? w : d, ns = Math.max(1, Math.round(Lc / 18));
+      for (let s = 0; s < ns; s++) { const a = Math.round(s * Lc / ns), b = Math.round((s + 1) * Lc / ns); parts.push({ bi, k: B.k, x0: long ? x0 + a : x0, x1: long ? x0 + b : x1, z0: long ? z0 : z0 + a, z1: long ? z1 : z0 + b }); } });
+    parts.forEach((P, i) => { for (let z = Math.max(0, P.z0); z < Math.min(H, P.z1); z++) for (let x = Math.max(0, P.x0); x < Math.min(W, P.x1); x++) id[z * W + x] = i; });
+    // une pièce trop étroite (moins de 4 cases de sol) rejoint sa voisine
+    const rep = parts.map((_, i) => i), find = i => rep[i] === i ? i : (rep[i] = find(rep[i]));
+    parts.forEach((P, i) => { if (Math.min(P.x1 - P.x0, P.z1 - P.z0) >= 6) return; const cnt = new Map();
+      for (let z = P.z0; z < P.z1; z++) for (let x = P.x0; x < P.x1; x++) for (const [dx, dz] of NB4) { const q = at(x + dx, z + dz); if (q >= 0 && q !== i) cnt.set(q, (cnt.get(q) || 0) + 1); }
+      let best = -1, bc = 0; for (const [q, c] of cnt) if (c > bc || (c === bc && parts[q].k === 'pav')) { best = q; bc = c; } if (best >= 0) rep[find(i)] = find(best); });
+    for (let i = 0; i < N; i++) if (id[i] >= 0) id[i] = find(id[i]);
+    // murs : le tour du château et une cloison (une case d'épaisseur) entre deux pièces
+    const T = new Uint8Array(N);
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const i = z * W + x, r = id[i]; if (r < 0) continue;
+      const ext = at(x - 1, z) < 0 || at(x + 1, z) < 0 || at(x, z - 1) < 0 || at(x, z + 1) < 0, cl = at(x + 1, z) !== r || at(x, z + 1) !== r; T[i] = ext || cl ? WALL : FLOOR; }
+    // numéros de pièces 1..n
+    const num = new Map(), Rg = new Uint8Array(N); for (let i = 0; i < N; i++) if (T[i] === FLOOR) { const r = id[i]; if (!num.has(r)) num.set(r, num.size + 1); Rg[i] = num.get(r); }
+    const fl = (x, z) => x < 0 || z < 0 || x >= W || z >= H || T[z * W + x] !== FLOOR ? 0 : Rg[z * W + x];
+    // une grande arche au milieu de chaque cloison entre deux pièces
+    const pairs = new Map(); for (let z = 1; z < H - 1; z++) for (let x = 1; x < W - 1; x++) { if (T[z * W + x] !== WALL) continue; const L = fl(x - 1, z), Rr = fl(x + 1, z), U = fl(x, z - 1), D = fl(x, z + 1);
+      if (L && Rr && L !== Rr) { const key = Math.min(L, Rr) + '|' + Math.max(L, Rr) + '|v' + x; (pairs.get(key) || pairs.set(key, []).get(key)).push(z); }
+      if (U && D && U !== D) { const key = Math.min(U, D) + '|' + Math.max(U, D) + '|h' + z; (pairs.get(key) || pairs.set(key, []).get(key)).push(x); } }
+    const best = new Map(); for (const [key, list] of pairs) { list.sort((a, b) => a - b); let s = 0; for (let i = 1; i <= list.length; i++) if (i === list.length || list[i] !== list[i - 1] + 1) {
+        const len = i - s, pr = key.split('|'), pk = pr[0] + '|' + pr[1]; if (!best.has(pk) || best.get(pk).len < len) best.set(pk, { len, a: list[s], o: pr[2][0], c: +pr[2].slice(1) }); s = i; } }
+    for (const { len, a, o, c } of best.values()) { const ow = len >= 5 ? G.clamp(Math.round(len * .5), 3, Math.min(7, len - 2)) : len >= 3 ? len - 2 : len, s0 = a + Math.floor((len - ow) / 2);
+      for (let j = s0; j < s0 + ow; j++) T[o === 'v' ? j * W + c : c * W + j] = OPEN; }
+    // porte d'entrée : au milieu de l'avant-corps, sur la façade
+    const D0 = C.D, dz = Math.round(Z(D0.z1)) - 1, dx0 = Math.round(X(0) - 1.5); let door = null;
+    if (dz > 0 && [0, 1, 2].every(j => T[dz * W + dx0 + j] === WALL && fl(dx0 + j, dz - 1))) { for (let j = 0; j < 3; j++) T[dz * W + dx0 + j] = DOOR; door = { x0: dx0, x1: dx0 + 2, z: dz, sx: dx0 + 1.5, sz: dz - .7 }; }
+    else { // repli : le milieu du bas du plan
+      for (let z = H - 1; z > 0 && !door; z--) for (let x = Math.floor(W / 2) - 1; x <= Math.floor(W / 2) - 1; x++) if ([0, 1, 2].every(j => T[z * W + x + j] === WALL && fl(x + j, z - 1))) { for (let j = 0; j < 3; j++) T[z * W + x + j] = DOOR; door = { x0: x, x1: x + 2, z, sx: x + 1.5, sz: z - .7 }; } }
+    // fenêtres du rez-de-chaussée : exactement là où elles sont sur la façade
+    const ww = G.clamp(C.sp * k * .6, 1.2, 1.9), wl = [];
+    for (const w of wins) { if (w.door) continue; const B = w.B, p = onW(B.H, w.f, w.a, 0, 0), f = w.f;
+      let cx, cz, nx = 0, nz = 0, uu; if (f === 0) { cz = Math.round(Z(B.z1)) - 1; uu = X(p[0]); nz = -1; } else if (f === 1) { cz = Math.round(Z(B.z0)); uu = X(p[0]); nz = 1; } else if (f === 2) { cx = Math.round(X(B.x1)) - 1; uu = Z(p[2]); nx = -1; } else { cx = Math.round(X(B.x0)); uu = Z(p[2]); nx = 1; }
+      // la baie va sur des cases de mur extérieur (dehors d'un côté, la même pièce de l'autre) ; elle se rétrécit un peu si une porte ou une cloison est tout près
+      const good = s => { const x = nz ? s : cx, z = nz ? cz : s; if (x < 0 || z < 0 || x >= W || z >= H || T[z * W + x] !== WALL) return 0; const inn = fl(x + nx, z + nz), ox = x - nx, oz = z - nz, out = ox >= 0 && oz >= 0 && ox < W && oz < H ? T[oz * W + ox] : VOID; return inn && out === VOID ? inn : 0; };
+      const c0 = Math.floor(uu), room = good(c0); if (!room) continue; let a = c0, b = c0; while (a > 0 && good(a - 1) === room) a--; while (good(b + 1) === room) b++;
+      const wfit = Math.min(ww, 2 * (Math.min(uu - a, b + 1 - uu) - .1)); if (wfit < .9) continue;
+      wl.push({ x: nz ? c0 : cx, z: nz ? cz : c0, nx, nz, u: uu, w: +wfit.toFixed(3), st: 'cintree', c: '', r: room }); }
+    // les pièces : nom, peinture, sol, rideaux, lustre (le grand salon est derrière la porte)
+    const R = num.size, rooms = []; const box = []; for (let r = 1; r <= R; r++) box[r] = { x0: W, x1: 0, z0: H, z1: 0, a: 0 };
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const r = Rg[z * W + x]; if (!r) continue; const b = box[r]; b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.z0 = Math.min(b.z0, z); b.z1 = Math.max(b.z1, z); b.a++; }
+    const salon = door ? fl(door.x0 + 1, door.z - 1) : 1, sb = box[salon] || box[1], order = []; for (let r = 1; r <= R; r++) if (r !== salon) order.push(r);
+    const cen = r => [(box[r].x0 + box[r].x1) / 2, (box[r].z0 + box[r].z1) / 2]; order.sort((a, b) => { const [ax, az] = cen(a), [bx, bz] = cen(b), [sx, sz] = cen(salon); return Math.hypot(ax - sx, az - sz) - Math.hypot(bx - sx, bz - sz) || ax - bx; });
+    const used = {}, kindOf = {}; kindOf[salon] = 'salon'; let oi = 0;
+    for (const r of order) { const b = box[r], w = b.x1 - b.x0 + 1, d = b.z1 - b.z0 + 1, lg = Math.max(w, d) / Math.min(w, d) >= 2.3 && Math.max(w, d) >= 12;
+      kindOf[r] = lg && !(used.galerie >= 2) ? 'galerie' : ORDER[oi++ % ORDER.length]; if (kindOf[r] === 'galerie' && !lg) kindOf[r] = ORDER[oi++ % ORDER.length]; }
+    for (let r = 1; r <= R; r++) { const kd = kindOf[r] || 'anti', K = KIND[kd], c = used[kd] = (used[kd] || 0) + 1, b = box[r];
+      rooms.push({ id: r, k: kd, n: K[0] + (c > 1 ? ROMAN[c - 1] || ' ' + c : ''), wall: K[1], floor: K[2], curt: K[3], lus: K[4], app: 1, x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1 }); }
+    for (const w of wl) w.c = ''; // rideaux : ceux de la pièce
+    return { v: VER, sig: planSig(info), W, H, k, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
+  }
+  const planSig = info => '0|' + info.cols + '|' + info.rows;
+  G.genChateauPlan = genPlan;
+
+  // ---------- lecture du plan (mise en cache sur la carte) ----------
+  function planData(m) {
+    if (m._pd) return m._pd; const pl = m.meta.plan, W = pl.W, H = pl.H, T = G.b64.dec(pl.T), R = G.b64.dec(pl.R), N = W * H, bl = new Uint8Array(N);
+    for (let i = 0; i < N; i++) bl[i] = T[i] === FLOOR || T[i] === OPEN || T[i] === DOOR ? 0 : 1;
+    return m._pd = { pl, W, H, T, R, bl, CH: pl.CH, room: id => pl.rooms.find(q => q.id === id) || pl.rooms[0] };
+  }
+  // une pièce est faite des cases de sol reliées sans passer par une arche (après une retouche du plan, on renumérote)
+  function renumber(m) {
+    const pd = planData(m), { W, H, T, R, pl } = pd, N = W * H, nr = new Uint8Array(N), old = pl.rooms, rooms = []; let k = 0;
+    for (let i = 0; i < N; i++) { if (T[i] !== FLOOR || nr[i]) continue; k++; const cnt = new Map(), st = [i]; nr[i] = k; let x0 = W, x1 = 0, z0 = H, z1 = 0;
+      while (st.length) { const c = st.pop(), x = c % W, z = (c - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); if (R[c]) cnt.set(R[c], (cnt.get(R[c]) || 0) + 1);
+        for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === FLOOR && !nr[j]) { nr[j] = k; st.push(j); } } }
+      let bo = 0, bc = -1; for (const [r, c] of cnt) if (c > bc) { bo = r; bc = c; } const base = old.find(q => q.id === bo) || old[0] || { k: 'anti', n: 'Pièce', wall: 'peinture_lin', floor: 'chevrons_chene', curt: 'rouge', lus: 'lustre_cristal', app: 1 };
+      const same = rooms.filter(q => q.n === base.n || ROMAN.some(r => r && q.n === base.n + r)).length; // une pièce coupée en deux : « Grand salon » et « Grand salon II »
+      rooms.push(Object.assign({}, base, { id: k, x0, x1, z0, z1, n: same ? base.n + (ROMAN[same] || ' ' + (same + 1)) : base.n })); }
+    for (const w of pl.wins) { const j = (w.z + w.nz) * W + w.x + w.nx; w.r = T[j] === FLOOR ? nr[j] : 0; }
+    pl.R = G.b64.enc(nr); pl.rooms = rooms; m._pd = null;
+  }
+
+  // =====================================================================
+  // ============ 2. LA CARTE DE L'INTÉRIEUR, ses meubles, ses lustres =====
+  // =====================================================================
+  function makePlanInterior(iid, info, old) {
+    const pl = genPlan(info), m = new G.GMap(pl.W, pl.H, { interior: true, kind: 'maison', id: iid });
+    m.surf.fill(6); Object.assign(m.meta, { shell: { kind: 'maison' }, stage: G.HOME_STAGES.length, plan: pl, noExit: 1, ceilH: pl.CH, sunny: 1, bright: 1, cam: Object.assign({}, CAM) });
+    if (old) for (const k of ['door', 'title', 'fromId']) if (old.meta[k] != null) m.meta[k] = old.meta[k];
+    if (pl.door) m.addObj('paillasson', pl.door.x0 + 1, pl.door.z - 1);
+    if (old) for (const q of old.list) { if (q.t === 'paillasson' || !O[q.t]) continue; const ex = {}; for (const k of KEEP) if (q[k] != null) ex[k] = q[k]; if (!relocate(m, q.t, q.x, q.z, q.r || 0, ex)) stash(q.t); }
+    lustres(m); furnish(m);
+    G.buildShell(m); m.buildAll(); return m;
+  }
+  const stash = t => { if (!G.ITEMS[t]) return; const left = G.storeAdd ? G.storeAdd(t, 1) : 1; if (left > 0 && G.inv) G.inv.add(t, 1); };
+  // à la même place si possible, sinon sur la case libre la plus proche (en tournant l'objet si besoin)
+  function relocate(m, t, x, z, r, ex) {
+    const pd = planData(m), { W, H } = pd, d = O[t]; if (!d) return false;
+    const tryAt = (xx, zz) => { for (const rr of [r, (r + 1) & 3, (r + 2) & 3, (r + 3) & 3]) if (m.canPlace(t, xx, zz, rr)) { m.addObj(t, xx, zz, rr, ex); return true; } return false; };
+    if (x >= 0 && z >= 0 && x < W && z < H && tryAt(x, z)) return true;
+    const sx = G.clamp(x, 0, W - 1), sz = G.clamp(z, 0, H - 1); for (let rad = 1; rad < Math.max(W, H); rad++) for (let dz = -rad; dz <= rad; dz++) for (let dx = -rad; dx <= rad; dx++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== rad) continue; if (tryAt(sx + dx, sz + dz)) return true; }
+    return false;
+  }
+  // lustres au plafond, en ligne le long de la pièce (un tous les 7 à 8 mètres)
+  // replace : on enlève d'abord ceux de la pièce (back(t) reçoit chacun) ; take(t) : payer chaque lustre posé (mode survie), sinon ils sont offerts
+  function lustres(m, onlyRoom, replace, back, take) {
+    const pd = planData(m), { W, T, R, pl } = pd;
+    for (const rm of pl.rooms) { if (onlyRoom && rm.id !== onlyRoom) continue; let has = false;
+      for (const o of [...m.list]) if (O[o.t].ceil && R[o.z * W + o.x] === rm.id) { if (replace) { m.removeObj(o); if (back) back(o.t); } else has = true; }
+      if (has || !rm.lus || !O[rm.lus]) continue; const w = rm.x1 - rm.x0 + 1, d = rm.z1 - rm.z0 + 1, long = w >= d, L = long ? w : d, nl = G.clamp(Math.round(L / 7.5), 1, 7);
+      for (let i = 0; i < nl; i++) { const t = (i + .5) / nl, x = Math.floor(long ? rm.x0 + t * w : rm.x0 + w / 2), z = Math.floor(long ? rm.z0 + d / 2 : rm.z0 + t * d); let stop = false;
+        for (const [ox, oz] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) { const xx = x + ox, zz = z + oz, j = zz * W + xx; if (T[j] === FLOOR && R[j] === rm.id && m.canPlace(rm.lus, xx, zz)) { if (take && !take(rm.lus)) stop = true; else m.addObj(rm.lus, xx, zz); break; } }
+        if (stop) break; } }
+  }
+  // ---------- ameublement de départ, selon la pièce ----------
+  function furnish(m, onlyRoom) {
+    const pd = planData(m), { W, H, T, R, pl } = pd, ti = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? VOID : T[z * W + x];
+    const keep = new Uint8Array(W * H); // garder libres les passages : devant les arches, les portes et la porte d'entrée
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const t = T[z * W + x]; if (t !== OPEN && t !== DOOR) continue; for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) keep[zz * W + xx] = 1; } }
+    const winAt = new Set(); for (const w of pl.wins) for (let s = Math.floor(w.u - w.w / 2); s <= Math.floor(w.u + w.w / 2); s++) winAt.add(w.nz ? s + ',' + (w.z + w.nz) : (w.x + w.nx) + ',' + s);
+    for (const rm of pl.rooms) { if (onlyRoom && rm.id !== onlyRoom) continue;
+      let busy = false; for (const o of m.list) if (!O[o.t].ceil && o.t !== 'paillasson' && R[o.z * W + o.x] === rm.id) { busy = true; break; } if (busy) continue;
+      const inRoom = (x, z) => x >= 0 && z >= 0 && x < W && z < H && T[z * W + x] === FLOOR && R[z * W + x] === rm.id;
+      const P = (t, x, z, r = 0, tall) => { const d = O[t]; if (!d) return false; const [w, dd] = G.fpDims(d, r);
+        for (let zz = z; zz < z + dd; zz++) for (let xx = x; xx < x + w; xx++) if (!inRoom(xx, zz) || keep[zz * W + xx] || (tall && winAt.has(xx + ',' + zz))) return false;
+        if (!m.canPlace(t, x, z, r)) return false; m.addObj(t, x, z, r); return true; };
+      const x0 = rm.x0, x1 = rm.x1, z0 = rm.z0, z1 = rm.z1, cx = Math.floor((x0 + x1) / 2), cz = Math.floor((z0 + z1) / 2), w = x1 - x0 + 1, d = z1 - z0 + 1, long = w >= d;
+      const along = (fn, step = 1) => { if (long) for (let x = x0; x <= x1; x += step) fn(x, null); else for (let z = z0; z <= z1; z += step) fn(null, z); };
+      const wallLine = (side, t, step, tall) => { for (let i = 0; ; i += step) { let x, z, r; if (side === 'n') { x = x0 + i; z = z0; r = 0; } else if (side === 's') { x = x0 + i; z = z1; r = 2; } else if (side === 'w') { x = x0; z = z0 + i; r = 1; } else { x = x1; z = z0 + i; r = 3; }
+          if (x > x1 || z > z1) break; if (ti(x + (side === 'w' ? -1 : side === 'e' ? 1 : 0), z + (side === 'n' ? -1 : side === 's' ? 1 : 0)) !== WALL) continue; P(t, x, z, r, tall); } };
+      const corners = t => { P(t, x0, z0); P(t, x1, z0); P(t, x0, z1); P(t, x1, z1); };
+      switch (rm.k) {
+        case 'salon': P('trone', cx, z0, 0); P('tapis', cx - 1, cz); P('canape_velours', cx - 1, cz - 2, 0); P('canape_velours', cx - 1, cz + 2, 2); P('table_marbre', cx, cz + 1); P('chaise_bergere', cx - 3, cz, 1); P('chaise_bergere', cx + 2, cz, 3);
+          P('statue', x0 + 1, z0 + 1); P('statue', x1 - 1, z0 + 1); corners('pl_10'); P('horloge', x1, cz, 3); break;
+        case 'galerie': along((x, z) => { if (x != null && (x - x0) % 5 === 2) { P('banc_coussins', x, cz, 0); P('statue', x, z0 + 1); } if (z != null && (z - z0) % 5 === 2) { P('banc_coussins', cx, z, 1); P('statue', x0 + 1, z); } }); corners('pl_2'); break;
+        case 'manger': { const n = G.clamp((long ? w : d) - 6, 2, 9), s0 = (long ? cx : cz) - Math.floor(n / 2);
+          for (let i = 0; i < n; i++) { const x = long ? s0 + i : cx, z = long ? cz : s0 + i; if (P('table_noyer', x, z)) { if (long) { P('chaise_louis', x, z - 1, 0); P('chaise_louis', x, z + 1, 2); } else { P('chaise_louis', x - 1, z, 1); P('chaise_louis', x + 1, z, 3); } } }
+          const tb = m.objAt(long ? s0 : cx, long ? cz : s0); if (tb && tb.t === 'table_noyer' && G.mergeFurniture) { const sv = G.ui.toast, sf = G.sfx; G.ui.toast = () => { }; G.sfx = () => { }; try { G.mergeFurniture(m, tb); } finally { G.ui.toast = sv; G.sfx = sf; } }
+          P('cheminee', cx - 1, z0, 0) || P('cheminee', x0, cz, 1); corners('pl_1'); P('horloge', x1, z0 + 1, 3); break; }
+        case 'biblio': wallLine('n', 'bibliotheque', 1, true); wallLine('w', 'bibliotheque', 2, true); wallLine('e', 'bibliotheque', 2, true); P('bureau_ecritoire', cx - 1, cz, 0); P('chaise_club', cx, cz - 1, 2); P('chaise_club', cx - 2, cz + 2, 1); P('table_basse', cx - 1, cz + 2); P('lampe_arc', x1 - 1, z1 - 1); break;
+        case 'chambre': case 'reine': if (!P('lit_fleuri', cx - 1, z0, 0)) P('lit', cx, z0, 0); P('commode_fleurie', cx - 2, z0, 0); P('commode_fleurie', cx + 1, z0, 0); P('tapis', cx - 1, z0 + 3); P('armoire', x0, cz, 1, true); P('miroir', x1, cz, 3, true);
+          P('chaise_bergere', cx - 2, z1 - 1, 0); P('chaise_bergere', cx + 1, z1 - 1, 0); P('table_basse', cx - 1, z1 - 1); P('lampe', x0, z0); P('paravent', x1 - 1, z1, 2); P(rm.k === 'reine' ? 'pl_12' : 'pl_13', x1, z0); break;
+        case 'musique': P('piano_droit', cx - 1, z0, 0); for (const [dx, dz] of [[-2, 3], [-1, 3], [1, 3], [2, 3]]) P('chaise_louis', cx + dx, z0 + dz, 2); P('canape_velours', cx - 1, z1, 2); P('pl_10', x0, z0); P('pl_10', x1, z0); P('lampe_arc', x1, z1); break;
+        case 'cabinet': P('bureau', cx - 1, cz, 0); P('chaise_velours', cx, cz - 1, 2); wallLine('n', 'bibliotheque', 2, true); P('boule_cristal', x0, z1); P('horloge', x1, cz, 3); P('chaise_club', x0, cz, 1); break;
+        default: P('banc_coussins', cx - 1, z0, 0); P('banc_coussins', cx - 1, z1, 2); P('statue', cx, cz); corners('pot_fleurs'); break;
+      }
+    }
+  }
+
+  // =====================================================================
+  // ============ 3. ENTRER, SORTIR, SE COGNER AUX MURS ===================
+  // =====================================================================
+  const GP = G.GMap.prototype, oth = GP.terrainH, ocp = GP.canPlace;
+  GP.terrainH = function (x, z) { const pd = this.meta && this.meta.plan ? planData(this) : null; if (pd) { const tx = Math.floor(x), tz = Math.floor(z); if (tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H && pd.bl[tz * pd.W + tx]) return pd.CH; } return oth.call(this, x, z); };
+  GP.canPlace = function (t, tx, tz, r = 0) { if (this.meta && this.meta.plan) { const pd = planData(this), d = O[t]; if (d) { const [w, dd] = G.fpDims(d, r); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < 0 || z < 0 || x >= pd.W || z >= pd.H || pd.T[z * pd.W + x] !== FLOOR) return false; } }
+    return ocp.call(this, t, tx, tz, r); };
+  // on arrive juste derrière la porte d'entrée
+  G.on('init', () => { const oem = G.enterMap; G.enterMap = (map, x, z, yaw) => { const pl = map && map.meta && map.meta.plan; if (pl && pl.door && Math.abs(x - (Math.floor(map.W / 2) + .5)) < .01 && Math.abs(z - (map.H - 1.4)) < .01) { x = pl.door.sx; z = pl.door.sz; yaw = PI; } return oem(map, x, z, yaw); }; });
+  // avant d'entrer dans un château classique : son intérieur suit le plan actuel du château (créé ou refait, les meubles sont gardés)
+  function prepare(o) {
+    if (!o || (G.net && G.net.visit) || !G.chateauInfo) return; const info = G.chateauInfo(o); if (!info || info.st !== 0) return;
+    const q = info.main || o; if (!q.iid) q.iid = 'b' + q.t + '_' + q.x + '_' + q.z; const iid = q.iid, im = G.interiors[iid], sig = planSig(info);
+    if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER) return;
+    const nm = makePlanInterior(iid, info, im); if (im) G.scene.remove(im.group); G.interiors[iid] = nm; G.scene.add(nm.group); nm.group.visible = false;
+  }
+  const oen = G.act.enterHouse; G.act.enterHouse = o => { try { prepare(o); } catch (e) { console.warn('intérieur du château', e); } return oen(o); };
+
+  // =====================================================================
+  // ============ 4. LE DESSIN DE L'INTÉRIEUR =============================
+  // =====================================================================
+  // matériaux qui s'abaissent : le sommet des murs entre la caméra et le joueur descend (l'ombre, elle, reste entière)
+  const CUT = { tex: { value: null }, n: { value: 1 }, low: { value: 1.12 } };
+  const cutCache = new Map();
+  function cutMat(base) {
+    if (cutCache.has(base)) return cutCache.get(base); const c = base.clone(), ob = base.onBeforeCompile, k0 = base.customProgramCacheKey ? base.customProgramCacheKey() : '';
+    c.onBeforeCompile = (sh, r) => { ob.call(base, sh, r); sh.uniforms.uCutTex = CUT.tex; sh.uniforms.uCutN = CUT.n; sh.uniforms.uCutLow = CUT.low;
+      sh.vertexShader = 'attribute float wid;\nuniform sampler2D uCutTex;\nuniform float uCutN, uCutLow;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n{ float cw = texture2D( uCutTex, vec2( ( wid + .5 ) / uCutN, .5 ) ).r; transformed.y = mix( transformed.y, min( transformed.y, uCutLow ), cw ); }'); };
+    c.customProgramCacheKey = () => k0 + '|cut'; if (base.extensions) c.extensions = base.extensions; if (base.alphaToCoverage) c.alphaToCoverage = true; cutCache.set(base, c); return c;
+  }
+  const cutMats = () => G.MATS.map(m => m ? cutMat(m) : m);
+  const matCache = {};
+  const paintMat = col => matCache['p' + col] || (matCache['p' + col] = G.premiumMat({ color: col }, { cloud: false, rough: .78 }));
+  const wallTexMat = id => matCache['w' + id] || (matCache['w' + id] = G.premiumMat({ map: G.patTex('wall', id) }, { cloud: false, rough: .85 }));
+  const floorMat = id => matCache['f' + id] || (matCache['f' + id] = FLOORK[id] ? G.premiumMat({ color: 0xffffff }, { cloud: false, floor: FLOORK[id], bump: 1 }) : G.premiumMat({ map: G.patTex('floor', id) }, { cloud: false, rough: .45 }));
+  const mirrorMat = () => matCache.mir || (matCache.mir = G.premiumMat({ color: 0xe9eef2 }, { cloud: false, rough: .04, metal: .92 }));
+  const viewMat = sky => { const k = sky ? 'vs' : 'vt'; if (!matCache[k]) { const base = sky ? G.M.windowSky : G.M.windowTall; matCache[k] = base ? cutMat(base) : cutMat(G.M.window); } return matCache[k]; };
+  // tableaux de maître peints par le jeu
+  const arts = [];
+  function artMat(k) { if (arts[k]) return arts[k]; const c = G.cv(256, 200), x = c.getContext('2d'), r = G.rng(70 + k);
+    const skies = [['#9fc7e8', '#f3d9b0'], ['#f2a37a', '#ffe2b0'], ['#6f86b8', '#d8c7e8'], ['#bfe0f0', '#f8f0d8'], ['#2c3858', '#7a6a98'], ['#c9d8c0', '#f6e8c8']], [t, h] = skies[k % skies.length];
+    const g = x.createLinearGradient(0, 0, 0, 120); g.addColorStop(0, t); g.addColorStop(1, h); x.fillStyle = g; x.fillRect(0, 0, 256, 200);
+    if (k % 3 === 2) { x.fillStyle = '#e8dcc6'; x.fillRect(96, 70, 64, 60); x.fillStyle = '#6a7486'; x.beginPath(); x.moveTo(90, 72); x.lineTo(128, 46); x.lineTo(166, 72); x.fill(); for (let i = 0; i < 4; i++) { x.fillStyle = '#7a95b8'; x.fillRect(102 + i * 15, 84, 8, 14); } }
+    for (let i = 0; i < 3; i++) { x.fillStyle = ['#6f8f5a', '#5a7a48', '#48663a'][i]; x.beginPath(); x.moveTo(0, 200); for (let px = 0; px <= 256; px += 16) x.lineTo(px, 120 + i * 22 + Math.sin(px * .03 + i * 2 + k) * 12 + r() * 5); x.lineTo(256, 200); x.fill(); }
+    if (k % 2) { x.fillStyle = '#fff3c4'; x.beginPath(); x.arc(196, 54, 16, 0, TAU); x.fill(); }
+    for (let i = 0; i < 7; i++) { const px = 16 + r() * 224, py = 128 + r() * 40; x.fillStyle = '#3f5a32'; x.beginPath(); x.ellipse(px, py, 10, 16, 0, 0, TAU); x.fill(); x.fillStyle = '#5a3a22'; x.fillRect(px - 1.5, py + 12, 3, 8); }
+    x.globalAlpha = .08; for (let i = 0; i < 900; i++) { x.fillStyle = r() < .5 ? '#000' : '#fff'; x.fillRect(r() * 256, r() * 200, 2, 1); } x.globalAlpha = 1;
+    const tx = new THREE.CanvasTexture(c); tx.anisotropy = 4; return arts[k] = G.premiumMat({ map: tx }, { cloud: false, rough: .55 }); }
+  // constructeur de modèle qui marque chaque pièce avec son segment de mur
+  // boîte unité (36 sommets, bon sens des faces) pour la voie rapide
+  let UB = null; const unitBox = () => UB || (UB = (() => { const g = new THREE.BoxGeometry(1, 1, 1).toNonIndexed(); return { p: g.attributes.position.array, n: g.attributes.normal.array }; })());
+  const colC = new Map(), colOf = c => { let v = colC.get(c); if (!v) { const C = new THREE.Color(c); colC.set(c, v = [C.r, C.g, C.b]); } return v; };
+  class CB extends G.MB {
+    constructor(s) { super(s); this.wid = 0; this.fq = new Map(); }
+    add(geo, col, m, mat = 0, smooth = false) { const L = this.parts.map(p => p.length); super.add(geo, col, m, mat, smooth); for (let i = 0; i < this.parts.length; i++) if (this.parts[i].length > L[i]) { this.parts[i][this.parts[i].length - 1].userData.wid = this.wid; break; } return this; }
+    fq_(col, mat, k) { let pat = 0; if (this.pat && mat === 0) { pat = this.pat; mat = 4; } const sk = this.sk != null ? this.sk : G.surfKind ? G.surfKind(col, mat) : 0, key = mat * 4096 + sk * 64 + pat;
+      let q = this.fq.get(key); if (!q) this.fq.set(key, q = { mat, sk, pat, n: 0, p: new Float32Array(3 * 2048), nn: new Float32Array(3 * 2048), c: new Float32Array(3 * 2048), w: new Float32Array(2048) });
+      if (q.n + k > q.w.length) { let L = q.w.length * 2; while (L < q.n + k) L *= 2; const gr = (a, s) => { const b2 = new Float32Array(L * s); b2.set(a); return b2; }; q.p = gr(q.p, 3); q.nn = gr(q.nn, 3); q.c = gr(q.c, 3); q.w = gr(q.w, 1); }
+      return q; }
+    // boîte tournée autour de la verticale, écrite directement dans des tableaux (beaucoup plus rapide que BoxGeometry)
+    fbox(w, h, d, col, x, y, z, ry = 0, mat = 0) { const q = this.fq_(col, mat, 36), U = unitBox(), cs = Math.cos(ry), sn = Math.sin(ry), C = colOf(col), wd = this.wid, P = q.p, N = q.nn, Cc = q.c;
+      for (let i = 0; i < 108; i += 3) { const lx = U.p[i] * w, ly = U.p[i + 1] * h, lz = U.p[i + 2] * d, nx = U.n[i], nz = U.n[i + 2], o = q.n * 3;
+        P[o] = x + lx * cs + lz * sn; P[o + 1] = y + ly; P[o + 2] = z - lx * sn + lz * cs; N[o] = nx * cs + nz * sn; N[o + 1] = U.n[i + 1]; N[o + 2] = -nx * sn + nz * cs; Cc[o] = C[0]; Cc[o + 1] = C[1]; Cc[o + 2] = C[2]; q.w[q.n++] = wd; } return this; }
+    // quadrilatère a0 a1 c1 c0 (deux triangles a0 a1 c1 / a0 c1 c0), normale de la face
+    fquad(a0, a1, c1, c0, col, mat = 0) { const q = this.fq_(col, mat, 6), C = colOf(col), wd = this.wid, ux = a1[0] - a0[0], uy = a1[1] - a0[1], uz = a1[2] - a0[2], vx = c1[0] - a0[0], vy = c1[1] - a0[1], vz = c1[2] - a0[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      for (const Pt of [a0, a1, c1, a0, c1, c0]) { const o = q.n * 3; q.p[o] = Pt[0]; q.p[o + 1] = Pt[1]; q.p[o + 2] = Pt[2]; q.nn[o] = nx; q.nn[o + 1] = ny; q.nn[o + 2] = nz; q.c[o] = C[0]; q.c[o + 1] = C[1]; q.c[o + 2] = C[2]; q.w[q.n++] = wd; } return this; }
+    done() {
+      for (const q of this.fq.values()) { if (!q.n) continue; const g = new THREE.BufferGeometry(), n3 = q.n * 3; g.setAttribute('position', new THREE.BufferAttribute(q.p.slice(0, n3), 3)); g.setAttribute('normal', new THREE.BufferAttribute(q.nn.slice(0, n3), 3)); g.setAttribute('color', new THREE.BufferAttribute(q.c.slice(0, n3), 3));
+        g.userData.pat = q.pat; g.userData.sk = q.sk; g.userData.widArr = q.w.slice(0, q.n); this.parts[q.mat].push(g); } this.fq.clear();
+      const g = super.done(), n = g.attributes.position.count, w = new Float32Array(n); let o = 0;
+      for (let m = 0; m < this.parts.length; m++) for (const q of this.parts[m]) { const c = q.attributes.position.count; if (q.userData.widArr) w.set(q.userData.widArr, o); else w.fill(q.userData.wid || 0, o, o + c); o += c; }
+      g.setAttribute('wid', new THREE.BufferAttribute(w, 1)); return g; }
+  }
+  // géométrie simple (faces texturées, vues des fenêtres, glaces, tableaux)
+  class Acc {
+    constructor() { this.p = []; this.n = []; this.uv = []; this.w = []; }
+    add(geo, M, wid, uk = .5, vk = uk) { const g = geo.index ? geo.toNonIndexed() : geo, P = g.attributes.position, U = g.attributes.uv, v = new THREE.Vector3(), nn = new THREE.Vector3(0, 0, 1).applyMatrix3(new THREE.Matrix3().getNormalMatrix(M)).normalize();
+      for (let i = 0; i < P.count; i++) { v.set(P.getX(i), P.getY(i), P.getZ(i)).applyMatrix4(M); this.p.push(v.x, v.y, v.z); this.n.push(nn.x, nn.y, nn.z); this.uv.push(U ? U.getX(i) * uk : 0, U ? U.getY(i) * vk : 0); this.w.push(wid); } }
+    geo() { if (!this.p.length) return null; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2)); g.setAttribute('wid', new THREE.Float32BufferAttribute(this.w, 1)); g.computeBoundingSphere(); return g; }
+  }
+  const bx = (b, w, h, d, col, x, y, z, ry = 0, mat = 0) => b.fbox(w, h, d, col, x, y, z, ry, mat);
+  const dot = (b, r, col, x, y, z, mat = 0) => b.add(new THREE.IcosahedronGeometry(r, 0), col, b.M(x, y, z), mat);
+  // une rangée de petites boîtes identiques (denticules) en une seule géométrie
+  const rowGeo = (n, w, h, d, step) => { const base = new THREE.BoxGeometry(w, h, d).toNonIndexed(), P = base.attributes.position.array, Nn = base.attributes.normal.array, c = P.length, pos = new Float32Array(c * n), nor = new Float32Array(c * n);
+    for (let k = 0; k < n; k++) { for (let i = 0; i < c; i += 3) { pos[k * c + i] = P[i] + k * step; pos[k * c + i + 1] = P[i + 1]; pos[k * c + i + 2] = P[i + 2]; } nor.set(Nn, k * c); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); return g; };
+  const dark = (c, k = .78) => new THREE.Color(c).multiplyScalar(k).getHex(), light = (c, k = .3) => new THREE.Color(c).lerp(new THREE.Color(0xffffff), k).getHex();
+  // repère d'une face de mur : la ligne (x ou z = e), son étendue t0..t1, la normale vers la pièce
+  function faceFrame(horiz, e, t0, t1, nrm) {
+    const nx = horiz ? 0 : nrm, nz = horiz ? nrm : 0, ax = nz, az = -nx, pos = ax + az > 0, L = t1 - t0;
+    const O3 = horiz ? new THREE.Vector3(pos ? t0 : t1, 0, e) : new THREE.Vector3(e, 0, pos ? t0 : t1), A3 = new THREE.Vector3(ax, 0, az), N3 = new THREE.Vector3(nx, 0, nz);
+    const M = new THREE.Matrix4().makeBasis(A3, new THREE.Vector3(0, 1, 0), N3).setPosition(O3);
+    return { horiz, e, t0, t1, L, nx, nz, ax, az, M, ry: Math.atan2(nx, nz), s: t => pos ? t - t0 : t1 - t, P: (s, y, w = 0) => [O3.x + ax * s + nx * w, y, O3.z + az * s + nz * w] };
+  }
+  // forme d'une baie dans le plan du mur (s, y) : rectangle, cintre, anse de panier ou œil-de-bœuf
+  function bayPts(kind, s0, s1, y0, y1, CH) {
+    const pts = [], hw = (s1 - s0) / 2, c = (s0 + s1) / 2, arc = (ys, h, n = 14) => { for (let i = 0; i <= n; i++) { const t = PI - i / n * PI; pts.push([c + hw * Math.cos(t), ys + h * Math.sin(t)]); } };
+    if (kind === 'oeil') { for (let i = 0; i < 20; i++) { const t = i / 20 * TAU; pts.push([c + hw * Math.cos(t), (y0 + y1) / 2 + hw * Math.sin(t)]); } return pts; }
+    pts.push([s0, y0]); pts.push([s1, y0]);
+    if (kind === 'rect') { pts.push([s1, y1]); pts.push([s0, y1]); return pts; }
+    const h = kind === 'arc' ? hw : Math.min(hw, y1 - y0 - .4), ys = y1 - h; pts.push([s1, ys]); const tmp = []; for (let i = 0; i <= 14; i++) { const t = i / 14 * PI; tmp.push([c + hw * Math.cos(t), ys + h * Math.sin(t)]); } pts.push(...tmp); pts.push([s0, ys]); return pts;
+  }
+  // hauteur des baies selon le style
+  const winY = (st, CH) => { const y1 = Math.min(CH - 1.35, 4.8); return st === 'fen' ? [1.05, y1] : st === 'oeil' ? [CH - 2.45, CH - 1.15] : [.1, y1]; };
+  const winKind = st => st === 'cintree' ? 'arc' : st === 'oeil' ? 'oeil' : 'rect';
+  const opH = (t, w, CH) => t === 'a' ? [3.0, Math.min(w / 2, CH - 1.0 - 3.0)] : t === 'd' ? [3.3, Math.min(w / 2, CH - 1.1 - 3.3)] : [t === 'p' ? 3.7 : 3.9, 0];
+
+  function planShell(m) {
+    if (m.shell) { m.group.remove(m.shell); m.shell.traverse(c => c.geometry && c.geometry.dispose()); } if (m._pv && m._pv.tex) m._pv.tex.dispose();
+    delete m._cx; delete m._fw; delete m._gl; m._pd = null; const pd = planData(m), { W, H, T, R, CH, pl } = pd, sk = SK(), n = pl.n || 1;
+    let edges = 0; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR) { const x = i % W, z = (i - x) / W; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && T[zz * W + xx] !== FLOOR) edges++; } }
+    const rich = edges < 420; // petits châteaux : denticules, filets dorés partout
+    const ti = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? VOID : T[z * W + x], isF = (x, z) => ti(x, z) === FLOOR, solid = t => t === WALL || t === OPEN || t === DOOR;
+    const g = new THREE.Group(), b = new CB(990), bs = new CB(991), texW = {}, flA = {}, views = { t: new Acc(), s: new Acc() }, mir = new Acc(), art = {};
+    const roomOf = r => pd.room(r);
+    // ----- segments de mur (ce qui s'abaisse ensemble) -----
+    const hs = new Int32Array(W * H).fill(-1), vs = new Int32Array(W * H).fill(-1), segs = [null];
+    for (let z = 0; z < H; z++) { let s = -1; for (let x = 0; x < W; x++) { const i = z * W + x; if (solid(T[i]) && (isF(x, z - 1) || isF(x, z + 1))) { if (s < 0) { s = segs.length; segs.push({ o: 'h', c: z, a: x, b: x }); } segs[s].b = x; hs[i] = s; } else s = -1; } }
+    for (let x = 0; x < W; x++) { let s = -1; for (let z = 0; z < H; z++) { const i = z * W + x; if (solid(T[i]) && (isF(x - 1, z) || isF(x + 1, z))) { if (s < 0) { s = segs.length; segs.push({ o: 'v', c: x, a: z, b: z }); } segs[s].b = z; vs[i] = s; } else s = -1; } }
+    const capW = (x, z) => { const i = z * W + x; if (hs[i] > 0) return hs[i]; if (vs[i] > 0) return vs[i]; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (hs[j] > 0) return hs[j]; if (vs[j] > 0) return vs[j]; } return 0; };
+    // ----- fenêtres par face -----
+    const winOf = new Map(); for (const w of pl.wins) { const horiz = !!w.nz, e = horiz ? (w.nz < 0 ? w.z : w.z + 1) : (w.nx < 0 ? w.x : w.x + 1), key = (horiz ? 'h' : 'v') + (horiz ? w.nz : w.nx) + '|' + e; (winOf.get(key) || winOf.set(key, []).get(key)).push(w); }
+    const beams = [];
+    // ----- faces intérieures : courses le long d'une ligne, côté pièce -----
+    const runs = new Map(); const push = (key, t, item) => { (runs.get(key) || runs.set(key, []).get(key)).push(Object.assign({ t }, item)); };
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { if (T[z * W + x] !== FLOOR) continue; const r = R[z * W + x];
+      if (solid(ti(x, z - 1))) push('h1|' + z, x, { k: ti(x, z - 1), wid: hs[(z - 1) * W + x], r, cx: x, cz: z - 1 });
+      if (solid(ti(x, z + 1))) push('h-1|' + (z + 1), x, { k: ti(x, z + 1), wid: hs[(z + 1) * W + x], r, cx: x, cz: z + 1 });
+      if (solid(ti(x - 1, z))) push('v1|' + x, z, { k: ti(x - 1, z), wid: vs[z * W + x - 1], r, cx: x - 1, cz: z });
+      if (solid(ti(x + 1, z))) push('v-1|' + (x + 1), z, { k: ti(x + 1, z), wid: vs[z * W + x + 1], r, cx: x + 1, cz: z }); }
+    const opDone = new Set(), y1w = Math.min(CH - 1.35, 4.8);
+    for (const [key, list] of runs) { list.sort((a, c) => a.t - c.t); const horiz = key[0] === 'h', nrm = +key.slice(1, key.indexOf('|')), e = +key.slice(key.indexOf('|') + 1);
+      let s = 0; for (let i = 1; i <= list.length; i++) { if (i < list.length && list[i].t === list[i - 1].t + 1 && list[i].wid === list[i - 1].wid && list[i].r === list[i - 1].r) continue;
+        faceRun(horiz, nrm, e, list.slice(s, i), (winOf.get((horiz ? 'h' : 'v') + nrm + '|' + e) || [])); s = i; } }
+    function faceRun(horiz, nrm, e, items, wins) {
+      const t0 = items[0].t, t1 = items[items.length - 1].t + 1, F = faceFrame(horiz, e, t0, t1, nrm), L = F.L, rm = roomOf(items[0].r), wid = items[0].wid > 0 ? items[0].wid : 0;
+      const paint = PAINTS[rm.wall], wallCol = paint ? paint[0] : 0xf4efe6, dk = new THREE.Color(wallCol).getHSL({}).l < .42, trim = paint ? light(wallCol, dk ? .14 : .45) : 0xf7f3ea, gold = GOLD;
+      b.wid = wid; bs.wid = 0;
+      // baies : arches et portes (encoches qui descendent au sol), fenêtres (trous)
+      const notches = []; let j = 0; while (j < items.length) { const it = items[j]; if (it.k === WALL) { j++; continue; } let k2 = j; while (k2 + 1 < items.length && items[k2 + 1].k === it.k) k2++;
+        const wa = items[j].t, wb2 = items[k2].t + 1, type = it.k === DOOR ? 'd' : (pl.ops[it.cx + ',' + it.cz] || 'a'), sa = Math.min(F.s(wa), F.s(wb2)), sb = Math.max(F.s(wa), F.s(wb2)); notches.push({ s0: sa, s1: sb, type, cells: items.slice(j, k2 + 1) }); j = k2 + 1; }
+      const holes = []; for (const w of wins) { const sc = F.s(w.u); if (sc < w.w / 2 - .02 || sc > L - w.w / 2 + .02) continue; const [y0, y1] = winY(w.st, CH); holes.push({ win: w, s0: sc - w.w / 2, s1: sc + w.w / 2, y0, y1, kind: winKind(w.st) }); }
+      // le mur : contour avec les encoches, trous des fenêtres
+      const sh = new THREE.Shape(); sh.moveTo(0, 0); for (const nt of notches.sort((a, c) => a.s0 - c.s0)) { const [ys, hh] = opH(nt.type, nt.s1 - nt.s0, CH); sh.lineTo(nt.s0, 0); sh.lineTo(nt.s0, ys);
+        if (hh > .05) for (let i = 1; i <= 16; i++) { const t = PI - i / 16 * PI; sh.lineTo((nt.s0 + nt.s1) / 2 + (nt.s1 - nt.s0) / 2 * Math.cos(t), ys + hh * Math.sin(t)); } else sh.lineTo(nt.s1, ys);
+        sh.lineTo(nt.s1, 0); }
+      sh.lineTo(L, 0); sh.lineTo(L, CH); sh.lineTo(0, CH); sh.lineTo(0, 0);
+      for (const h of holes) { const p = new THREE.Path(), pts = bayPts(h.kind, h.s0, h.s1, h.y0, h.y1, CH); p.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) p.lineTo(pts[i][0], pts[i][1]); sh.holes.push(p); }
+      const sg = new THREE.ShapeGeometry(sh, 1);
+      if (paint) { b.S(sk.paint); b.add(sg, wallCol, F.M, 0, true); b.S(null); } else (texW[rm.wall] || (texW[rm.wall] = new Acc())).add(sg, F.M, wid);
+      // plinthe, cimaise, panneaux à filets dorés, pilastres entre les baies ; corniche à denticules et frise tout le long
+      const blocks = [...notches.map(q => [q.s0 - .22, q.s1 + .22]), ...holes.map(q => [q.s0 - .24, q.s1 + .24])].sort((a, c) => a[0] - c[0]), segs2 = []; let u = 0;
+      for (const [a, c] of blocks) { if (a > u + .05) segs2.push([u, a]); u = Math.max(u, c); } if (L > u + .05) segs2.push([u, L]);
+      const R2 = (u0, u1, y, hh, d, col, k = sk.paint) => { if (u1 - u0 < .02) return; b.S(k); const p = F.P((u0 + u1) / 2, y, d / 2); bx(b, u1 - u0, hh, d, col, p[0], p[1], p[2], F.ry); b.S(null); };
+      const V2 = (s, y0, y1, w, d, col, k = sk.paint) => { if (y1 - y0 < .02) return; b.S(k); const p = F.P(s, (y0 + y1) / 2, d / 2); bx(b, w, y1 - y0, d, col, p[0], p[1], p[2], F.ry); b.S(null); };
+      for (const [u0, u1] of segs2) { R2(u0, u1, .15, .3, .05, trim); R2(u0, u1, .31, .035, .075, trim); R2(u0, u1, 1.05, .07, .055, trim);
+        const pw = u1 - u0; if (pw < .7) continue; const np = Math.max(1, Math.round(pw / 1.7)), gap = .16, ytop = CH - 1.35;
+        for (let k = 0; k < np; k++) { const a = u0 + gap + k * (pw - gap) / np, c = u0 + (k + 1) * (pw - gap) / np;
+          for (const [y0, y1] of [[.46, .9], [1.36, ytop]]) { if (y1 - y0 < .3 || c - a < .3) continue; R2(a, c, y0, .03, .024, trim); R2(a, c, y1, .03, .024, trim); V2(a, y0, y1, .03, .024, trim); V2(c, y0, y1, .03, .024, trim);
+            if (y0 > 1 && (rich || n < 4)) { const iy0 = y0 + .08, iy1 = y1 - .08; R2(a + .08, c - .08, iy0, .01, .014, gold, sk.gold); R2(a + .08, c - .08, iy1, .01, .014, gold, sk.gold); V2(a + .08, iy0, iy1, .01, .014, gold, sk.gold); V2(c - .08, iy0, iy1, .01, .014, gold, sk.gold); } } }
+        // appliques dorées à deux bougies
+        if (rm.app && pw > 1.25) { const ax = (u0 + u1) / 2; b.S(sk.gold); let p = F.P(ax, 2.7, .03); bx(b, .1, .24, .05, gold, p[0], p[1], p[2], F.ry);
+          for (const t of [-1, 1]) { p = F.P(ax + t * .17, 2.62, .14); b.cyl(.022, .018, .04, 8, gold, p[0], p[1], p[2]); const q = F.P(ax + t * .09, 2.6, .09); b.add(new THREE.BoxGeometry(.18, .02, .02), gold, b.M(q[0], q[1], q[2], 0, F.ry, 0)); b.S(sk.ceramic); b.cyl(.012, .012, .12, 8, 0xfff8ec, p[0], p[1] + .08, p[2]); b.S(null); dot(b, .022, 0xffd27a, p[0], p[1] + .17, p[2], 1); b.S(sk.gold); }
+          b.S(null); }
+        // tableaux sur les grands murs sans fenêtre ; glaces dans la galerie
+        if (pw > 2.4) { const c = (u0 + u1) / 2;
+          if (rm.k === 'galerie') { const mw = Math.min(1.7, pw - .9), my0 = .5, my1 = y1w; const p = F.P(c, (my0 + my1) / 2, .02), mg = new THREE.ShapeGeometry(new THREE.Shape(bayPts('arc', -mw / 2, mw / 2, my0, my1, CH).map(q => new THREE.Vector2(q[0], q[1]))), 1);
+            mir.add(mg, new THREE.Matrix4().makeBasis(new THREE.Vector3(F.ax, 0, F.az), new THREE.Vector3(0, 1, 0), new THREE.Vector3(F.nx, 0, F.nz)).setPosition(new THREE.Vector3(...F.P(c, 0, .035))), wid);
+            b.S(sk.gold); V2(c - mw / 2 - .05, my0, my1 - mw / 2, .1, .06, gold, sk.gold); V2(c + mw / 2 + .05, my0, my1 - mw / 2, .1, .06, gold, sk.gold); R2(c - mw / 2 - .05, c + mw / 2 + .05, my0, .1, .06, gold, sk.gold);
+            b.add(new THREE.TorusGeometry(mw / 2 + .05, .05, 4, 12, PI), gold, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(c, my1 - mw / 2, .04)), 0, true); b.S(null); }
+          else if (n < 30 || rich) { const fw = Math.min(1.9, pw * .45), fh = fw * .74, fy = Math.min(CH - 1.9, 3.6), k = (Math.round(F.e * 3 + c * 7) % 6 + 6) % 6; b.S(sk.gold); const p = F.P(c, fy, .03); bx(b, fw + .16, fh + .16, .06, gold, p[0], p[1], p[2], F.ry); b.S(null);
+            (art[k] || (art[k] = new Acc())).add(new THREE.PlaneGeometry(fw, fh), new THREE.Matrix4().makeBasis(new THREE.Vector3(F.ax, 0, F.az), new THREE.Vector3(0, 1, 0), new THREE.Vector3(F.nx, 0, F.nz)).setPosition(new THREE.Vector3(...F.P(c, fy, .064))), wid, 1, 1); } } }
+      // pilastres cannelés entre les fenêtres (et de loin en loin sur les murs pleins), chapiteaux dorés au salon et à la galerie
+      const pil = []; const hs2 = holes.slice().sort((a, c) => a.s0 - c.s0); for (let i = 0; i + 1 < hs2.length; i++) { const g2 = hs2[i + 1].s0 - hs2[i].s1; if (g2 > .95) pil.push((hs2[i].s1 + hs2[i + 1].s0) / 2); }
+      if (!hs2.length) for (const [u0, u1] of segs2) if (u1 - u0 > 4.6) for (let k = 1, nn = Math.floor((u1 - u0) / 3.4); k < nn; k++) pil.push(u0 + k * (u1 - u0) / nn);
+      const gk = rm.k === 'salon' || rm.k === 'galerie' || rm.k === 'musique';
+      for (const s of pil) { V2(s, .3, CH - 1.0, .44, .08, trim); for (const t of [-.12, 0, .12]) V2(s + t, .65, CH - 1.35, .025, .095, dark(trim, .9)); R2(s - .3, s + .3, .3, .22, .11, trim); R2(s - .3, s + .3, CH - 1.08, .2, .12, gk ? gold : trim, gk ? sk.gold : sk.paint); }
+      // corniche, frise, denticules
+      R2(0, L, CH - .12, .24, .22, trim); R2(0, L, CH - .31, .13, .15, trim); R2(0, L, CH - .41, .06, .09, trim); R2(0, L, CH - .95, .05, .055, trim); if (gk) R2(0, L, CH - .48, .018, .1, gold, sk.gold);
+      if (rich && L > .4) { b.S(sk.paint); b.add(rowGeo(Math.floor((L - .1) / .17), .06, .06, .06, .17), trim, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(.09, CH - .54, .07)), 0, true); b.S(null); }
+      // frise du parquet le long du mur
+      { const fk = FLOORK[rm.floor], fb = fk === 3 || rm.floor === 'marbre' || rm.floor === 'damier_noir' ? 0x2a2a30 : fk === 4 || fk === 5 ? 0x4a2c18 : 0x6a4428, p = F.P(L / 2, .006, .2); bs.S(sk.wood); bx(bs, L, .008, .26, fb, p[0], p[1], p[2], F.ry); bs.S(null); }
+      // fenêtres : embrasure à volets intérieurs, chambranle, menuiserie à petits bois, crémone dorée, rideaux, vue dehors
+      for (const h of holes) winDetail(F, h, rm, trim, wallCol, wid);
+      // arches et portes : une seule fois par baie (elle traverse le mur)
+      for (const nt of notches) { const key = nt.cells.map(c => c.cx + ',' + c.cz).join(';'); if (nt.type !== 'd' && opDone.has(key)) { archFace(F, nt, trim, gk, false); continue; } opDone.add(key); archFace(F, nt, trim, gk, true); }
+    }
+    function winDetail(F, h, rm, trim, wallCol, wid) {
+      const win = h.win, w = h.s1 - h.s0, sc = (h.s0 + h.s1) / 2, pts = bayPts(h.kind, h.s0, h.s1, h.y0, h.y1, CH), dJ = -.36, dO = -1, stone = 0xe9dcc3, white = 0xf7f3ea, cur = CURT[win.c || rm.curt] || CURT.rouge;
+      // embrasure (intérieure peinte, extérieure en pierre)
+      const strip = (d0, d1, col, k) => { b.S(k); for (let i = 0; i < pts.length; i++) { const p0 = pts[i], p1 = pts[(i + 1) % pts.length]; if (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < 1e-4) continue;
+          b.fquad(F.P(p0[0], p0[1], d0), F.P(p1[0], p1[1], d0), F.P(p1[0], p1[1], d1), F.P(p0[0], p0[1], d1), col); } b.S(null); };
+      strip(0, dJ, wallCol, sk.paint); strip(dJ, dO, stone, sk.stone);
+      // volets intérieurs repliés dans l'embrasure (deux panneaux moulurés de chaque côté)
+      if (h.kind !== 'oeil') for (const sgn of [-1, 1]) { const s = sgn < 0 ? h.s0 + .025 : h.s1 - .025, top = h.kind === 'arc' ? h.y1 - w / 2 : h.y1; b.S(sk.paint);
+        for (const [y0, y1] of [[h.y0 + .08, h.y0 + (top - h.y0) * .42], [h.y0 + (top - h.y0) * .46, top - .06]]) { const p = F.P(s, (y0 + y1) / 2, dJ / 2); b.add(new THREE.BoxGeometry(.03, y1 - y0, -dJ - .06), light(wallCol, .25), b.M(p[0], p[1], p[2], 0, F.ry, 0)); } b.S(null); }
+      // chambranle mouluré autour de la baie, clé de voûte
+      b.S(sk.paint); if (h.kind === 'oeil') b.add(new THREE.TorusGeometry(w / 2 + .06, .06, 4, 14), trim, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(sc, (h.y0 + h.y1) / 2, .04)), 0, true);
+      else { const top = h.kind === 'arc' ? h.y1 - w / 2 : h.y1; for (const s of [h.s0 - .07, h.s1 + .07]) { const p = F.P(s, (h.y0 + top) / 2, .03); bx(b, .14, top - h.y0, .06, trim, p[0], p[1], p[2], F.ry); }
+        if (h.kind === 'arc') { b.add(new THREE.TorusGeometry(w / 2 + .07, .07, 4, 14, PI), trim, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(sc, top, .03)), 0, true); const p = F.P(sc, h.y1 + .02, .06); bx(b, .2, .34, .1, trim, p[0], p[1], p[2], F.ry); b.S(sk.gold); dot(b, .04, GOLD, ...F.P(sc, h.y1 + .02, .12)); b.S(sk.paint); }
+        else { const p = F.P(sc, h.y1 + .07, .03); bx(b, w + .28, .14, .06, trim, p[0], p[1], p[2], F.ry); } }
+      if (win.st === 'fen' || h.y0 > .5) { const p = F.P(sc, h.y0 - .04, .1); bx(b, w + .3, .07, .22, trim, p[0], p[1], p[2], F.ry); const q = F.P(sc, h.y0 / 2, .025); bx(b, w * .8, h.y0 * .55, .03, light(trim, .1), q[0], q[1], q[2], F.ry); } b.S(null);
+      // menuiserie : dormant, montant central, petits bois, imposte en éventail, crémone
+      b.S(sk.paint); const top = h.kind === 'arc' ? h.y1 - w / 2 : h.y1, mw = .055;
+      if (h.kind === 'oeil') { b.add(new THREE.TorusGeometry(w / 2 - .03, .035, 4, 12), white, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(sc, (h.y0 + h.y1) / 2, dJ)), 0, true); for (const r2 of [0, PI / 2]) { const p = F.P(sc, (h.y0 + h.y1) / 2, dJ); b.add(new THREE.BoxGeometry(w - .06, .03, .04), white, b.M(p[0], p[1], p[2], 0, F.ry, r2)); } }
+      else { for (const s of [h.s0 + mw / 2, h.s1 - mw / 2, sc]) { const p = F.P(s, (h.y0 + top) / 2, dJ); bx(b, s === sc ? .07 : mw, top - h.y0, .07, white, p[0], p[1], p[2], F.ry); }
+        let p = F.P(sc, h.y0 + .03, dJ); bx(b, w, .06, .07, white, p[0], p[1], p[2], F.ry); p = F.P(sc, top - .02, dJ); bx(b, w, .06, .07, white, p[0], p[1], p[2], F.ry);
+        for (const s of [sc - w / 4, sc + w / 4]) { p = F.P(s, (h.y0 + top) / 2, dJ); bx(b, .028, top - h.y0, .045, white, p[0], p[1], p[2], F.ry); }
+        for (let y = h.y0 + .62; y < top - .2; y += .62) { p = F.P(sc, y, dJ); bx(b, w, .028, .045, white, p[0], p[1], p[2], F.ry); }
+        if (h.kind === 'arc') { for (const t of [PI / 4, PI / 2, 3 * PI / 4]) { const r2 = w / 2 - .04, q = F.P(sc + Math.cos(t) * r2 / 2, top + Math.sin(t) * r2 / 2, dJ); b.add(new THREE.BoxGeometry(r2, .028, .045), white, b.M(q[0], q[1], q[2], 0, F.ry, 0).multiply(new THREE.Matrix4().makeRotationZ(t * (F.nx + F.nz > 0 ? 1 : 1)))); }
+          b.add(new THREE.TorusGeometry(w / 2 - .03, .03, 4, 12, PI), white, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(sc, top, dJ)), 0, true); }
+        b.S(sk.gold); p = F.P(sc + .05, 1.15, dJ + .05); bx(b, .022, top - h.y0 - .3, .022, GOLD, p[0], (h.y0 + top) / 2, p[2], F.ry); p = F.P(sc + .09, 1.15, dJ + .07); bx(b, .1, .03, .03, GOLD, p[0], p[1], p[2], F.ry); }
+      b.S(null);
+      // vue dehors (au nu extérieur du mur)
+      const vw = w + .1, vh = h.y1 - h.y0 + .1; views[h.kind === 'oeil' ? 's' : 't'].add(new THREE.PlaneGeometry(vw, vh), new THREE.Matrix4().makeBasis(new THREE.Vector3(F.ax, 0, F.az), new THREE.Vector3(0, 1, 0), new THREE.Vector3(F.nx, 0, F.nz)).setPosition(new THREE.Vector3(...F.P(sc, (h.y0 + h.y1) / 2, dO + .02))), wid, 1, 1);
+      // rideaux de velours sur les côtés (ils laissent passer le soleil), embrasses à glands, cantonnière frangée d'or
+      if (cur[0] && h.kind !== 'oeil') { const col = cur[0], ch = h.y1 + .55, sk2 = (win.c || rm.curt) === 'voile' ? sk.fabric : sk.velvet; b.S(sk2);
+        for (const sgn of [-1, 1]) { const cx = sgn < 0 ? h.s0 - .3 : h.s1 + .3; for (let k = 0; k < 3; k++) { const p = F.P(cx + sgn * (k - 1) * .1, ch / 2, .16 + (k % 2) * .03); b.add(new THREE.BoxGeometry(.13, ch, .06), k % 2 ? dark(col, .8) : col, b.M(p[0], p[1], p[2], 0, F.ry, 0), 0, true); }
+          b.S(sk.gold); b.add(new THREE.TorusGeometry(.12, .018, 4, 10), GOLD, b.M(...F.P(cx, 1.15, .22), PI / 2, F.ry, 0), 0, true); dot(b, .045, GOLD, ...F.P(cx + sgn * .14, 1.0, .24)); b.S(sk2); }
+        let p = F.P(sc, ch - .12, .2); b.add(new THREE.BoxGeometry(w + 1.0, .42, .1), col, b.M(p[0], p[1], p[2], 0, F.ry, 0)); b.S(sk.gold); p = F.P(sc, ch - .34, .21); bx(b, w + 1.02, .04, .11, GOLD, p[0], p[1], p[2], F.ry);
+        p = F.P(sc, ch - .39, .225); bx(b, w + .98, .06, .025, GOLD, p[0], p[1], p[2], F.ry); p = F.P(sc, ch + .14, .12); bx(b, w + 1.2, .035, .035, GOLD, p[0], p[1], p[2], F.ry); b.S(null); }
+      // rayon de soleil : le contour intérieur de la baie
+      const yt = h.kind === 'arc' ? h.y1 - w / 2 * .3 : h.y1; beams.push({ pts: [F.P(h.s0, h.y0, 0), F.P(h.s1, h.y0, 0), F.P(h.s1, yt, 0), F.P(h.s0, yt, 0)], nx: F.nx, nz: F.nz, r: win.r, box: [rm.x0, rm.z0, rm.x1 + 1, rm.z1 + 1] });
+    }
+    function archFace(F, nt, trim, gk, first) {
+      const w = nt.s1 - nt.s0, sc = (nt.s0 + nt.s1) / 2, [ys, hh] = opH(nt.type, w, CH), pts = []; pts.push([nt.s0, 0]); pts.push([nt.s0, ys]); if (hh > .05) for (let i = 1; i <= 16; i++) { const t = PI - i / 16 * PI; pts.push([sc + w / 2 * Math.cos(t), ys + hh * Math.sin(t)]); } else pts.push([nt.s1, ys]); pts.push([nt.s1, 0]);
+      const col = 0xf2ede2, depth = -1;
+      // archivolte moulurée, clé, impostes, pilastres de part et d'autre (sur chaque face)
+      b.S(sk.paint); for (const s of [nt.s0 - .1, nt.s1 + .1]) { const p = F.P(s, ys / 2, .035); bx(b, .2, ys, .07, trim, p[0], p[1], p[2], F.ry); const q = F.P(s, ys - .06, .05); bx(b, .3, .12, .1, gk ? GOLD : trim, q[0], q[1], q[2], F.ry); }
+      if (hh > .05) { b.add(new THREE.TorusGeometry(w / 2 + .1, .085, 4, 14, PI), trim, new THREE.Matrix4().multiplyMatrices(F.M, new THREE.Matrix4().makeTranslation(sc, ys, .03)).multiply(new THREE.Matrix4().makeScale(1, hh / (w / 2), 1)), 0, true);
+        const p = F.P(sc, ys + hh + .05, .07); bx(b, .3, .46, .12, trim, p[0], p[1], p[2], F.ry); if (gk) { b.S(sk.gold); dot(b, .07, GOLD, ...F.P(sc, ys + hh + .02, .15)); b.S(sk.paint); } }
+      else { const p = F.P(sc, ys + .08, .035); bx(b, w + .4, .16, .07, trim, p[0], p[1], p[2], F.ry); }
+      for (const s of [nt.s0 - .5, nt.s1 + .5]) { if (s < .2 || s > F.L - .2) continue; const p = F.P(s, (CH - 1) / 2 + .15, .04); bx(b, .4, CH - 1.3, .08, trim, p[0], p[1], p[2], F.ry); const q = F.P(s, CH - 1.05, .06); bx(b, .52, .18, .12, gk ? GOLD : trim, q[0], q[1], q[2], F.ry); }
+      b.S(null);
+      if (nt.type === 'd') entryDoor(F, nt, ys, hh, trim);
+      else if (nt.type === 'p') { if (first) { b.S(sk.paint); for (const sgn of [-1, 1]) { const lw = w / 2 - .05, s = sgn < 0 ? nt.s0 : nt.s1, p = F.P(s - sgn * .05, ys / 2, lw / 2 + .05); b.add(new THREE.BoxGeometry(.07, ys - .1, lw), 0xf7f3ea, b.M(p[0], p[1], p[2], 0, F.ry, 0)); // vantaux ouverts contre le mur
+            for (const [y0, y1] of [[.25, ys * .42], [ys * .48, ys - .3]]) { const q = F.P(s - sgn * .095, (y0 + y1) / 2, lw / 2 + .05); b.add(new THREE.BoxGeometry(.02, y1 - y0, lw - .25), GOLD, b.M(q[0], q[1], q[2], 0, F.ry, 0)); } } b.S(null); }
+        const p = F.P(sc, ys + .75, .04); b.S(sk.gold); bx(b, Math.min(w, 2.2) + .14, .9, .05, GOLD, p[0], p[1], p[2], F.ry); b.S(null); // dessus-de-porte peint
+        (art[1] || (art[1] = new Acc())).add(new THREE.PlaneGeometry(Math.min(w, 2.2), .76), new THREE.Matrix4().makeBasis(new THREE.Vector3(F.ax, 0, F.az), new THREE.Vector3(0, 1, 0), new THREE.Vector3(F.nx, 0, F.nz)).setPosition(new THREE.Vector3(...F.P(sc, ys + .75, .07))), b.wid, 1, 1); }
+      if (!first) return;
+      // tableaux et intrados (dessous de l'arche) sur toute l'épaisseur du mur, avec rosaces dorées
+      b.S(sk.paint); for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i], p1 = pts[i + 1]; if (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < 1e-4) continue; b.fquad(F.P(p0[0], p0[1], 0), F.P(p0[0], p0[1], depth), F.P(p1[0], p1[1], depth), F.P(p1[0], p1[1], 0), col); } b.S(null);
+      if (hh > .05 && w > 1.8) { b.S(sk.gold); for (let i = 3; i < 16; i += 3) { const t = PI - i / 16 * PI, p = F.P(sc + w / 2 * Math.cos(t) * .97, ys + hh * Math.sin(t) * .97, -.5); dot(b, .05, GOLD, p[0], p[1], p[2]); } b.S(null); }
+      // seuil de marbre
+      for (const c of nt.cells) { bs.wid = 0; bs.S(sk.stone); bx(bs, 1, .02, 1, nt.type === 'd' ? 0xd9d2c4 : 0xf1ede6, c.cx + .5, .01, c.cz + .5); bs.S(null); }
+    }
+    function entryDoor(F, nt, ys, hh, trim) {
+      const w = nt.s1 - nt.s0, sc = (nt.s0 + nt.s1) / 2, d = -.5, col = 0x2f4f7a; b.S(sk.paint);
+      for (const sgn of [-1, 1]) { const lx = sc + sgn * w / 4, p = F.P(lx, ys / 2, d); bx(b, w / 2 - .03, ys, .09, col, p[0], p[1], p[2], F.ry);
+        for (const [y0, y1] of [[.3, ys * .4], [ys * .46, ys - .25]]) { const q = F.P(lx, (y0 + y1) / 2, d + .05); bx(b, w / 2 - .34, y1 - y0, .025, dark(col, .85), q[0], q[1], q[2], F.ry); }
+        b.S(sk.gold); dot(b, .05, GOLD, ...F.P(sc + sgn * .12, 1.2, d + .07)); b.S(sk.paint); }
+      if (hh > .05) { views.s.add(new THREE.CircleGeometry(w / 2, 18, 0, PI), new THREE.Matrix4().makeBasis(new THREE.Vector3(F.ax, 0, F.az), new THREE.Vector3(0, 1, 0), new THREE.Vector3(F.nx, 0, F.nz)).setPosition(new THREE.Vector3(...F.P(sc, ys, d - .02))), b.wid, 1, 1);
+        for (const t of [PI / 4, PI / 2, 3 * PI / 4]) { const q = F.P(sc + Math.cos(t) * w / 4, ys + Math.sin(t) * hh / 2, d); b.add(new THREE.BoxGeometry(w / 2, .035, .05), 0xf7f3ea, b.M(q[0], q[1], q[2], 0, F.ry, 0).multiply(new THREE.Matrix4().makeRotationZ(t))); } }
+      b.S(null);
+    }
+    // ----- faces extérieures des murs du tour (vues de loin) : pierre de taille, trous des fenêtres, porte -----
+    const outer = new Map(); for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const t = T[z * W + x]; if (!solid(t)) continue;
+      if (ti(x, z + 1) === VOID) (outer.get('h1|' + (z + 1)) || outer.set('h1|' + (z + 1), []).get('h1|' + (z + 1))).push({ t: x, k: t, wid: capW(x, z) });
+      if (ti(x, z - 1) === VOID) (outer.get('h-1|' + z) || outer.set('h-1|' + z, []).get('h-1|' + z)).push({ t: x, k: t, wid: capW(x, z) });
+      if (ti(x + 1, z) === VOID) (outer.get('v1|' + (x + 1)) || outer.set('v1|' + (x + 1), []).get('v1|' + (x + 1))).push({ t: z, k: t, wid: capW(x, z) });
+      if (ti(x - 1, z) === VOID) (outer.get('v-1|' + x) || outer.set('v-1|' + x, []).get('v-1|' + x)).push({ t: z, k: t, wid: capW(x, z) }); }
+    for (const [key, list] of outer) { list.sort((a, c) => a.t - c.t); const horiz = key[0] === 'h', nrm = +key.slice(1, key.indexOf('|')), e = +key.slice(key.indexOf('|') + 1);
+      let s = 0; for (let i = 1; i <= list.length; i++) { if (i < list.length && list[i].t === list[i - 1].t + 1 && list[i].wid === list[i - 1].wid) continue; const items = list.slice(s, i); s = i;
+        const t0 = items[0].t, t1 = items[items.length - 1].t + 1, F = faceFrame(horiz, e, t0, t1, nrm), L = F.L; b.wid = items[0].wid;
+        const sh = new THREE.Shape(); sh.moveTo(0, 0); const dc = items.filter(q => q.k === DOOR); if (dc.length) { const s0 = Math.min(F.s(dc[0].t), F.s(dc[dc.length - 1].t + 1)), s1 = Math.max(F.s(dc[0].t), F.s(dc[dc.length - 1].t + 1)), [ys, hh] = opH('d', s1 - s0, CH); sh.lineTo(s0, 0); sh.lineTo(s0, ys); for (let k = 1; k <= 16; k++) { const tt = PI - k / 16 * PI; sh.lineTo((s0 + s1) / 2 + (s1 - s0) / 2 * Math.cos(tt), ys + hh * Math.sin(tt)); } sh.lineTo(s1, 0); }
+        sh.lineTo(L, 0); sh.lineTo(L, CH); sh.lineTo(0, CH); sh.lineTo(0, 0);
+        for (const w of pl.wins) { const wh = !!w.nz; if (wh !== horiz || -(wh ? w.nz : w.nx) !== nrm) continue; const we = wh ? (w.nz < 0 ? w.z + 1 : w.z) : (w.nx < 0 ? w.x + 1 : w.x); if (we !== e) continue; const sc = F.s(w.u); if (sc < w.w / 2 || sc > L - w.w / 2) continue;
+          const [y0, y1] = winY(w.st, CH), pts = bayPts(winKind(w.st), sc - w.w / 2, sc + w.w / 2, y0, y1, CH), p = new THREE.Path(); p.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < pts.length; k++) p.lineTo(pts[k][0], pts[k][1]); sh.holes.push(p); }
+        b.P(G.PAT.pierre); b.add(new THREE.ShapeGeometry(sh, 1), 0xefe3c9, F.M, 0, true); b.P(0);
+        const p = F.P(L / 2, CH - .1, .1); b.P(G.PAT.pierre); bx(b, L + .2, .2, .2, 0xe2d4b6, p[0], p[1], p[2], F.ry); const q = F.P(L / 2, .2, .06); bx(b, L, .4, .12, 0xd9cfba, q[0], q[1], q[2], F.ry); b.P(0); } }
+    // ----- dessus des murs (vus d'en haut) -----
+    for (let z = 0; z < H; z++) { let x = 0; while (x < W) { if (!solid(T[z * W + x])) { x++; continue; } const wid = capW(x, z); let x2 = x; while (x2 + 1 < W && solid(T[z * W + x2 + 1]) && capW(x2 + 1, z) === wid) x2++;
+        b.wid = wid; b.S(sk.stone); bx(b, x2 - x + 1, .06, 1, 0x6f6252, (x + x2 + 1) / 2, CH + .03, z + .5); b.S(null); x = x2 + 1; } }
+    b.wid = 0;
+    // ----- sols (par pièce), bordure de frise le long des murs ; plafonds peints, rosaces sous les lustres -----
+    for (const rm of pl.rooms) { const cells = new Uint8Array(W * H); let any = false; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR && R[i] === rm.id) { cells[i] = 1; any = true; } if (!any) continue;
+      const acc = flA[rm.floor] || (flA[rm.floor] = new Acc());
+      for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { if (!cells[z * W + x]) continue; let x2 = x; while (x2 + 1 < W && cells[z * W + x2 + 1]) x2++; let z2 = z, ok = true; while (ok && z2 + 1 < H) { for (let xx = x; xx <= x2; xx++) if (!cells[(z2 + 1) * W + xx]) { ok = false; break; } if (ok) z2++; }
+        for (let zz = z; zz <= z2; zz++) for (let xx = x; xx <= x2; xx++) cells[zz * W + xx] = 0; const w = x2 - x + 1, d = z2 - z + 1;
+        acc.add(new THREE.PlaneGeometry(w, d), new THREE.Matrix4().makeRotationX(-PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x + w / 2, .004, z + d / 2)), 0, w / 2, d / 2);
+        bs.S(sk.paint); bs.add(new THREE.PlaneGeometry(w, d), 0xf6f1e8, new THREE.Matrix4().makeRotationX(PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x + w / 2, CH, z + d / 2)), 0, true); bs.S(null); }
+    }
+    // rosaces du plafond au-dessus des lustres : tournées vers le bas seulement (vues d'en haut, quand le plafond s'efface, elles disparaissent aussi)
+    for (const o of m.list) if (O[o.t].ceil) { const x = o.x + .5, z = o.z + .5; bs.S(sk.paint); bs.add(new THREE.CircleGeometry(.58, 28), 0xfbf8f1, bs.M(x, CH - .015, z, PI / 2, 0, 0)); bs.S(sk.gold);
+      bs.add(new THREE.RingGeometry(.46, .53, 28), GOLD, bs.M(x, CH - .022, z, PI / 2, 0, 0)); bs.add(new THREE.RingGeometry(.2, .24, 20), GOLD, bs.M(x, CH - .024, z, PI / 2, 0, 0)); bs.add(new THREE.CircleGeometry(.08, 12), GOLD, bs.M(x, CH - .026, z, PI / 2, 0, 0)); bs.S(null); }
+    // sol du dehors (cour, jardin) sous le château
+    bs.S(sk.stone); bx(bs, W + 6, .04, H + 6, 0x8c8371, W / 2, -.04, H / 2); bs.S(null);
+    // ----- assemblage -----
+    const CM = cutMats(), add = (geo, mat, shadow = true) => { if (!geo) return; const me = new THREE.Mesh(geo, mat); me.castShadow = shadow; me.receiveShadow = true; me.frustumCulled = false; g.add(me); return me; };
+    add(b.done(), CM); add(bs.done(), G.MATS);
+    for (const id in texW) add(texW[id].geo(), cutMat(wallTexMat(id)));
+    for (const id in flA) add(flA[id].geo(), floorMat(id), false);
+    add(views.t.geo(), viewMat(false), false); add(views.s.geo(), viewMat(true), false); add(mir.geo(), cutMat(mirrorMat()), false);
+    for (const k in art) add(art[k].geo(), cutMat(artMat(+k)), false);
+    m.shell = g; m.group.add(g);
+    // rayons de soleil (une seule géométrie, mise à jour quand le soleil bouge)
+    const NB = beams.length * 2, bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NB * 24 * 3), 3)); bg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(NB * 24 * 2), 2)); bg.setDrawRange(0, 0);
+    const bm = new THREE.Mesh(bg, beamMat()); bm.frustumCulled = false; bm.renderOrder = 4; g.add(bm);
+    // les murs déjà abaissés le restent quand on redessine (retouche du décor depuis le plan)
+    const oc = m._pv && m._pv.segs.length === segs.length ? m._pv.cut : null, cut = oc ? oc.slice() : new Float32Array(segs.length), cv = new Uint8Array(segs.length * 4); for (let i = 0; i < segs.length; i++) cv[i * 4] = Math.round(cut[i] * 255);
+    const tex = new THREE.DataTexture(cv, segs.length, 1, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true;
+    m._pv = { segs, cut, cv, tex, beams, bm, bt: 0, room: m._pv ? m._pv.room : 0 };
+  }
+  // ---------- rayons de soleil : prismes de lumière qui partent des fenêtres ----------
+  let bMat = null;
+  // rayons : bords doux (la lumière s'efface quand on la voit par la tranche), fondu vers le sol, poussière qui ondule lentement
+  function beamMat() { if (bMat) return bMat;
+    return bMat = new THREE.ShaderMaterial({ uniforms: { uCol: { value: new THREE.Color(0xffe2a8) }, uOp: { value: .1 }, uT: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false, extensions: { derivatives: true },
+      vertexShader: 'varying vec2 vUv; varying vec3 vW;\nvoid main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+      fragmentShader: 'uniform vec3 uCol; uniform float uOp, uT; varying vec2 vUv; varying vec3 vW;\nvoid main() { vec3 n = normalize(cross(dFdx(vW), dFdy(vW))); float f = abs(dot(n, normalize(cameraPosition - vW)));\n'
+        + '  float l = pow(clamp(vUv.y, 0.0, 1.0), 1.25), s = sin(dot(vW, vec3(2.3, 1.1, 1.7)) + uT * .55) * sin(dot(vW, vec3(-1.3, 2.9, .7)) - uT * .4);\n'
+        + '  float d = smoothstep(.6, 3.5, distance(cameraPosition, vW));\n'
+        + '  gl_FragColor = vec4(uCol, clamp(uOp * l * d * pow(f, 1.3) * (.8 + .2 * s) * 2.0, 0.0, 1.0)); }' }); }
+  const SD = new THREE.Vector3(), CW = new THREE.Color(), CS = new THREE.Color(0xffd08a);
+  function updBeams(m, dt) {
+    const pv = m._pv, L = G.lights; if (!pv || !L || (pv.bt -= dt) > 0) return; pv.bt = .2;
+    SD.copy(L.sun.position).sub(L.sun.target.position).normalize(); const day = L.sun.intensity > .25 && SD.y > .1, low = 1 - G.clamp((SD.y - .18) / .5, 0, 1), k = Math.min(1, (L.sun.intensity - .25) * 2.2);
+    bMat.uniforms.uOp.value = (.1 + .09 * low) * k; bMat.uniforms.uCol.value.copy(CW.copy(L.sun.color).lerp(CS, .35 + .35 * low));
+    const pos = pv.bm.geometry.attributes.position, uv = pv.bm.geometry.attributes.uv, p = G.player, live = []; let q = 0;
+    if (day && p) for (const be of pv.beams) { if (-(SD.x * be.nx + SD.z * be.nz) <= .04 || Math.abs(be.pts[0][0] - p.x) > 34 || Math.abs(be.pts[0][2] - p.z) > 34) continue; live.push(be);
+      const ends = be.pts.map(a => { let t = a[1] / Math.max(.1, SD.y); const [bx0, bz0, bx1, bz1] = be.box; for (let it = 0; it < 2; it++) { const fx = a[0] - SD.x * t, fz = a[2] - SD.z * t; if (fx < bx0 - .02 || fx > bx1 + .02 || fz < bz0 - .02 || fz > bz1 + .02) t *= .82; }
+        return [a[0] - SD.x * t, a[1] - SD.y * t, a[2] - SD.z * t]; });
+      for (const sc of [1, .55]) { const cx = be.pts.reduce((s, a) => s + a[0], 0) / 4, cy = be.pts.reduce((s, a) => s + a[1], 0) / 4, cz = be.pts.reduce((s, a) => s + a[2], 0) / 4, ex = ends.reduce((s, a) => s + a[0], 0) / 4, ey = ends.reduce((s, a) => s + a[1], 0) / 4, ez = ends.reduce((s, a) => s + a[2], 0) / 4;
+        const A2 = be.pts.map(a => [cx + (a[0] - cx) * sc, cy + (a[1] - cy) * sc, cz + (a[2] - cz) * sc]), B2 = ends.map(a => [ex + (a[0] - ex) * sc, ey + (a[1] - ey) * sc, ez + (a[2] - ez) * sc]);
+        for (let s = 0; s < 4; s++) { const a0 = A2[s], a1 = A2[(s + 1) % 4], b1 = B2[(s + 1) % 4], b0 = B2[s]; for (const [P, v] of [[a0, 0], [a1, 0], [b1, 1], [a0, 0], [b1, 1], [b0, 1]]) { if (q >= pos.count) break; pos.setXYZ(q, P[0], P[1], P[2]); uv.setXY(q, .5, 1 - v); q++; } } } }
+    pv.bm.geometry.setDrawRange(0, q); pos.needsUpdate = true; uv.needsUpdate = true; pv.live = live;
+    // beaucoup de rayons tout près (longue galerie) : chacun un peu plus doux, pour ne pas noyer la pièce de lumière
+    let near = 0; if (p) for (const be of live) if (Math.abs(be.pts[0][0] - p.x) < 16 && Math.abs(be.pts[0][2] - p.z) < 16) near++; bMat.uniforms.uOp.value *= Math.pow(6 / Math.max(6, near), .8);
+    // poussière dorée qui danse dans la lumière
+    if (live.length && G.state === 'play') for (let i = 0; i < 3; i++) { const be = live[Math.floor(Math.random() * live.length)], a = be.pts[0], c2 = be.pts[2], f = Math.random(), y = a[1] + (c2[1] - a[1]) * Math.random(), x0 = a[0] + (c2[0] - a[0]) * f, z0 = a[2] + (c2[2] - a[2]) * f, t = Math.random() * y / Math.max(.1, SD.y);
+      G.fx.one(x0 - SD.x * t, y - SD.y * t, z0 - SD.z * t, (Math.random() - .5) * .04, .015, (Math.random() - .5) * .04, 3.5 + Math.random() * 2, -.008, 0xfff1c4, .03, 0); }
+  }
+  // ---------- les murs s'abaissent entre la caméra et le joueur ----------
+  function updCut(m, dt) {
+    const pv = m._pv, p = G.player, cam = G.camera; if (!pv || !p || !cam) return; CUT.tex.value = pv.tex; CUT.n.value = pv.segs.length;
+    const fp = G.firstPerson && G.firstPerson(), vx0 = cam.position.x - p.x, vz0 = cam.position.z - p.z, vl = Math.hypot(vx0, vz0) || 1, vx = vx0 / vl, vz = vz0 / vl, reach = Math.min(28, vl + 4);
+    let dirty = false;
+    for (let i = 1; i < pv.segs.length; i++) { const s = pv.segs[i]; let want = 0;
+      if (!fp) { const ax = s.o === 'h' ? s.a : s.c + .5, az = s.o === 'h' ? s.c + .5 : s.a, bx2 = s.o === 'h' ? s.b + 1 : s.c + .5, bz2 = s.o === 'h' ? s.c + .5 : s.b + 1;
+        // le point du segment le plus proche du joueur, et sa position dans le couloir caméra → joueur
+        const ex = bx2 - ax, ez = bz2 - az, ll = ex * ex + ez * ez || 1, tt = G.clamp(((p.x - ax) * ex + (p.z - az) * ez) / ll, 0, 1), qx = ax + ex * tt - p.x, qz = az + ez * tt - p.z, fw = qx * vx + qz * vz, lat = Math.abs(qx * vz - qz * vx);
+        const cx = (ax + bx2) / 2 - p.x, cz = (az + bz2) / 2 - p.z, cf = cx * vx + cz * vz, perp = Math.abs(ex * vx + ez * vz) / Math.sqrt(ll) < .72;
+        if ((fw > .55 && fw < reach && lat < 4.2) || (perp && cf > -.45 && cf < reach && Math.abs(cx * vz - cz * vx) < 16 + Math.sqrt(ll) / 2)) want = 1; }
+      const c = pv.cut[i], nv = c + G.clamp(want - c, -dt * 3.5, dt * 3.5); if (Math.abs(nv - c) > 1e-4) { pv.cut[i] = nv; pv.cv[i * 4] = Math.round(nv * 255); dirty = true; } }
+    if (dirty) pv.tex.needsUpdate = true;
+  }
+  // nom de la pièce où l'on entre, en haut de l'écran
+  let lab = null, labT = 0;
+  function roomLabel(m, dt) {
+    if (G.ui.modal) { if (lab) lab.style.opacity = '0'; labT = 0; return; } // un panneau est ouvert (le plan, l'inventaire…) : pas d'étiquette par-dessus
+    const pd = planData(m), p = G.player, pv = m._pv; if (!p || !pv) return; const tx = Math.floor(p.x), tz = Math.floor(p.z); if (tx < 0 || tz < 0 || tx >= pd.W || tz >= pd.H) return; const r = pd.R[tz * pd.W + tx];
+    if (r && r !== pv.room) { pv.room = r; const rm = pd.pl.rooms.find(q => q.id === r); if (rm) { if (!lab) { lab = document.createElement('div'); lab.style.cssText = 'position:fixed;left:50%;top:74px;transform:translateX(-50%);padding:8px 22px;border-radius:999px;background:rgba(40,28,14,.62);color:#fff3d6;font:800 17px/1.2 system-ui,sans-serif;letter-spacing:.04em;pointer-events:none;transition:opacity .6s;z-index:40;text-shadow:0 1px 3px #0008;border:1px solid #d9b04a88'; document.body.appendChild(lab); }
+        lab.textContent = '⚜ ' + rm.n + ' ⚜'; lab.style.opacity = '1'; labT = 2.6; } }
+    if (lab && labT > 0 && (labT -= dt) <= 0) lab.style.opacity = '0';
+  }
+  // ---------- branchements ----------
+  const obs = G.buildShell; G.buildShell = m => { if (m && m.meta && m.meta.plan) return planShell(m); return obs(m); };
+  G.on('update', dt => {
+    const m = G.map, p = G.player; if (!m || !m.interior || !m.meta.plan || !p) { if (lab && lab.style.opacity !== '0') lab.style.opacity = '0'; return; }
+    const pl = m.meta.plan, d = pl.door; if (d && !G.ui.fading && p.x > d.x0 && p.x < d.x1 + 1 && p.z > d.z + .3) { G.act.exitHouse(); return; }
+    if (bMat) bMat.uniforms.uT.value += dt; updCut(m, dt); updBeams(m, dt); roomLabel(m, dt);
+  });
+  G.on('enterMap', m => { if (lab) lab.style.opacity = '0'; if (m && m.meta && m.meta.plan) m.meta.cam = Object.assign({}, CAM); if (m && m._pv) { m._pv.room = 0; CUT.tex.value = m._pv.tex; CUT.n.value = m._pv.segs.length; } if (m && m.meta && m.meta.plan && !m._pv) { G.buildShell(m); m.buildAll(); }
+    if (m && m.meta && m.meta.plan && !m.isVisit && !G.flags.chPlanTip) { G.flags.chPlanTip = 1; setTimeout(() => G.ui.toast('⚜ Ton château a de vraies pièces ! Appuie sur H pour ouvrir le plan : murs, arches, fenêtres, rideaux, lustres, décor et meubles.', 7000), 1600); } });
+  // ranger les meubles d'une pièce (dans les casiers en mode Survie)
+  const clearRoom = (m, id) => { const pd = planData(m); let n = 0; for (const o of [...m.list]) { const d = O[o.t]; if (d.ceil || o.t === 'paillasson' || pd.R[o.z * pd.W + o.x] !== id) continue; m.removeObj(o); if (G.mode === 'survie') stash(o.t); n++; } return n; };
+  G.chateauInterior = { planData, clearRoom, stash, renumber, lustres, furnish, relocate, genPlan, makePlanInterior, prepare, rebuild: m => { m._pd = null; G.buildShell(m); }, VOID, WALL, FLOOR, OPEN, DOOR };
+})();

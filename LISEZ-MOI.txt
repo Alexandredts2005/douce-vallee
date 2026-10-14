@@ -65,6 +65,15 @@ MAISONS ET CHÂTEAUX
     UN seul château, plus grand, plus haut et plus beau à chaque château ajouté, sans limite.
     2 → grand château, 2 × 2 → château royal avec cour d'honneur, 8 → palais royal, 16 → palais impérial…
     La grande porte est au milieu de la façade. Retire un château et le groupe se redécoupe tout seul.
+  - INTÉRIEUR DU CHÂTEAU CLASSIQUE : chaque pavillon, corps de logis et aile devient une vraie pièce, à la même
+    place et aux mêmes proportions que dehors, avec ses fenêtres là où elles sont sur la façade. Plus le château
+    est grand, plus il y a de pièces (grand salon, galerie des Glaces, bibliothèque, chambre du Roi…), reliées par
+    de grandes arches ouvertes en enfilade. Au lever et au coucher du soleil, les rayons entrent par les fenêtres.
+  - LE PLAN (touche H dans le château) : l'architecte, c'est toi. Pièces (nom, peinture ou papier peint, sol,
+    rideaux, appliques), murs (monter ou abattre une cloison), arches et doubles portes, style de chaque fenêtre
+    (porte-fenêtre cintrée, porte-fenêtre, fenêtre à allège, œil-de-bœuf), rideaux, lustres et meubles
+    (R ou clic droit pour tourner, un clic sur un meuble pour le reprendre). Tout change aussitôt en 3D.
+    En Survie, lustres et meubles viennent de ton sac. « Plan d'origine » revient au plan du début.
   - POSER SUR LA NATURE : tout ce que tu poses (château, maison, banc, clôture…) écrase ce qu'il y a dessous
     de naturel : arbres, buissons, fleurs, mauvaises herbes, rochers, coquillages, champignons, fruits tombés.
     Les cadeaux et les sacs de clochettes, eux, ne sont jamais écrasés.
