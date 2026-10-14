@@ -100,14 +100,14 @@
     const p = G.player, m = G.map, s = G.session; if (!p || !m || G.state === 'title' || G.state === 'loading' || !s || !NET.curRoom) return OFF;
     const hs = Math.hypot(p.vx, p.vz), a = p.swim ? 3 : p.vehicle ? 8 : !p.onGround ? 4 : p.sit ? 5 : p.fish ? 6 : p.emote ? 7 : hs > 4.6 ? 2 : hs > .3 ? 1 : 0;
     return { v: 2, idle: null, pid: NET.ses, n: clean(G.playerName, 16), vil: clean(G.villageName, 24), home: NET.me(), vis: NET.visit ? 1 : null, at: NET.nroom ? null : NET.curRoom, m: mapKey(m), x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100, y: Math.round(p.y * 100) / 100, r: Math.round(p.yaw * 100) / 100, a, lk: NET.lk || (NET.lk = packLook(p.look)),
-      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: (!NET.visit || NET.iAmAdmin()) && NET.ops.length ? { ses: NET.ses, l: NET.ops } : null, adm: !NET.visit && admins().size ? [...admins()].slice(0, 20) : null, ed: !NET.visit && NET.editOpen() ? 1 : null,
+      em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: NET.ops.length ? { ses: NET.ses, l: NET.ops } : null, rd: G.rideState ? G.rideState() : null, hk: G.hornT || null, adm: !NET.visit && admins().size ? [...admins()].slice(0, 20) : null, ed: !NET.visit && NET.editOpen() ? 1 : null,
       vh: vehState(p), pq: p.vehicle ? [r3(p.root.quaternion.x), r3(p.root.quaternion.y), r3(p.root.quaternion.z), r3(p.root.quaternion.w)] : null,
       ck: NET.visit ? null : Math.floor(G.clock.min), dy: NET.visit ? null : G.clock.day, vg: NET.visit ? null : villagersState() };
   }
   // ---------- ce qui est partagé en plus : le véhicule (avion, moto, bateau, montgolfière), l'heure de l'hôte, ses habitants ----------
   const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, VP = new THREE.Vector3(), VQ = new THREE.Quaternion();
   function vehState(p) { const v = p.vehicle; if (!v || !v.mesh) return null; const o = v.o && G.OBJ[v.o.t];
-    const g = v.plane2 ? ['avion', 0] : v.moto ? ['moto', v.v || 0] : v.boat2 || v.boat ? ['boat', v.v || 0] : o ? [o.model, o.v || 0] : null; if (!g) return null;
+    const g = v.vg ? v.vg : v.plane2 ? ['avion', 0] : v.moto ? ['moto', v.v || 0] : v.boat2 || v.boat ? ['boat', v.v || 0] : o ? [o.model, o.v || 0] : null; if (!g) return null;
     const ms = v.mesh; ms.updateMatrixWorld(); ms.getWorldPosition(VP); ms.getWorldQuaternion(VQ);
     return { g: g[0], v: g[1], p: [r2(VP.x), r2(VP.y), r2(VP.z)], q: [r3(VQ.x), r3(VQ.y), r3(VQ.z), r3(VQ.w)], s: r2(ms.scale.x) }; }
   let vgT = 0, vgC = null;
@@ -175,16 +175,23 @@
   // suivis : le village et ses intérieurs chez soi ; le village visité et ses intérieurs pour un ami « admin »
   const tracked = m => !NET.visit ? (m === G.world || !!(m.interior && G.interiors[m.id] === m)) : !!(NET.iAmAdmin() && (m === NET.visit.map || (m.isVisit && NET.visit.interiors[m.id] === m)));
   const mk = m => mapKey(m) === 'world' ? undefined : m.id;
-  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, m: mk(this) }); return o; };
-  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online() && tracked(this)) rec({ k: 'r', t: o.t, x: o.x, z: o.z, dk: o.dk, du: o.du, m: mk(this) }); };
+  // ce qui est à tout le monde, comme dans Animal Crossing : les véhicules (on les prend, on les gare), ce qu'on ramasse
+  // (coquillages, fruits tombés…) et toute l'île aux palmiers. Ces changements-là sont partagés par chaque joueur, admin ou pas.
+  const pubMap = m => m === G.world || !!(NET.visit && m === NET.visit.map) || !!(G.island && m === G.island);
+  const pubObj = t => { const d = G.OBJ[t]; return !!(d && (d.balloon || d.pick || d.veh2 || d.vessel)); };
+  const share = (m, t) => { const pub = pubMap(m) && (m === G.island || pubObj(t)); return tracked(m) ? (pub ? 2 : 1) : pub ? 2 : 0; };
+  const isl = m => G.island && m === G.island ? G.island.day : undefined;
+  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online()) { const s = share(this, t); if (s) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, m: mk(this), d: isl(this), pub: s === 2 ? 1 : undefined }); } return o; };
+  GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online()) { const s = share(this, o.t); if (s) rec({ k: 'r', t: o.t, x: o.x, z: o.z, dk: o.dk, du: o.du, m: mk(this), d: isl(this), pub: s === 2 ? 1 : undefined }); } };
   const omd = GP.markDirty; GP.markDirty = function (tx, tz) { omd.call(this, tx, tz); if (G.state === 'play' && !NET.applying && NET.online() && !this.interior && this.inb(tx, tz) && tracked(this)) { const i = this.idx(tx, tz), op = { k: 't', x: tx, z: tz, l: this.lvl[i], w: this.water[i], p: this.ramp[i], f: this.surf[i] }, last = NET.ops[NET.ops.length - 1];
     if (!(last && last.k === 't' && last.x === tx && last.z === tz && last.l === op.l && last.w === op.w && last.p === op.p && last.f === op.f)) rec(op); } };
-  function applyOps(pr, base, key) { const m = base;
+  function applyOps(pr, base, key, pubOnly) { const m = base;
     if (!m || !pr.ops || !Array.isArray(pr.ops.l)) return; const sk = key + ':' + pr.ops.ses; let last = seen.get(sk);
     if (last === undefined) last = NET.visit && m === NET.visit.map && isHost(pr) && pr.ops.ses === NET.visit.ses ? NET.visit.seq : 0;
     NET.applying = true;
     const ints = m === G.world ? G.interiors : NET.visit && m === NET.visit.map ? NET.visit.interiors : {};
-    try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; const op = op0, m = op.m ? (NET.visit && ints === NET.visit.interiors ? NET.room(op.m) : ints[op.m]) : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
+    try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; if (pubOnly && !op0.pub) { last = op0.s; continue; }
+      const op = op0, m = op.m === 'ile' ? (G.island && G.island.day === op.d ? G.island : null) : op.m ? (NET.visit && ints === NET.visit.interiors ? NET.room(op.m) : ints[op.m]) : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
       if (op.k === 't') { last = op.s; if (m.interior || op.x < 2 || op.z < 2 || op.x >= m.W - 2 || op.z >= m.H - 2) continue; const i = m.idx(op.x | 0, op.z | 0); m.lvl[i] = Math.max(0, Math.min(4, op.l | 0)); m.water[i] = Math.max(0, Math.min(2, op.w | 0)); m.ramp[i] = Math.max(0, Math.min(255, op.p | 0)); if (G.SURF[op.f | 0]) m.surf[i] = op.f | 0; m.markDirty(op.x | 0, op.z | 0); continue; }
       if (!G.OBJ[op.t]) continue; last = op.s;
       const dk = typeof op.dk === 'number' && op.dk > 0 && op.dk < 40 ? op.dk : null, du = op.du ? 1 : 0; // posé sur un plancher
@@ -239,7 +246,8 @@
     for (const p of NET.peers.values()) { const pr = p.pr; if (!pr) continue;
       if (isHost(pr)) applyOps(pr, NET.visit.map, p.id);
       else if (!NET.visit && pr.vis && (NET.editOpen() || NET.isAdminFriend(pr.home))) applyOps(pr, G.world, p.id);
-      else if (NET.visit && pr.vis && pr.home && (hostEd || (hostAdm && hostAdm.includes(pr.home)))) applyOps(pr, NET.visit.map, p.id); }
+      else if (NET.visit && pr.vis && pr.home && (hostEd || (hostAdm && hostAdm.includes(pr.home)))) applyOps(pr, NET.visit.map, p.id);
+      else if (pr.ops && !(!pr.vis && pr.home && pr.home === NET.me() && !NET.visit)) applyOps(pr, NET.visit ? NET.visit.map : G.world, p.id, true); } // les autres : seulement ce qui est à tout le monde
     updBadge();
   }
   const live = pr => pr && pr.v === 2 && !pr.idle;
@@ -254,11 +262,13 @@
       if (d > 8) { a.x = tx; a.z = tz; } else { a.x += (tx - a.x) * k; a.z += (tz - a.z) * k; } a.y += ((typeof pr.y === 'number' ? pr.y : G.map.topAt(a.x, a.z)) - a.y) * Math.min(1, dt * 12); a.r = G.angLerp(a.r, pr.r || 0, Math.min(1, dt * 10));
       C.root.visible = true; C.root.position.set(a.x, a.y, a.z);
       if (Array.isArray(pr.pq)) { C.root.quaternion.slerp(VQ.set(pr.pq[0], pr.pq[1], pr.pq[2], pr.pq[3]).normalize(), Math.min(1, dt * 12)); } else C.root.rotation.set(0, a.r, 0);
-      vehicleOf(a, pr, dt);
-      a.blob.visible = pr.a !== 3 && !pr.vh; a.blob.position.set(a.x, G.map.topAt(a.x, a.z) + .03, a.z); a.blob.scale.set(.75, 1, .75);
+      vehicleOf(a, pr, dt); if (G.remoteVeh) G.remoteVeh(a, pr, dt);
+      // passager : assis (ou debout) à sa place dans le véhicule de son ami, exactement là où on le voit rouler
+      a.stand = false; if (pr.rd && G.passengerSeat) { const st = G.passengerSeat(pr.rd); if (st) { a.stand = st.pose === 'debout'; const hy = a.stand ? 0 : .34; a.x = st.pos.x; a.z = st.pos.z; a.y = st.pos.y - hy; C.root.position.set(a.x, a.y, a.z); C.root.quaternion.copy(st.q); } }
+      a.blob.visible = pr.a !== 3 && !pr.vh && !pr.rd; a.blob.position.set(a.x, G.map.topAt(a.x, a.z) + .03, a.z); a.blob.scale.set(.75, 1, .75);
       const moving = pr.a === 1 || pr.a === 2, t = now / 1000; let lL = 0, lR = 0, aL = 0, aR = 0, bob = 0, lean = 0;
       if (moving) { a.walkT += dt * (pr.a === 2 ? 12 : 8); const s = Math.sin(a.walkT), amp = pr.a === 2 ? .95 : .7; lL = s * amp; lR = -s * amp; aL = -s * amp * .85; aR = s * amp * .85; bob = Math.abs(Math.cos(a.walkT)) * .05; lean = pr.a === 2 ? .18 : .05; }
-      else if (pr.a === 4) { lL = -.6; lR = .3; aL = aR = -2.4; } else if (pr.a === 5 || pr.a === 8) { lL = lR = -1.45; bob = -.3; if (pr.a === 8) aL = aR = -1.1; } else if (pr.a === 3) { const s = Math.sin(t * 6); aL = -1.4 + s * .9; aR = -1.4 - s * .9; bob = -.05; lean = .55; }
+      else if (pr.a === 4) { lL = -.6; lR = .3; aL = aR = -2.4; } else if ((pr.a === 5 || pr.a === 8) && !a.stand) { lL = lR = -1.45; bob = -.3; if (pr.a === 8) aL = aR = -1.1; } else if (pr.a === 3) { const s = Math.sin(t * 6); aL = -1.4 + s * .9; aR = -1.4 - s * .9; bob = -.05; lean = .55; }
       else if (pr.a === 7) { const e = pr.em; if (e === 'salut') { aR = -2.6 + Math.sin(t * 14) * .25; } else if (e === 'danse') { const s = Math.sin(t * 9); aL = -2.4 + s * .5; aR = -2.4 - s * .5; bob = Math.abs(s) * .08; } else if (e === 'bravo') { aL = aR = -1.4; } else if (e === 'assis' || e === 'dodo') { lL = lR = -1.5; bob = -.3; } else if (e === 'rire') bob = Math.abs(Math.sin(t * 18)) * .04; }
       else bob = Math.sin(t * 2.2 + a.x) * .012;
       C.legL.rotation.x = lL; C.legR.rotation.x = lR; C.armL.rotation.x = aL; C.armR.rotation.x = aR; C.body.position.y = bob; C.body.rotation.x = lean;
@@ -388,7 +398,13 @@
       if (k === 2) { NET.setEditOpen(!edit); return G.npcSay(v, edit ? ['C\'est noté : tes visiteurs regardent, mais ne touchent plus à rien.'] : ['C\'est noté ! Tes amis pourront planter, poser, retirer et modeler le terrain comme chez eux… sauf les maisons, hi hi !']); }
       if (k === 3) { const ok = G.train && G.train.start(4); return G.npcSay(v, ok ? ['Le train arrive dans un instant ! Sors vite sur le quai, hi hi !'] : ['Un train est déjà en gare !']); } if (k === 4) G.ui.openStorage(); });
   };
-  G.on('init', () => { const ont = G.npcTalk; G.npcTalk = v => { if (NET.visit && v.npc === 'capitaine') return G.npcSay(v, ['Coâ ! Mon bateau n\'emmène que les habitants de ce village. Reviens avec ton propre capitaine !']); return ont(v); }; });
+  // l'île en visite, comme dans Animal Crossing : le capitaine emmène aussi les amis, sur l'île du jour de ce village,
+  // et quand quelqu'un part sur l'île, ceux qui sont au village peuvent embarquer avec lui
+  const lastM = new Map(); let askT = 0;
+  G.on('update', () => { if (!NET.online() || G.state !== 'play') return; const mk = mapKey(G.map);
+    for (const q of NET.peers.values()) { const pr = q.pr; if (!pr || !live(pr)) continue; const was = lastM.get(q.id); lastM.set(q.id, pr.m);
+      if (was === mk && mk === 'world' && pr.m === 'ile' && performance.now() > askT && G.ui.canPlay() && !G.player.vehicle && !(G.fete && G.fete.a) && !(G.games2 && G.games2.a)) { askT = performance.now() + 20000; const n = clean(pr.n, 16) || 'Ton ami';
+        G.ui.dialog('Capitaine Bigorneau', ['Coâ ! ' + n + ' part sur l\'île aux palmiers. Tu embarques aussi ?'], { choices: ['⛵ Oui, j\'embarque !', 'Non merci'], color: '#3f8f45' }).then(k => { if (k === 0 && G.map && mapKey(G.map) === 'world') G.travel.island(); }); } } });
   // ---------- démarrage ----------
   G.on('init', async () => { const ok = await bootClaude() || await bootServer(); if (ok) { NET.presT = 0; updBadge(); console.log('Douce Vallée : jeu en ligne actif (' + NET.mode + ')'); } });
 })();

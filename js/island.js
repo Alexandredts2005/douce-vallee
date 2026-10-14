@@ -37,12 +37,13 @@
     island() {
       G.sfx('fanfare'); G.ui.toast('⛵ En route vers l\'île aux palmiers…');
       G.ui.fade(() => {
-        if (!G.island || G.island.day !== G.clock.day) { if (G.island) { G.scene.remove(G.island.group); G.ents.removeNPCs(G.island); } G.island = G.genIsland(G.clock.day * 977 + 13); G.island.day = G.clock.day; G.scene.add(G.island.group); G.island.buildAll(); G.ents.spawnVillagers(G.island); }
+        const own = G.net && G.net.visit ? G.net.visit.code : 'moi'; // en visite : l'île du jour du village visité (la même que celle de l'hôte)
+        if (!G.island || G.island.day !== G.clock.day || G.island.owner !== own) { if (G.island) { G.scene.remove(G.island.group); G.ents.removeNPCs(G.island); } G.island = G.genIsland(G.clock.day * 977 + 13); G.island.day = G.clock.day; G.island.owner = own; G.scene.add(G.island.group); G.island.buildAll(); G.ents.spawnVillagers(G.island); }
         const s = G.island.meta.spawn; G.enterMap(G.island, s.x, s.z, Math.PI); G.ui.toast('Bienvenue sur l\'île ! 🌴 Insectes et poissons rares t\'y attendent.');
       }, 1.6);
     },
     home() {
-      G.sfx('fanfare'); G.ui.fade(() => { const p = G.world.meta.pier || G.world.meta.spawn; G.enterMap(G.world, p.x, p.z - 2.5, 0); G.ui.toast('De retour au village !'); }, 1.6);
+      G.sfx('fanfare'); G.ui.fade(() => { const W = G.net && G.net.visit ? G.net.visit.map : G.world, p = W.meta.pier || W.meta.spawn; G.enterMap(W, p.x, p.z - 2.5, 0); G.ui.toast(W === G.world ? 'De retour au village !' : 'De retour à ' + G.net.visit.vil + ' !'); }, 1.6);
     }
   };
 })();

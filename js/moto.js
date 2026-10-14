@@ -49,7 +49,7 @@
     if (pop) { grp.scale.setScalar(.01); G.sfx('pop'); G.fx.burst(x, m.topAt(x, z) + .5, z, 16, [0xffffff, 0xf3ead2, 0xffe08a], 2.6, .55, 6); }
     ENG.start(); hud.hidden = false; G.sfx('place', .6); G.ui.toast('🏍️ En route ! Avance, freine et tourne comme pour marcher · 1, 2, 3 : vitesses · W : ranger la moto · E : la garer ici.', 6000);
   }
-  function mount(o) { const m = G.map, p = G.player; if (p.vehicle || p.swim || p.sit) return; const [cx, cz] = m.center(o), r = o.r || 0, v = o.v || 0; m.removeObj(o); ride(cx, cz, r * PI / 2 + PI / 2, v, false); }
+  function mount(o) { const m = G.map, p = G.player; if (p.vehicle || p.swim || p.sit) return; const [cx, cz] = m.center(o), r = o.r || 0, v = o.v || 0; m.removeObj(o); ride(cx, cz, r * PI / 2 + PI / 2, v, false); if (p.vehicle) p.vehicle.fromObj = 1; }
   // W : la moto sort de la poche (créatif : toujours ; survie : s'il y en a une dans l'inventaire), sinon on prend celle garée à côté
   function deploy() {
     const p = G.player, m = G.map; if (p.vehicle || p.swim || p.sit || p.dead || !p.onGround) return; const near = nearMoto(), have = G.inv.count('moto') >= 1, nd = near ? Math.hypot(m.center(near)[0] - p.x, m.center(near)[1] - p.z) : 99;
@@ -59,7 +59,7 @@
     ride(p.x, p.z, p.yaw, G.motoColor || 0, true);
   }
   // W en roulant : arrêt net, la moto se replie et retourne dans l'inventaire
-  function stow() { const p = G.player, v = p.vehicle; if (!v || !v.moto || v.anim) return; v.spd = 0; v.anim = { k: 'out', t: 0 }; G.sfx('pickup'); ENG.set(.2, .01); }
+  function stow() { const p = G.player, v = p.vehicle; if (!v || !v.moto || v.anim) return; if (v.fromObj && G.net && G.net.visit) return dismount(); /* la moto d'un ami : on la regare, on ne l'emporte pas */ v.spd = 0; v.anim = { k: 'out', t: 0 }; G.sfx('pickup'); ENG.set(.2, .01); }
   function stowDone(p, v) {
     G.fx.burst(v.x, v.y + .5, v.z, 14, [0xffffff, 0xf3ead2], 2.2, .5, 6); leave(p, v); p.teleport(v.x, v.z, v.h); if (p.blocked(p.x, p.z, p.y, true)) p.unstick(true);
     if (G.mode !== 'creatif' && G.inv.add('moto', 1) > 0) { const m = G.map; if (m.canPlace('moto', Math.round(v.x - 1), Math.round(v.z - .5), 0)) m.addObj('moto', Math.round(v.x - 1), Math.round(v.z - .5), 0, { v: v.v }); G.ui.toast('Inventaire plein : la moto est garée ici.'); }
@@ -67,6 +67,7 @@
   }
   function dismount() {
     const p = G.player, v = p.vehicle, m = G.map; if (!v || !v.moto) return; if (Math.abs(v.spd) > 3) { G.ui.toast('Ralentis avant de descendre.'); return; }
+    if (G.net && G.net.visit && !v.fromObj) return stow(); // chez un ami : sa propre moto retourne dans la poche
     const r = ((Math.round((v.h - PI / 2) / (PI / 2)) % 4) + 4) % 4, [w, d] = G.fpDims(O.moto, r); let spot = null;
     for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1], [2, 0], [-2, 0], [0, 2], [0, -2]]) { const ax = Math.round(v.x - w / 2) + dx, az = Math.round(v.z - d / 2) + dz; if (m.canPlace('moto', ax, az, r)) { spot = [ax, az]; break; } }
     if (!spot) { G.ui.toast('Pas de place pour garer la moto ici.'); G.sfx('error'); return; }
@@ -152,6 +153,7 @@
       b.addEventListener('pointerdown', e => { e.preventDefault(); const p = G.player; if (p.vehicle && p.vehicle.moto) G.input.chars.moto = true; else deploy(); }); tk.parentNode.appendChild(b); }
   });
   // W (touche W d'un clavier AZERTY = code KeyZ) : monter sur la moto la plus proche
+  G.motoDeploy = deploy;
   G.on('update', () => { const p = G.player, I = G.input; if (!p || p.vehicle || G.state !== 'play' || G.ui.modal || !I.hit('KeyZ') || performance.now() - lastToggle < 300) return; if (G.map.interior) return;
-    deploy(); });
+    if (G.garage) return G.garage.open(); deploy(); });
 })();

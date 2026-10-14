@@ -87,14 +87,20 @@
   function promptHtml() {
     const p = G.player; if (!p || !U.canPlay() || p.dead) return null;
     if (p.sit) return '<kbd>E</kbd>Se lever';
-    if (p.vehicle) return '<kbd>Espace</kbd>Monter&nbsp;&nbsp; <kbd>Maj</kbd>Descendre&nbsp;&nbsp; <kbd>E</kbd>Atterrir';
+    if (p.vehicle) { const v = p.vehicle, k = (a, b) => '<kbd>' + a + '</kbd>' + b, J = '&nbsp;&nbsp; ';
+      if (v.pass) return k('E', 'Descendre');
+      if (v.veh2) return v.S.kind === 'fly' ? [k('Espace', 'Monter'), k('Maj', 'Descendre'), k('E', 'Atterrir'), k('W', 'Ranger')].join(J) : v.S.kind === 'sea' ? [k('Espace', 'Klaxon'), k('E', 'Accoster'), k('W', 'Ranger')].join(J) : [v.S.jump ? k('Espace', 'Sauter') : v.S.space ? k('Espace', v.S.space === 'bell' ? 'Sonnette' : 'Klaxon') : '', k('E', 'Garer'), k('W', 'Ranger')].filter(Boolean).join(J);
+      if (v.moto) return [k('1 2 3', 'Vitesses'), k('E', 'Garer'), k('W', 'Ranger')].join(J);
+      if (v.boat2 || v.boat) return k('E', 'Accoster');
+      return [k('Espace', 'Monter'), k('Maj', 'Descendre'), k('E', 'Atterrir')].join(J); }
     if (p.swim) return '<kbd>Espace</kbd>Sortir de l\'eau';
     if (p.emote) return '<kbd>E</kbd>Arrêter l\'émote';
     if (p.fish) return p.fish.phase === 'bite' ? '<kbd>F</kbd>Ferrer !' : '<kbd>F</kbd>Remonter la ligne';
     const out = []; const v = G.ents.villagerInFront(p); if (v) out.push(`<kbd>E</kbd>${v.shop ? 'Boutique de' : 'Parler à'} ${v.D.n}`);
+    const fv = !v && G.nearFriendVehicle && G.nearFriendVehicle(); if (fv) out.push('<kbd>E</kbd>Monter avec ' + String(fv.pr.n || 'ton ami').replace(/[<>&]/g, ''));
     const m = G.map, [tx, tz] = p.target(); G._deckPick = p.y; const o = m.objAt(tx, tz); G._deckPick = null; const d = o && G.OBJ[o.t], it = G.inv.held();
     if (!v && d) {
-      let e = null; if (d.shop) e = 'Entrer dans la boutique'; else if (d.enter) e = G.act.front(o) ? 'Entrer' : null; else if (d.storage) e = 'Rangement'; else if (d.wardrobe) e = 'Changer de tenue'; else if (d.balloon) e = d.moto ? '🏍️ Monter sur la moto (W)' : d.vessel ? '⛵ Prendre le bateau' : d.plane ? '✈️ Monter dans l\'avion' : 'Monter dans la montgolfière'; else if (d.games) e = 'Jouer';
+      let e = null; if (d.shop) e = 'Entrer dans la boutique'; else if (d.enter) e = G.act.front(o) ? 'Entrer' : null; else if (d.storage) e = 'Rangement'; else if (d.wardrobe) e = 'Changer de tenue'; else if (d.balloon) e = d.veh2 ? d.ico + ' Monter : ' + d.n : d.moto ? '🏍️ Monter sur la moto (W)' : d.vessel ? '⛵ Prendre le bateau' : d.plane ? '✈️ Monter dans l\'avion' : 'Monter dans la montgolfière'; else if (d.games) e = 'Jouer';
       else if (d.light && !d.fire && (m.interior || d.toggle)) e = o.off ? 'Allumer' : 'Éteindre'; else if (d.sit) e = "S'asseoir"; else if (d.sleep) e = 'Dormir'; else if (d.craft) e = 'Fabriquer'; else if (d.cook) e = 'Cuisiner'; else if (d.read) e = 'Lire'; else if (d.mail) e = 'Courrier'; else if (d.fruit || d.shake) e = 'Secouer'; else if (d.pickFruit) e = 'Cueillir'; else if (d.pick) e = 'Ramasser'; else if (d.fountain) e = 'Faire un vœu';
       if (e) out.push(`<kbd>E</kbd>${e}`);
     } else if (!v) { const h = m.objAt(Math.floor(p.x), Math.floor(p.z)); if (h && G.OBJ[h.t].pick) out.push('<kbd>E</kbd>Ramasser'); }
