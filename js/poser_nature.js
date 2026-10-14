@@ -10,6 +10,10 @@
   G.isNature = o => { const d = o && O[o.t]; if (!d || KEEP.has(o.t) || d.enter || d.shop || d.fixed || o.dk != null) return false;
     return !!(d.chop || d.mine || G.isFlowerObj(o) || NAT.test(o.t) || (d.model === 'plante2' && d.cat === 'fleurs')); }; // plante2 « fleurs » : arbustes et arbres d'extérieur (pas les plantes en pot)
   const orep = G.replaces; G.replaces = (d, q) => orep(d, q) || (G._deckY != null && !!d && !d.ceil && !d.up && G.isNature(q));
+  // un grand objet (château, maison, banc…) ne se pose jamais sur le joueur : s'il le toucherait, il avance d'une case (ou deux) devant lui
+  const oan = G.act.anchor; G.act.anchor = (d, r, tx, tz) => { let [ax, az] = oan(d, r, tx, tz); const p = G.player; if (!p || !d || d.walk || d.ceil || d.up || d.fp[0] * d.fp[1] < 2) return [ax, az];
+    const [fx, fz] = p.facing(), dx = Math.abs(fx) > Math.abs(fz) ? Math.sign(fx) : 0, dz = dx ? 0 : Math.sign(fz);
+    for (let k = 0; k < 2 && G.act.occupiedByMe(d, r, ax, az); k++) { ax += dx; az += dz; } return [ax, az]; };
   // un petit nuage de feuilles ou de poussière là où la nature a été écrasée
   const opl = G.act.placeObj; G.act.placeObj = (it, tx, tz) => {
     const m = G.map, d = it && O[it.obj]; if (!m || !d || d.ceil || d.up) return opl(it, tx, tz);
