@@ -8,7 +8,7 @@
 // rayons et de la poussière dorée, longs et chauds au lever et au coucher. Les murs entre la caméra et le joueur s'abaissent (comme dans
 // les Sims) mais gardent leur ombre. Le plan se modifie avec la touche H (chateau_plan.js). =====
 (function () {
-  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 3, KS = 3.3, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
+  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 4, KS = 3.3, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
   const VOID = 0, WALL = 1, FLOOR = 2, OPEN = 3, DOOR = 4, NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, dz: -1.7 };
   // ---------- décors ----------
@@ -27,7 +27,9 @@
     anti: ['Antichambre', 'peinture_lin', 'marbre', 'lin', 'lustre_anneaux'], vestibule: ['Vestibule', 'pierre_taille', 'damier_marbre', 'aucun', 'lustre_lanterne'],
     bal: ['Salle de bal', 'peinture_or', 'chevrons_chene', 'or', 'lustre_cristal'], chapelle: ['Chapelle', 'pierre_taille', 'dalles_ivoire', 'voile', 'lustre_bougies'],
     billard: ['Salle de billard', 'peinture_empire', 'chevrons_noyer', 'vert', 'lustre_lanterne'], boudoir: ['Boudoir', 'peinture_rose', 'batons_rompus', 'rose', 'lustre_tulipes'],
-    jeux: ['Salon des jeux', 'peinture_bleu', 'chevrons_chene', 'bleu', 'lustre_globe'], gardes: ['Salle des gardes', 'pierre_taille', 'pierre', 'rouge', 'lustre_anneaux'] };
+    jeux: ['Salon des jeux', 'peinture_bleu', 'chevrons_chene', 'bleu', 'lustre_globe'], palier: ['Palier d’honneur', 'peinture_ivoire', 'damier_marbre', 'rouge', 'lustre_versailles'],
+    apparat: ['Salon d’apparat', 'peinture_or', 'chevrons_chene', 'rouge', 'lustre_cristal'], gardes: ['Salle des gardes', 'pierre_taille', 'pierre', 'rouge', 'lustre_anneaux'] };
+  const ORDER2 = ['chambre', 'reine', 'biblio', 'boudoir', 'cabinet', 'musique', 'jeux', 'chambre', 'reine', 'billard', 'anti'];
   const ORDER = ['manger', 'chambre', 'biblio', 'musique', 'reine', 'cabinet', 'billard', 'boudoir', 'jeux', 'gardes', 'anti'];
   const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
   G.CHPLAN = { PAINTS, FLOORK, CURT, WSTY, OPS, LUS, KIND };
@@ -35,8 +37,9 @@
   // =====================================================================
   // ============ 1. LE PLAN : une grille de cases tirée de l'extérieur =====
   // =====================================================================
-  function genPlan(info) {
-    const { C, wins } = G.chateauFusion.layout(0, info.cols, info.rows), onW = G.chateauFusion.onW, n = info.cols * info.rows;
+  // un étage (fl) : les mêmes murs que le rez-de-chaussée, sans les bâtiments moins hauts, sans porte ; des pièces différentes
+  function genPlan0(info, etg) {
+    const L0 = G.chateauFusion.layout(0, info.cols, info.rows), C = L0.C, wins = etg ? L0.wins.filter(w => w.B.nf > etg) : L0.wins, onW = G.chateauFusion.onW, n = info.cols * info.rows, BB = etg ? C.B.filter(B => B.nf > etg) : C.B;
     let ex0 = Infinity, ex1 = -Infinity, ez0 = Infinity, ez1 = -Infinity; for (const B of C.B) { ex0 = Math.min(ex0, B.x0); ex1 = Math.max(ex1, B.x1); ez0 = Math.min(ez0, B.z0); ez1 = Math.max(ez1, B.z1); }
     // la même échelle pour tous les châteaux, seuls ou assemblés : les pièces ont toujours la surface du bâtiment de pierre (sans les jardins ni la cour),
     // et plus le château est grand, plus il y a de pièces (seuls les palais immenses sont un peu resserrés)
@@ -46,7 +49,7 @@
     // chaque bloc est découpé en pièces de vraie taille (8 à 13 cases) : l'avant-corps donne le vestibule (devant, derrière la porte) et le grand salon (derrière) ;
     // les corps épais ont deux enfilades (côté cour, côté jardin) ; une aile longue et étroite reste une galerie
     const parts = [], cuts = (L, m) => { const c = []; for (let s = 0; s <= m; s++) c.push(Math.round(s * L / m)); return c; }; let gals = 0;
-    C.B.forEach((B, bi) => { const x0 = Math.round(X(B.x0)), x1 = Math.round(X(B.x1)), z0 = Math.round(Z(B.z0)), z1 = Math.round(Z(B.z1)), w = x1 - x0, d = z1 - z0; if (w < 1 || d < 1) return;
+    BB.forEach((B, bi) => { const x0 = Math.round(X(B.x0)), x1 = Math.round(X(B.x1)), z0 = Math.round(Z(B.z0)), z1 = Math.round(Z(B.z1)), w = x1 - x0, d = z1 - z0; if (w < 1 || d < 1) return;
       const push = (a, b, c, e, role) => parts.push({ bi, k: B.k, role, x0: x0 + a, x1: x0 + b, z0: z0 + c, z1: z0 + e });
       // un nombre impair de pièces côte à côte : le vestibule reste centré sur la porte (jamais une cloison juste derrière elle)
       if (B.k === 'centre') { const nc = Math.max(1, Math.round(w / 16)), zs = d >= 14 ? [0, Math.round(d * .56), d] : [0, d], xs = cuts(w, nc % 2 ? nc : nc + 1);
@@ -79,33 +82,34 @@
       for (let j = s0; j < s0 + ow; j++) T[o === 'v' ? j * W + c : c * W + j] = OPEN; }
     // porte d'entrée : au milieu de l'avant-corps, sur la façade
     const D0 = C.D, dz = Math.round(Z(D0.z1)) - 1, dx0 = Math.round(X(0) - 1.5); let door = null;
-    if (dz > 0 && [0, 1, 2].every(j => T[dz * W + dx0 + j] === WALL && fl(dx0 + j, dz - 1))) { for (let j = 0; j < 3; j++) T[dz * W + dx0 + j] = DOOR; door = { x0: dx0, x1: dx0 + 2, z: dz, sx: dx0 + 1.5, sz: dz - .7 }; }
+    if (etg) { } else if (dz > 0 && [0, 1, 2].every(j => T[dz * W + dx0 + j] === WALL && fl(dx0 + j, dz - 1))) { for (let j = 0; j < 3; j++) T[dz * W + dx0 + j] = DOOR; door = { x0: dx0, x1: dx0 + 2, z: dz, sx: dx0 + 1.5, sz: dz - .7 }; }
     else { // repli : la place la plus proche du milieu sur la même façade, sinon sur la façade la plus basse (trois cases de mur, du parquet derrière, dehors devant)
       const okD = (x, z) => [0, 1, 2].every(j => T[z * W + x + j] === WALL && fl(x + j, z - 1) && (z + 1 >= H || id[(z + 1) * W + x + j] < 0));
       for (let dd = 0; dd <= 14 && !door && dz > 0 && dz < H; dd++) for (const x of dd ? [dx0 - dd, dx0 + dd] : [dx0]) if (!door && x > 0 && x + 2 < W && okD(x, dz)) door = { x0: x, x1: x + 2, z: dz };
       for (let z = H - 1; z > 0 && !door; z--) { let bx = -1; for (let x = 1; x + 2 < W; x++) if (okD(x, z) && (bx < 0 || Math.abs(x + 1.5 - W / 2) < Math.abs(bx + 1.5 - W / 2))) bx = x; if (bx >= 0) door = { x0: bx, x1: bx + 2, z }; }
       if (door) { for (let j = 0; j < 3; j++) T[door.z * W + door.x0 + j] = DOOR; door.sx = door.x0 + 1.5; door.sz = door.z - .7; } }
     // portes de côté, au bout des ailes : trois cases de façade devant la pièce (dans le même ordre que dehors)
-    const doors = [door]; for (const w of wins) { if (!w.door || w.B === C.D || w.f !== 0) continue; const p = onW(w.B.H, w.f, w.a, 0, 0), z = Math.round(Z(w.B.z1)) - 1, xc = Math.floor(X(p[0])); let sd = null;
+    const doors = etg ? [] : [door]; for (const w of wins) { if (etg || !w.door || w.B === C.D || w.f !== 0) continue; const p = onW(w.B.H, w.f, w.a, 0, 0), z = Math.round(Z(w.B.z1)) - 1, xc = Math.floor(X(p[0])); let sd = null;
       for (let dd = 0; dd <= 7 && !sd; dd++) for (const x of dd ? [xc - 1 - dd, xc - 1 + dd] : [xc - 1]) if (!sd && x > 0 && x + 2 < W && [0, 1, 2].every(j => T[z * W + x + j] === WALL && fl(x + j, z - 1))) { for (let j = 0; j < 3; j++) T[z * W + x + j] = DOOR; sd = { x0: x, x1: x + 2, z, sx: x + 1.5, sz: z - .7 }; }
       doors.push(sd); }
     // fenêtres du rez-de-chaussée : exactement là où elles sont sur la façade
     const ww = G.clamp(C.sp * k * .6, 1.2, 1.9), wl = [];
-    for (const w of wins) { if (w.door) continue; const B = w.B, p = onW(B.H, w.f, w.a, 0, 0), f = w.f;
+    for (const w of wins) { if (w.door && !etg) continue; const B = w.B, p = onW(B.H, w.f, w.a, 0, 0), f = w.f;
       let cx, cz, nx = 0, nz = 0, uu; if (f === 0) { cz = Math.round(Z(B.z1)) - 1; uu = X(p[0]); nz = -1; } else if (f === 1) { cz = Math.round(Z(B.z0)); uu = X(p[0]); nz = 1; } else if (f === 2) { cx = Math.round(X(B.x1)) - 1; uu = Z(p[2]); nx = -1; } else { cx = Math.round(X(B.x0)); uu = Z(p[2]); nx = 1; }
       const good = s => { const x = nz ? s : cx, z = nz ? cz : s; if (x < 0 || z < 0 || x >= W || z >= H || T[z * W + x] !== WALL) return 0; const inn = fl(x + nx, z + nz), ox = x - nx, oz = z - nz, out = ox >= 0 && oz >= 0 && ox < W && oz < H ? T[oz * W + ox] : VOID; return inn && out === VOID ? inn : 0; };
       const c0 = Math.floor(uu), room = good(c0); if (!room) continue; let a = c0, b = c0; while (a > 0 && good(a - 1) === room) a--; while (good(b + 1) === room) b++;
       const wfit = Math.min(ww, 2 * (Math.min(uu - a, b + 1 - uu) - .1)); if (wfit < .9) continue;
-      wl.push({ x: nz ? c0 : cx, z: nz ? cz : c0, nx, nz, u: uu, w: +wfit.toFixed(3), st: 'cintree', c: '', r: room }); }
+      wl.push({ x: nz ? c0 : cx, z: nz ? cz : c0, nx, nz, u: uu, w: +wfit.toFixed(3), st: etg === 0 ? 'cintree' : etg === 1 ? 'pf' : 'fen', c: '', r: room }); } // comme dehors : portes-fenêtres cintrées, puis hautes fenêtres, puis fenêtres à allège
     // les pièces : le vestibule derrière la porte, le grand salon derrière lui, puis les appartements en enfilade (galeries, salle de bal, chapelle…)
     const R = num.size, rooms = [], box = []; for (let r = 1; r <= R; r++) box[r] = { x0: W, x1: 0, z0: H, z1: 0, a: 0 };
     for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { const r = Rg[z * W + x]; if (!r) continue; const b = box[r]; b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.z0 = Math.min(b.z0, z); b.z1 = Math.max(b.z1, z); b.a++; }
     const cen = r => [(box[r].x0 + box[r].x1) / 2, (box[r].z0 + box[r].z1) / 2], dist = (a, b) => { const [ax, az] = cen(a), [bx2, bz] = cen(b); return Math.hypot(ax - bx2, az - bz); };
     let vest = door ? fl(door.x0 + 1, door.z - 1) : 0; if (!vest) for (let r = 1; r <= R; r++) if (role[r] === 'vest') { vest = r; break; } if (!vest) vest = 1;
     let salon = 0; for (let r = 1; r <= R; r++) if (role[r] === 'salon' && (!salon || dist(r, vest) < dist(salon, vest))) salon = r;
-    const kindOf = {}; kindOf[vest] = salon ? 'vestibule' : 'salon'; if (salon) kindOf[salon] = 'salon';
+    const kindOf = {}; kindOf[vest] = etg ? 'palier' : salon ? 'vestibule' : 'salon'; if (salon) kindOf[salon] = etg ? 'apparat' : 'salon';
     const rest = []; for (let r = 1; r <= R; r++) if (!kindOf[r]) rest.push(r); const ref = salon || vest; rest.sort((a, b) => dist(a, ref) - dist(b, ref) || cen(a)[0] - cen(b)[0]);
     let ng = 0; for (const r of rest) if (role[r] === 'gal' && ng < 2) { kindOf[r] = 'galerie'; ng++; }
+    if (etg) { let oj = etg * 3; for (const r of rest) if (!kindOf[r]) kindOf[r] = ORDER2[oj++ % ORDER2.length]; }
     if (rest.length >= 5) { let big = 0; for (const r of rest) if (!kindOf[r] && box[r].a >= 120 && (!big || box[r].a > box[big].a)) big = r; if (big) kindOf[big] = 'bal'; }
     if (rest.length >= 6) { let far = 0; for (const r of rest) if (!kindOf[r] && box[r].a >= 40 && box[r].a <= 170 && (!far || dist(r, ref) > dist(far, ref))) far = r; if (far) kindOf[far] = 'chapelle'; }
     let oi = 0; for (const r of rest) if (!kindOf[r]) kindOf[r] = ORDER[oi++ % ORDER.length];
@@ -114,16 +118,64 @@
       rooms.push({ id: r, k: kd, n: K[0] + (c > 1 ? ROMAN[c - 1] || ' ' + c : ''), wall: K[1], floor: K[2], curt: K[3], lus: K[4], app: 1, x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1 }); }
     for (const w of wl) w.c = ''; // rideaux : ceux de la pièce
     const court = C.court ? [X(C.court[0]), Z(C.court[1]), X(C.court[2]), Z(C.court[3])].map(v => +v.toFixed(2)) : null;
-    return { v: VER, sig: planSig(info), W, H, k, px, court, doors, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
+    return { v: VER, sig: planSig(info), fl: etg, W, H, k, px, court: etg ? null : court, doors, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
   }
   const planSig = info => '0|' + info.cols + '|' + info.rows;
+  function genPlan(info) { const fl = info.fl || 0, pl = genPlan0(info, fl), S = stairsOf(info); pl.nfl = S.nfl; pl.stairs = S.list; return pl; }
   G.genChateauPlan = genPlan;
+  // ---------- les grands escaliers de marbre : une volée droite par étage, près de l'entrée et au bout des ailes ----------
+  // { lvl : étage de départ, ax : 'x' ou 'z' (sens de la montée), s : +1 / -1, x0 z0 x1 z1 : la volée, lo / hi : où l'on arrive en bas / en haut }
+  let SLEN = 8, SLND = 2; const SWD = 3, SCache = {};
+  function stairsOf(info) {
+    const key = planSig(info); if (SCache[key]) return SCache[key];
+    const L = G.chateauFusion.layout(0, info.cols, info.rows), nfl = Math.max(1, ...L.C.B.map(B => B.nf)), list = [];
+    if (nfl < 2) return SCache[key] = { nfl, list };
+    const P = []; for (let f = 0; f < nfl; f++) P.push(genPlan0(info, f));
+    const W = P[0].W, H = P[0].H, D = P.map(p => ({ T: G.b64.dec(p.T), R: G.b64.dec(p.R) }));
+    // trop près d'une arche ou d'une porte (on garde les passages libres)
+    const near = P.map((p, f) => { const T = D[f].T, o = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) if (T[i] === OPEN || T[i] === DOOR) { const x = i % W, z = (i - x) / W; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) o[zz * W + xx] = 1; } } return o; });
+    const anchors = P[0].doors.filter(Boolean).map(d => [Math.floor(d.sx), Math.floor(d.sz) - 2]);
+    const taken = new Uint8Array(W * H * nfl);
+    // les cases d'une volée : le long de l'axe (a), en travers (b) ; les paliers en bas et en haut
+    const cellsOf = (x0, z0, ax, s) => { const r = [], lo = [], hi = []; for (let a = -SLND; a < SLEN + SLND; a++) for (let b = 0; b < SWD; b++) { const aa = s > 0 ? a : SLEN - 1 - a, x = ax === 'x' ? x0 + aa : x0 + b, z = ax === 'z' ? z0 + aa : z0 + b; (a < 0 ? lo : a >= SLEN ? hi : r).push([x, z]); } return { r, lo, hi }; };
+    function fits(lvl, x0, z0, ax, s) {
+      const A = D[lvl], B2 = D[lvl + 1], c = cellsOf(x0, z0, ax, s), ok = (x, z, F, f2) => x >= 0 && z >= 0 && x < W && z < H && F.T[z * W + x] === FLOOR && !near[f2][z * W + x];
+      let rA = -1, rB = -1; for (const [x, z] of c.r) { if (!ok(x, z, A, lvl) || !ok(x, z, B2, lvl + 1) || taken[lvl * W * H + z * W + x] || taken[(lvl + 1) * W * H + z * W + x]) return null;
+        const ra = A.R[z * W + x], rb = B2.R[z * W + x]; if (rA < 0) { rA = ra; rB = rb; } else if (ra !== rA || rb !== rB) return null; }
+      for (const [x, z] of c.lo) if (!ok(x, z, A, lvl) || A.R[z * W + x] !== rA || taken[lvl * W * H + z * W + x]) return null;
+      for (const [x, z] of c.hi) if (!ok(x, z, B2, lvl + 1) || B2.R[z * W + x] !== rB || taken[(lvl + 1) * W * H + z * W + x]) return null;
+      // contre un mur, c'est plus beau (et ça ne coupe pas la pièce en deux)
+      let wall = 0; for (const [x, z] of c.r) for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && A.T[zz * W + xx] === WALL) wall++; }
+      return { c, wall };
+    }
+    function place(lvl, ax0, az0, rad) {
+      let best = null, bs = Infinity;
+      for (let z0 = Math.max(0, az0 - rad); z0 < Math.min(H, az0 + rad); z0++) for (let x0 = Math.max(0, ax0 - rad); x0 < Math.min(W, ax0 + rad); x0++) for (const ax of ['x', 'z']) for (const s of [1, -1]) {
+        const q = fits(lvl, x0, z0, ax, s); if (!q) continue; const mx = q.c.lo.reduce((t, p) => t + p[0], 0) / q.c.lo.length, mz = q.c.lo.reduce((t, p) => t + p[1], 0) / q.c.lo.length, sc = Math.hypot(mx - ax0, mz - az0) - q.wall * .8;
+        if (sc < bs) { bs = sc; best = { lvl, ax, s, x0, z0, c: q.c }; } }
+      if (!best) return false; const c = best.c, xs = c.r.map(p => p[0]), zs = c.r.map(p => p[1]);
+      for (const [x, z] of c.r.concat(c.lo)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) taken[lvl * W * H + zz * W + xx] = 1; }
+      for (const [x, z] of c.r.concat(c.hi)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) taken[(lvl + 1) * W * H + zz * W + xx] = 1; }
+      const mid = arr => [arr.reduce((t, p) => t + p[0], 0) / arr.length + .5, arr.reduce((t, p) => t + p[1], 0) / arr.length + .5];
+      list.push({ lvl, ax: best.ax, s: best.s, x0: Math.min(...xs), z0: Math.min(...zs), x1: Math.max(...xs), z1: Math.max(...zs), lo: mid(c.lo.slice(0, SWD)), hi: mid(c.hi.slice(-SWD)), len: SLEN }); return true;
+    }
+    // une volée de 8 marches-cases avec de vrais paliers ; dans les petits châteaux, plus courte et plus raide
+    for (let lvl = 0; lvl < nfl - 1; lvl++) { let n = 0; SLEN = 8; SLND = 2;
+      for (const [ax0, az0] of anchors) if (place(lvl, ax0, az0, 16)) n++;
+      for (const [L2, D2] of [[8, 2], [7, 1], [6, 1]]) { if (n) break; SLEN = L2; SLND = D2; if (place(lvl, Math.floor(W / 2), Math.floor(H / 2), Math.max(W, H))) n++; } } // au moins un escalier par étage
+    return SCache[key] = { nfl, list };
+  }
+
 
   // ---------- lecture du plan (mise en cache sur la carte) ----------
   function planData(m) {
     if (m._pd) return m._pd; const pl = m.meta.plan, W = pl.W, H = pl.H, T = G.b64.dec(pl.T), R = G.b64.dec(pl.R), N = W * H, bl = new Uint8Array(N);
     for (let i = 0; i < N; i++) bl[i] = T[i] === FLOOR || T[i] === OPEN || T[i] === DOOR ? 0 : 1;
-    return m._pd = { pl, W, H, T, R, bl, CH: pl.CH, room: id => pl.rooms.find(q => q.id === id) || pl.rooms[0] };
+    const su = new Uint8Array(N), st = [], efl = pl.fl || 0;
+    for (const q of pl.stairs || []) { const up = q.lvl === efl; if (!up && q.lvl !== efl - 1) continue; const o = Object.assign({ up }, q); st.push(o);
+      for (let z = q.z0; z <= q.z1; z++) for (let x = q.x0; x <= q.x1; x++) su[z * W + x] = up ? 1 : 2;
+      const Lp = up ? q.lo : q.hi; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = Math.floor(Lp[0]) + dx, zz = Math.floor(Lp[1]) + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && !su[zz * W + xx]) su[zz * W + xx] = 3; } }
+    return m._pd = { pl, W, H, T, R, bl, su, st, CH: pl.CH, room: id => pl.rooms.find(q => q.id === id) || pl.rooms[0] };
   }
   // une pièce est faite des cases de sol reliées sans passer par une arche (après une retouche du plan, on renumérote)
   function renumber(m) {
@@ -235,8 +287,13 @@
   // ============ 3. ENTRER, SORTIR, SE COGNER AUX MURS ===================
   // =====================================================================
   const GP = G.GMap.prototype, oth = GP.terrainH, ocp = GP.canPlace;
-  GP.terrainH = function (x, z) { const pd = this.meta && this.meta.plan ? planData(this) : null; if (pd) { const tx = Math.floor(x), tz = Math.floor(z); if (tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H && pd.bl[tz * pd.W + tx]) return pd.CH; } return oth.call(this, x, z); };
-  GP.canPlace = function (t, tx, tz, r = 0) { if (this.meta && this.meta.plan) { const pd = planData(this), d = O[t]; if (d) { const [w, dd] = G.fpDims(d, r); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < 0 || z < 0 || x >= pd.W || z >= pd.H || pd.T[z * pd.W + x] !== FLOOR) return false; } }
+  // un escalier : la marche monte (ou la cage descend) en continu le long de la volée
+  const stairAt = (pd, x, z) => { for (const q of pd.st) if (x >= q.x0 && x < q.x1 + 1 && z >= q.z0 && z < q.z1 + 1) return q; return null; };
+  const stairT = (q, x, z) => { const a = q.ax === 'x' ? x : z, a0 = q.ax === 'x' ? q.x0 : q.z0, a1 = (q.ax === 'x' ? q.x1 : q.z1) + 1; return G.clamp(q.s > 0 ? (a - a0) / (a1 - a0) : (a1 - a) / (a1 - a0), 0, 1); };
+  GP.terrainH = function (x, z) { const pd = this.meta && this.meta.plan ? planData(this) : null; if (pd) { const tx = Math.floor(x), tz = Math.floor(z); if (tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H) { const c = pd.su[tz * pd.W + tx];
+      if (c === 1 || c === 2) { const q = stairAt(pd, x, z); if (q) { const t = stairT(q, x, z); return q.up ? pd.CH * t : -pd.CH * (1 - t); } }
+      if (pd.bl[tz * pd.W + tx]) return pd.CH; } } return oth.call(this, x, z); };
+  GP.canPlace = function (t, tx, tz, r = 0) { if (this.meta && this.meta.plan) { const pd = planData(this), d = O[t]; if (d) { const [w, dd] = G.fpDims(d, r); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < 0 || z < 0 || x >= pd.W || z >= pd.H || pd.T[z * pd.W + x] !== FLOOR || pd.su[z * pd.W + x]) return false; } } // (rien sur les escaliers ni leurs paliers)
     return ocp.call(this, t, tx, tz, r); };
   // on arrive juste derrière la porte d'entrée
   // (et jamais dans le vide autour du château : si la place demandée n'est pas du parquet, on prend le parquet le plus proche de l'entrée)
@@ -253,6 +310,23 @@
     const q = info.main || o; if (!q.iid) q.iid = 'b' + q.t + '_' + q.x + '_' + q.z; const iid = q.iid, im = G.interiors[iid], sig = planSig(info);
     if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER && im.meta.plan.door) return; // (un plan sans porte, d'une ancienne version, est refait)
     const nm = makePlanInterior(iid, info, im); if (im) G.scene.remove(im.group); G.interiors[iid] = nm; G.scene.add(nm.group); nm.group.visible = false;
+  }
+  // les étages : une carte par étage, créée la première fois qu'on y monte (refaite si le château a changé, les meubles gardés)
+  const FLN = ['Rez-de-chaussée', '1er étage', '2e étage', '3e étage', '4e étage'];
+  function floorMap(base, fl) {
+    if (!fl) return base; const id = base.id + '_f' + fl, pl0 = base.meta.plan; let im = G.interiors[id];
+    if (im && im.meta.plan && im.meta.plan.sig === pl0.sig && im.meta.plan.v === VER) return im;
+    if (G.net && G.net.visit) return null;
+    const sg = pl0.sig.split('|'), nm = makePlanInterior(id, { cols: +sg[1], rows: +sg[2], fl }, im);
+    nm.meta.base = base.id; nm.meta.title = (base.meta.title || 'Château') + ' — ' + (FLN[fl] || fl + 'e étage');
+    if (im) G.scene.remove(im.group); G.interiors[id] = nm; G.scene.add(nm.group); nm.group.visible = false; return nm;
+  }
+  // monter (dir = 1) ou descendre (dir = -1) le grand escalier : on arrive sur le palier, dos à la volée
+  function goFloor(m, q, dir) {
+    const fl = (m.meta.plan.fl || 0) + dir, base = m.meta.base ? G.interiors[m.meta.base] : m; if (!base || fl < 0) return;
+    const to = fl === 0 ? base : floorMap(base, fl); if (!to) { G.ui.toast('Cet étage n’est pas ouvert aux visiteurs.'); return; }
+    const vx = q.ax === 'x' ? q.s : 0, vz = q.ax === 'z' ? q.s : 0, [x, z] = dir > 0 ? q.hi : q.lo, yaw = dir > 0 ? Math.atan2(vx, vz) : Math.atan2(-vx, -vz);
+    G.sfx('step', .6); G.ui.fade(() => G.enterMap(to, x, z, yaw), .12);
   }
   const oen = G.act.enterHouse; G.act.enterHouse = o => { try { prepare(o); } catch (e) { console.warn('intérieur du château', e); } return oen(o); };
 
@@ -362,6 +436,32 @@
   const winKind = st => st === 'cintree' ? 'arc' : st === 'oeil' ? 'oeil' : 'rect';
   const opH = (t, w, CH) => t === 'a' ? [3.0, Math.min(w / 2, CH - 1.0 - 3.0)] : t === 'd' ? [3.3, Math.min(w / 2, CH - 1.1 - 3.3)] : [t === 'p' ? 3.7 : 3.9, 0];
 
+  // ---------- les grands escaliers de marbre : la volée qui monte, ou la cage qui descend vers l'étage du dessous ----------
+  const MARB = 0xf3efe7, MARB2 = 0xe3dccd, CARP = 0x9a2f3a, BALU = 0xf8f4ec, CAGE = 0xe9e1d0;
+  function stairsGeo(b, pd, CH, sk) {
+    for (const q of pd.st) {
+      const along = q.ax, s = q.s, a0 = along === 'x' ? q.x0 : q.z0, a1 = (along === 'x' ? q.x1 : q.z1) + 1, b0 = along === 'x' ? q.z0 : q.x0, b1 = (along === 'x' ? q.z1 : q.x1) + 1, L = a1 - a0, Wd = b1 - b0, y0 = q.up ? 0 : -CH;
+      const P = (a, bb, y) => along === 'x' ? [a, y, bb] : [bb, y, a]; // (le long, en travers, hauteur) → (x, y, z)
+      const A = t => s > 0 ? a0 + t * L : a1 - t * L, n = Math.max(12, Math.round(CH / .19)), bc = (b0 + b1) / 2;
+      const box = (la, lb, h, col, a, bb, y) => along === 'x' ? bx(b, la, h, lb, col, a, y, bb) : bx(b, lb, h, la, col, bb, y, a);
+      // les marches : marbre plein (deux tons), nez de marche clair, tapis rouge et tringles dorées
+      b.S(sk.stone); for (let i = 0; i < n; i++) { const t1 = (i + 1) / n, dl = L / n + .002; box(dl, Wd - .1, CH * t1, i % 2 ? MARB : MARB2, A((i + .5) / n), bc, y0 + CH * t1 / 2); box(dl * .22, Wd - .1, .04, 0xfbf8f2, A(t1) - s * dl * .11, bc, y0 + CH * t1 - .02); } b.S(null);
+      b.S(sk.velvet); for (let i = 0; i < n; i++) box(L / n + .002, Wd * .46, .03, CARP, A((i + .5) / n), bc, y0 + CH * (i + 1) / n + .015); b.S(null);
+      b.S(sk.gold); for (let i = 1; i < n; i += 2) box(.03, Wd * .5, .035, GOLD, A(i / n), bc, y0 + CH * i / n + .035); b.S(null);
+      // rampes : balustres de marbre sous une main courante dorée, piliers de départ à boule dorée
+      const rail = (bb, ya, yb) => { const pa = P(A(0), bb, ya), pb = P(A(1), bb, yb), xa = new THREE.Vector3(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]), len = xa.length(); xa.normalize();
+        const za = new THREE.Vector3().crossVectors(xa, new THREE.Vector3(0, 1, 0)).normalize(), ya2 = new THREE.Vector3().crossVectors(za, xa);
+        b.S(sk.gold); b.add(new THREE.BoxGeometry(len, .09, .13), GOLD, new THREE.Matrix4().makeBasis(xa, ya2, za).setPosition(new THREE.Vector3((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2))); b.S(null); };
+      for (const bb of [b0 + .1, b1 - .1]) {
+        if (q.up) { rail(bb, 1.05, CH + 1.05); b.S(sk.stone); for (let t = .03; t < .99; t += .055) { const y = y0 + CH * Math.ceil(t * n) / n, p = P(A(t), bb, y + .5); bx(b, .1, 1.0, .1, BALU, p[0], p[1], p[2]); dot(b, .07, BALU, p[0], y + .35, p[2]); } b.S(null); }
+        const pn = P(A(0) - s * .15, bb, y0 + .7); b.S(sk.stone); bx(b, .32, 1.4, .32, MARB2, pn[0], pn[1], pn[2]); b.S(null); b.S(sk.gold); dot(b, .16, GOLD, pn[0], pn[1] + .85, pn[2]); b.S(null); }
+      if (!q.up) { // la cage : murs de marbre jusqu'en bas, balustrade dorée autour de l'ouverture (sauf du côté du palier)
+        b.S(sk.stone); for (const bb of [b0, b1]) box(L, .08, CH, CAGE, (a0 + a1) / 2, bb, -CH / 2); box(.08, Wd, CH, CAGE, A(0), bc, -CH / 2);
+        const nb = Math.max(2, Math.round(L / .45)), nw = Math.max(2, Math.round(Wd / .45));
+        for (const bb of [b0 + .05, b1 - .05]) { box(L, .14, .08, GOLD, (a0 + a1) / 2, bb, 1.05); for (let k = 0; k <= nb; k++) box(.09, .09, 1.0, BALU, a0 + k * L / nb, bb, .5); }
+        box(.14, Wd, .08, GOLD, A(0), bc, 1.05); for (let k = 0; k <= nw; k++) box(.09, .09, 1.0, BALU, A(0), b0 + k * Wd / nw, .5); b.S(null); }
+    }
+  }
   function planShell(m) {
     if (m.shell) { m.group.remove(m.shell); m.shell.traverse(c => c.geometry && c.geometry.dispose()); } if (m._pv && m._pv.tex) m._pv.tex.dispose();
     delete m._cx; delete m._fw; delete m._gl; m._pd = null; const pd = planData(m), { W, H, T, R, CH, pl } = pd, sk = SK(), n = pl.n || 1;
@@ -533,11 +633,11 @@
         b.wid = wid + .5; b.S(sk.stone); b.fquad([x, -1, z + 1], [x2 + 1, -1, z + 1], [x2 + 1, -1, z], [x, -1, z], 0xd8ccb3); b.S(null); x = x2 + 1; } }
     b.wid = 0;
     // ----- sols (par pièce), bordure de frise le long des murs ; plafonds peints, rosaces sous les lustres -----
-    for (const rm of pl.rooms) { const cells = new Uint8Array(W * H); let any = false; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR && R[i] === rm.id) { cells[i] = 1; any = true; } if (!any) continue;
+    for (const rm of pl.rooms) for (const pass of [0, 1]) { const cells = new Uint8Array(W * H); let any = false; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR && R[i] === rm.id && pd.su[i] !== (pass ? 1 : 2)) { cells[i] = 1; any = true; } if (!any) continue; // sol sans la cage, plafond sans la volée
       const acc = flA[rm.floor] || (flA[rm.floor] = new Acc());
       for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { if (!cells[z * W + x]) continue; let x2 = x; while (x2 + 1 < W && cells[z * W + x2 + 1]) x2++; let z2 = z, ok = true; while (ok && z2 + 1 < H) { for (let xx = x; xx <= x2; xx++) if (!cells[(z2 + 1) * W + xx]) { ok = false; break; } if (ok) z2++; }
         for (let zz = z; zz <= z2; zz++) for (let xx = x; xx <= x2; xx++) cells[zz * W + xx] = 0; const w = x2 - x + 1, d = z2 - z + 1;
-        acc.add(new THREE.PlaneGeometry(w, d), new THREE.Matrix4().makeRotationX(-PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x + w / 2, .004, z + d / 2)), 0, w / 2, d / 2);
+        if (!pass) { acc.add(new THREE.PlaneGeometry(w, d), new THREE.Matrix4().makeRotationX(-PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x + w / 2, .004, z + d / 2)), 0, w / 2, d / 2); continue; }
         bs.S(sk.paint); bs.add(new THREE.PlaneGeometry(w, d), 0xf6f1e8, new THREE.Matrix4().makeRotationX(PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x + w / 2, CH, z + d / 2)), 0, true); bs.S(null); }
     }
     // rosaces du plafond au-dessus des lustres : tournées vers le bas seulement (vues d'en haut, quand le plafond s'efface, elles disparaissent aussi)
@@ -545,8 +645,9 @@
       bs.add(new THREE.RingGeometry(.46, .53, 28), GOLD, bs.M(x, CH - .022, z, PI / 2, 0, 0)); bs.add(new THREE.RingGeometry(.2, .24, 20), GOLD, bs.M(x, CH - .024, z, PI / 2, 0, 0)); bs.add(new THREE.CircleGeometry(.08, 12), GOLD, bs.M(x, CH - .026, z, PI / 2, 0, 0)); bs.S(null); }
     // dehors (la cour d'honneur et les jardins, vus des fenêtres et d'en haut) : gazon tondu à bandes, allées de gravier le long des façades,
     // et dans chaque cour fermée, un bassin à vasque au milieu d'une croisée d'allées
-    bs.P(G.PAT.gazon); bx(bs, W + 8, .04, H + 8, 0x6ea946, W / 2, -.03, H / 2); bs.P(0);
-    { const dW = new Uint8Array(W * H).fill(9), q = []; for (let i = 0; i < W * H; i++) if (solid(T[i])) { dW[i] = 0; q.push(i); }
+    const efl = pl.fl || 0; bs.P(G.PAT.gazon); bx(bs, W + 8, .04, H + 8, 0x6ea946, W / 2, -.03 - efl * CH, H / 2); bs.P(0); // aux étages, le jardin est loin en dessous
+    stairsGeo(bs, pd, CH, sk);
+    if (!efl) { const dW = new Uint8Array(W * H).fill(9), q = []; for (let i = 0; i < W * H; i++) if (solid(T[i])) { dW[i] = 0; q.push(i); }
       for (let h = 0; h < q.length; h++) { const i = q[h], x = i % W, z = (i - x) / W; if (dW[i] >= 2) continue; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === VOID && dW[j] > dW[i] + 1) { dW[j] = dW[i] + 1; q.push(j); } } }
       bs.P(G.PAT.gravier); for (let z = 0; z < H; z++) { let x = 0; while (x < W) { const i = z * W + x; if (T[i] !== VOID || dW[i] > 2) { x++; continue; } let x2 = x; while (x2 + 1 < W && T[z * W + x2 + 1] === VOID && dW[z * W + x2 + 1] <= 2) x2++; bx(bs, x2 - x + 1, .03, 1, 0xdccdab, (x + x2 + 1) / 2, 0, z + .5); x = x2 + 1; } } bs.P(0);
       // la cour d'honneur (ou une cour fermée) : croisée d'allées, quatre parterres de buis à broderies, ifs taillés, et la grande fontaine au milieu
@@ -574,8 +675,8 @@
         while (st2.length) { const i = st2.pop(), x = i % W, z = (i - x) / W; a0 = Math.min(a0, x); a1 = Math.max(a1, x); c0 = Math.min(c0, z); c1 = Math.max(c1, z); for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === VOID && !seen[j]) { seen[j] = 1; st2.push(j); } } }
         const inC = pl.court && (a0 + a1) / 2 > pl.court[0] && (a0 + a1) / 2 < pl.court[2] && (c0 + c1) / 2 > pl.court[1] - 2 && (c0 + c1) / 2 < pl.court[3]; if (!inC) courtGarden(a0, c0, a1 + 1, c1 + 1); } }
     // plafonds peints (salon, galerie, salle de bal, chapelle, salon de musique) : ciel, nuées et figures, voussure à cadre doré — on les voit d'en bas
-    const PAINTED = { salon: 1, galerie: 1, bal: 1, chapelle: 1, musique: 1, vestibule: 1 };
-    for (const rm of pl.rooms) { if (!PAINTED[rm.k]) continue; const w = rm.x1 - rm.x0 + 1, d = rm.z1 - rm.z0 + 1; let cnt = 0; for (let z = rm.z0; z <= rm.z1; z++) for (let x = rm.x0; x <= rm.x1; x++) if (T[z * W + x] === FLOOR && R[z * W + x] === rm.id) cnt++;
+    const PAINTED = { apparat: 1, palier: 1, salon: 1, galerie: 1, bal: 1, chapelle: 1, musique: 1, vestibule: 1 };
+    for (const rm of pl.rooms) { if (!PAINTED[rm.k] || pd.st.some(q => q.x1 >= rm.x0 && q.x0 <= rm.x1 && q.z1 >= rm.z0 && q.z0 <= rm.z1)) continue; const w = rm.x1 - rm.x0 + 1, d = rm.z1 - rm.z0 + 1; let cnt = 0; for (let z = rm.z0; z <= rm.z1; z++) for (let x = rm.x0; x <= rm.x1; x++) if (T[z * W + x] === FLOOR && R[z * W + x] === rm.id) cnt++;
       if (cnt < w * d * .97) continue; const iw = w - 2.4, id = d - 2.4; if (iw < 2 || id < 2) continue; const cx = rm.x0 + w / 2, cz = rm.z0 + d / 2;
       ceil.add(new THREE.PlaneGeometry(iw, id), new THREE.Matrix4().makeRotationX(PI / 2).premultiply(new THREE.Matrix4().makeTranslation(cx, CH - .035, cz)), 0, 1, 1);
       const strip = (x, z, ww, dd, y, col, kk) => { bs.S(kk); bs.add(new THREE.PlaneGeometry(ww, dd), col, new THREE.Matrix4().makeRotationX(PI / 2).premultiply(new THREE.Matrix4().makeTranslation(x, y, z))); bs.S(null); }; // tournés vers le bas : invisibles d'en haut
@@ -672,13 +773,13 @@
   // le château dans le monde (ou sur l'île) : sa place, sa hauteur, son orientation, et le milieu de l'avant-corps
   function outSrc(m) {
     if (!m || !m.meta || !m.meta.plan || !G.chateauInfo || !G.chateauFusion) return null;
-    for (const w of [G.world, G.island]) { if (!w || !w.list) continue; let o = null; for (const q of w.list) if (q.iid === m.id) { o = q; break; } if (!o) continue;
-      const info = G.chateauInfo(o); if (!info || info.cx == null) return null; let dx = 0, dz = 0;
-      try { const D = G.chateauFusion.layout(0, info.cols, info.rows).C.D; [dx, dz] = G.chateauFusion.toW(info.r, (D.x0 + D.x1) / 2, (D.z0 + D.z1) / 2); } catch (e) { }
+    for (const w of [G.world, G.island]) { if (!w || !w.list) continue; let o = null; const bid = m.meta.base || m.id; for (const q of w.list) if (q.iid === bid) { o = q; break; } if (!o) continue;
+      const info = G.chateauInfo(o); if (!info || info.cx == null) return null; let dx = 0, dz = 0, fh = 3;
+      try { const LC = G.chateauFusion.layout(0, info.cols, info.rows).C, D = LC.D; fh = LC.FH; [dx, dz] = G.chateauFusion.toW(info.r, (D.x0 + D.x1) / 2, (D.z0 + D.z1) / 2); } catch (e) { }
       const x = info.cx + dx, z = info.cz + dz, CL = G.CELL || 8, cw = Math.ceil(w.W / CL), ch = Math.ceil(w.H / CL), V = new Uint8Array(cw * ch);
       for (let k = 0; k < V.length; k++) V[k] = Math.hypot((k % cw) * CL + CL / 2 - x, Math.floor(k / cw) * CL + CL / 2 - z) < 130 ? 1 : 0; // ce qu'on voit des fenêtres : jusqu'à 130 cases
       for (const g of w.chunks) if (g) for (const me of g.children) me.frustumCulled = true;
-      return { w, o, x, z, V, y: w.terrainH(x, z) + 2.6, rot: (info.r & 3) * PI / 2 }; }
+      return { w, o, x, z, V, y: w.terrainH(x, z) + 2.6 + (m.meta.plan.fl || 0) * fh, rot: (info.r & 3) * PI / 2 }; }
     return null;
   }
   // photographier le dehors : le monde redevient visible le temps des vues (ciel, nuages, mer, lumière du jour), le château intérieur est caché
@@ -731,6 +832,8 @@
   const obs = G.buildShell; G.buildShell = m => { if (m && m.meta && m.meta.plan) return planShell(m); return obs(m); };
   G.on('update', dt => {
     const m = G.map, p = G.player; if (!m || !m.interior || !m.meta.plan || !p) { if (lab && lab.style.opacity !== '0') lab.style.opacity = '0'; return; }
+    if (!G.ui.fading && m.meta.plan.stairs) { const pd = planData(m), tx = Math.floor(p.x), tz = Math.floor(p.z), c = tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H ? pd.su[tz * pd.W + tx] : 0;
+      if (c === 1 || c === 2) { const q = stairAt(pd, p.x, p.z), t = q && stairT(q, p.x, p.z); if (q && q.up && t > .82) return goFloor(m, q, 1); if (q && !q.up && t < .5) return goFloor(m, q, -1); } }
     const pl = m.meta.plan; if (!G.ui.fading) for (const [i, d] of (pl.doors || [pl.door]).entries()) if (d && p.x > d.x0 && p.x < d.x1 + 1 && p.z > d.z + .3) { const dw = m.meta.doorsW && m.meta.doorsW[i]; if (dw) m.meta.door = dw; G.act.exitHouse(); return; }
     if (bMat) bMat.uniforms.uT.value += dt; updCut(m, dt); updBeams(m, dt); roomLabel(m, dt);
   });

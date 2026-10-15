@@ -132,6 +132,13 @@
     for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { if (T[z * W + x] !== FLOOR) continue; const rm = rooms.get(R[z * W + x]); if (!rm) continue; const k = wallCol(rm.wall); let p = lis.get(k); if (!p) lis.set(k, p = new Path2D());
       if (ti(x, z - 1) === WALL) p.rect(x * cs, z * cs, cs + .6, sw); if (ti(x, z + 1) === WALL) p.rect(x * cs, (z + 1) * cs - sw, cs + .6, sw); if (ti(x - 1, z) === WALL) p.rect(x * cs, z * cs, sw, cs + .6); if (ti(x + 1, z) === WALL) p.rect((x + 1) * cs - sw, z * cs, sw, cs + .6); }
     for (const [k, p] of lis) { c.fillStyle = k; c.fill(p); }
+    // les grands escaliers : marches et tapis rouge, ▲ la volée qui monte, ▼ la cage qui descend
+    for (const q of pd.st || []) { const x0 = q.x0 * cs, z0 = q.z0 * cs, w = (q.x1 - q.x0 + 1) * cs, h = (q.z1 - q.z0 + 1) * cs, n = q.ax === 'x' ? q.x1 - q.x0 + 1 : q.z1 - q.z0 + 1;
+      c.fillStyle = q.up ? '#f4efe6' : '#cfc6b4'; c.fillRect(x0, z0, w, h); c.strokeStyle = '#9a8a70'; c.lineWidth = 1; c.beginPath();
+      for (let k = 1; k < n * 2; k++) { if (q.ax === 'x') { c.moveTo(x0 + k * w / (n * 2), z0); c.lineTo(x0 + k * w / (n * 2), z0 + h); } else { c.moveTo(x0, z0 + k * h / (n * 2)); c.lineTo(x0 + w, z0 + k * h / (n * 2)); } } c.stroke();
+      c.fillStyle = '#9a2f3a'; if (q.ax === 'x') c.fillRect(x0, z0 + h * .32, w, h * .36); else c.fillRect(x0 + w * .32, z0, w * .36, h);
+      c.fillStyle = '#fff'; c.font = `800 ${Math.max(10, cs * .9)}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText((q.up ? '▲ ' : '▼ ') + (q.ax === 'x' ? (q.s > 0 ? '→' : '←') : (q.s > 0 ? '↓' : '↑')), x0 + w / 2, z0 + h / 2); }
     // arches, doubles portes, passages, porte d'entrée
     for (const r of openRuns(pd)) { const a = r.cells[0], b = r.cells[r.cells.length - 1], x0 = a[0] * cs, z0 = a[1] * cs, x1 = (b[0] + 1) * cs, z1 = (b[1] + 1) * cs, L = r.alongX ? x1 - x0 : z1 - z0, mid = r.alongX ? z0 + cs / 2 : x0 + cs / 2;
       const P = (u, v) => r.alongX ? [x0 + u, mid + v] : [mid + v, z0 + u], jam = Math.max(2, cs * .3);
@@ -225,6 +232,7 @@
   }
   // pourquoi on ne peut pas monter une cloison sur cette case
   function blockWhy(m, pd, x, z) {
+    if (pd.su && pd.su[z * pd.W + x]) return 'Le grand escalier est ici : on ne le mure pas.';
     if (m.objAt(x, z) || (m.upAt && m.upAt(x, z))) return 'Un meuble est ici : déplace-le d\'abord (outil Meubles).';
     const p = G.player; if (p && G.map === m && Math.abs(p.x - (x + .5)) < .95 && Math.abs(p.z - (z + .5)) < .95) return 'Tu es là ! Une cloison ne se monte pas sur toi.';
     const d = pd.pl.door; if (d && z === d.z - 1 && x >= d.x0 && x <= d.x1) return 'Garde l\'entrée libre.';
@@ -297,7 +305,7 @@
     const m = st.m; U.closePanel();
     U.dialog('Plan du château', ['Revenir au plan d\'origine, celui qui suit l\'extérieur du château ?', 'Les cloisons, les arches et le décor des pièces redeviennent ceux du début. Tes meubles sont gardés, reposés au plus près.'], { choices: ['Oui, revenir', 'Non'] }).then(k => {
       if (G.map !== m) return;
-      if (k === 0) { const sg = String(m.meta.plan.sig || '0|1|1').split('|'), info = { cols: +sg[1] || 1, rows: +sg[2] || 1 };
+      if (k === 0) { const sg = String(m.meta.plan.sig || '0|1|1').split('|'), info = { cols: +sg[1] || 1, rows: +sg[2] || 1, fl: m.meta.plan.fl || 0 };
         const objs = [...m.list].filter(o => o.t !== 'paillasson').map(o => { const ex = {}; for (const q of KEEP) if (o[q] != null) ex[q] = o[q]; return [o.t, o.x, o.z, o.r || 0, ex]; });
         for (const o of [...m.list]) m.removeObj(o); m.meta.plan = CI().genPlan(info); m._pd = null; const pl = m.meta.plan;
         if (pl.door) m.addObj('paillasson', pl.door.x0 + 1, pl.door.z - 1);
