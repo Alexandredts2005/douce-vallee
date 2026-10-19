@@ -56,11 +56,39 @@
   MD.helico_rotor = () => { const b = G.mb(2549); rotor(b); return b.done(); };
   MD.helico_queue = () => { const b = G.mb(2548); b.box(.6, .02, .08, DK, 0, 0, 0); return b.done(); };
   const TCOL = [[0xb8323a, 0xffd23f, 0x2a4f8a], [0x2a4f8a, 0xf2e6d2, 0xb8323a], [0x2f7a45, 0xffd23f, 0x8e1f2a], [0x6b2a8a, 0xff9a3c, 0x45c7c1]];
-  function segTapis(b, v, i, n, ox = 0, oy = 0) { const [c1, c2, c3] = TCOL[v % 4], w = 2.0 / n;
-    b.box(w + .005, .035, 1.2, c1, ox, oy, 0); b.box(w + .006, .037, .14, c2, ox, oy, .5); b.box(w + .006, .037, .14, c2, ox, oy, -.5); if (i % 2) b.box(w * .5, .038, .5, c3, ox, oy, 0); else b.sph(.12, c2, ox, oy + .01, 0, 1, .12, 1);
-    if (i === 0 || i === n - 1) for (let k = 0; k < 6; k++) b.cyl(.015, .025, .14, 5, c2, ox + (i === 0 ? -1 : 1) * (w / 2 + .06), oy, -.5 + k * .2, 0, 0, PI / 2); }
-  MD.tapis = v => { const b = G.mb(2550 + (v || 0)); for (let i = 0; i < 6; i++) segTapis(b, v || 0, i, 6, -1 + (2 / 6) * (i + .5), .05); return b.done(); };
-  MD.tapis_seg = v => { const b = G.mb(2560 + v); segTapis(b, Math.floor(v / 10), v % 10, 6); return b.done(); };
+  // le dessin du tapis (u le long, de l'arrière vers l'avant ; v en travers ; de 0 à 1) : 0 champ, 1 or, 2 motif, 3 lisière sombre
+  function tapisPat(u, v) {
+    const L = 2, Wd = 1.2, du = Math.min(u, 1 - u) * L, dv = Math.min(v, 1 - v) * Wd, e = Math.min(du, dv);
+    if (e < .025) return 3;
+    if (e < .16) { const s2 = (du < dv ? v * Wd : u * L) * 7, fr = Math.abs((s2 % 1) - .5); if ((e > .042 && e < .056) || (e > .13 && e < .144)) return 3; return fr + Math.abs(e - .093) * 5 < .24 ? 2 : 1; } // frise de losanges entre deux filets
+    const cu = (u - .5) * L, cv = (v - .5) * Wd, r = Math.hypot(cu / .5, cv / .32);
+    if (r < 1) return r < .28 ? 1 : r < .5 ? 2 : r < .58 ? 1 : r < .9 ? 2 : 3; // le grand médaillon
+    if (Math.hypot((Math.abs(cu) - (L / 2 - .16)) / .32, (Math.abs(cv) - (Wd / 2 - .16)) / .24) < 1) return 2; // les écoinçons
+    const fu = (u * 18) % 1 - .5, fv = (v * 10) % 1 - .5; return (Math.floor(u * 18) + Math.floor(v * 10)) % 2 === 0 && Math.hypot(fu, fv) < .2 ? 1 : 0; // un semis de petites fleurs
+  }
+  const dk = c => new THREE.Color(c).multiplyScalar(.5).getHex(), tcols = v => { const [c1, c2, c3] = TCOL[v % 4]; return [c1, c2, c3, dk(c1)]; };
+  function frange(b, v, x, s, y = .05) { const c2 = TCOL[v % 4][1]; for (let k = 0; k < 11; k++) { const z = -.52 + k * .104; b.cyl(.011, .018, .13, 5, c2, x + s * .065, y, z, 0, 0, PI / 2); b.sph(.022, c2, x + s * .135, y, z); } }
+  MD.tapis = v => { const b = G.mb(2550 + (v || 0)), V = v || 0, C = tcols(V), NU = 64, NV = 38, y = .05; // posé : une seule pièce, motif tissé case par case
+    b.geo(new THREE.BoxGeometry(2, .03, 1.2), C[3], b.M(0, y, 0));
+    for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const u = (i + .5) / NU, w = (j + .5) / NV; b.geo(new THREE.PlaneGeometry(2 / NU, 1.2 / NV), C[tapisPat(u, w)], b.M(-1 + u * 2, y + .017, -.6 + w * 1.2, -PI / 2, 0, 0)); }
+    frange(b, V, 1, 1); frange(b, V, -1, -1); return b.done(); };
+  MD.tapis_frange = v => { const b = G.mb(2565 + (v || 0)); frange(b, v || 0, 0, 1, 0); return b.done(); };
+  // en vol : la même pièce de laine (dessin peint en texture), qui ondule de l'avant vers l'arrière, l'avant un peu relevé
+  const tapisTex = {};
+  function tapisTexture(v) { if (tapisTex[v]) return tapisTex[v]; const cols = tcols(v).map(c => [(c >> 16) & 255, (c >> 8) & 255, c & 255]), Wt = 400, Ht = 240, cv = G.cv(Wt, Ht), x = cv.getContext('2d'), im = x.createImageData(Wt, Ht);
+    for (let py = 0; py < Ht; py++) for (let px = 0; px < Wt; px++) { const c = cols[tapisPat((px + .5) / Wt, (py + .5) / Ht)], o = (py * Wt + px) * 4, n = .9 + (((px * 7 + py * 13) % 5) + ((px >> 1) + py) % 2) * .02; im.data[o] = c[0] * n; im.data[o + 1] = c[1] * n; im.data[o + 2] = c[2] * n; im.data[o + 3] = 255; }
+    x.putImageData(im, 0, 0); const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; if (G.renderer && THREE.sRGBEncoding && G.renderer.outputEncoding === THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return tapisTex[v] = t; }
+  function tapisVol(v) {
+    const g = new THREE.PlaneGeometry(2, 1.2, 30, 12); g.rotateX(-PI / 2); const base = g.attributes.position.array.slice(), g2 = g.clone(), tex = tapisTexture(v);
+    const top = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: tex, roughness: .95, metalness: 0, side: THREE.DoubleSide })), bot = new THREE.Mesh(g2, new THREE.MeshStandardMaterial({ map: tex, color: 0x8a7a70, roughness: 1, side: THREE.DoubleSide }));
+    top.castShadow = true; top.frustumCulled = bot.frustumCulled = false;
+    const fr = [1, -1].map(s => { const me = new THREE.Mesh(G.getGeo('tapis_frange', v), G.MATS); me.frustumCulled = false; me.position.x = s; if (s < 0) me.rotation.y = PI; return me; });
+    const grp = new THREE.Group(); grp.add(top, bot, ...fr); grp.position.y = .05;
+    const yAt = (x, z, t, amp) => Math.sin(t * 3.2 + x * 2.6) * amp * (.35 + .65 * (1 - x) / 2) + Math.max(0, x - .8) * .3 - z * z * .06;
+    const upd = (t, sn) => { const P = g.attributes.position, Q = g2.attributes.position, amp = .035 + Math.min(1, Math.abs(sn)) * .055;
+      for (let i = 0; i < P.count; i++) { const y = yAt(base[i * 3], base[i * 3 + 2], t, amp); P.setY(i, y); Q.setY(i, y - .026); }
+      P.needsUpdate = Q.needsUpdate = true; g.computeVertexNormals(); g2.computeVertexNormals(); for (const me of fr) me.position.y = yAt(me.position.x, 0, t, amp) - .01; };
+    upd(0, 0); return { grp, upd }; }
   const JCOL = [0xffffff, 0xffd23f, 0x45c7c1, 0xe8434a];
   MD.jetski = v => { const b = G.mb(2570 + (v || 0)), c = [0xe8434a, 0x3b78d8, 0x2f8f55, 0xff9a3c][(v || 0) % 4];
     b.sph(.42, JCOL[(v || 0) % 4], 0, .25, 0, 2.0, .45, .85, 0, 20, 12); b.box(1.2, .06, .5, c, -.1, .4, 0); b.cone(.3, .5, 14, JCOL[(v || 0) % 4], .95, .28, 0, 0, 0, -PI / 2);
@@ -137,7 +165,7 @@
     else if (S.id === 'voiturette') { part('voiturette_corps', col); P.w = []; for (const x of [.62, -.62]) for (const z of [.5, -.5]) P.w.push(part('voiturette_roue', 0, x, .28, z)); }
     else if (S.id === 'cheval') { part('cheval_corps', col); P.legs = [[.45, .14], [.45, -.14], [-.45, .14], [-.45, -.14]].map(([x, z]) => part('cheval_jambe', col, x, .98, z)); }
     else if (S.id === 'helico') { part('helico_corps', col); P.rot = part('helico_rotor', 0, 0, 2.04, 0); P.tail = part('helico_queue', 0, -2.1, 1.5, .08); }
-    else if (S.id === 'tapis') { P.seg = []; for (let i = 0; i < 6; i++) P.seg.push(part('tapis_seg', col * 10 + i, -1 + (2 / 6) * (i + .5), .05, 0)); }
+    else if (S.id === 'tapis') { P.tapis = tapisVol(col); grp.add(P.tapis.grp); }
     else part(S.id, col);
     grp.rotation.order = 'YXZ'; G.scene.add(grp); return { grp, P }; }
   const SEATV = new V3(), Q1 = new THREE.Quaternion(), QY = new THREE.Quaternion(), YAX = new V3(0, 1, 0);
@@ -238,7 +266,7 @@
     if (S.id === 'helico') { v.rpm = (v.rpm || 0) + ((onGround && !gas && !up ? .35 : 1) - (v.rpm || 0)) * Math.min(1, dt * 1.5); M.rotation.set(-steer * .18 * Math.min(1, Math.abs(sn) + .3), v.h - PI / 2, -sn * .2); v.P.rot.rotation.y += dt * 28 * v.rpm; v.P.tail.rotation.z += dt * 40 * v.rpm;
       if (v.y - gy < 4 && (v.dust = (v.dust || 0) - dt) < 0) { v.dust = .06; const a = Math.random() * TAU; G.fx.one(v.x + Math.cos(a) * 1.6, gy + .1, v.z + Math.sin(a) * 1.6, Math.cos(a) * 2, .3, Math.sin(a) * 2, .7, 0, m.isWaterAt(v.x, v.z) ? 0xffffff : 0xe8dcc0, .14, .9); }
       ENG.set(v.rpm * (1 + Math.abs(sn) * .4), .03 + v.rpm * .03); }
-    else { M.rotation.set(-steer * .15, v.h - PI / 2, -sn * .08 + Math.sin(v.t * 1.3) * .03); v.P.seg.forEach((s, i) => { s.position.y = .05 + Math.sin(v.t * 3.2 - i * .9) * (.04 + Math.abs(sn) * .05); s.rotation.z = Math.cos(v.t * 3.2 - i * .9) * .12; });
+    else { M.rotation.set(-steer * .15, v.h - PI / 2, -sn * .08 + Math.sin(v.t * 1.3) * .03); v.P.tapis.upd(v.t, sn);
       if ((v.spark = (v.spark || 0) - dt) < 0) { v.spark = .05; G.fx.one(v.x - fx * 1.1 + (Math.random() - .5) * .8, v.y + .05, v.z - fz * 1.1 + (Math.random() - .5) * .8, (Math.random() - .5) * .3, .1, (Math.random() - .5) * .3, .9, -.2, [0xffd23f, 0xff8fc0, 0x9fdcff, 0xffffff][Math.floor(Math.random() * 4)], .12, 1); } }
     seatRider(p, v, dt);
     hudSet(v, S.ico + ' <b>' + Math.round(Math.abs(v.spd) * 7) + ' km/h</b> · ' + Math.max(0, Math.round(v.y - gy)) + ' m<br><span style="font-size:12px;opacity:.85">Espace / Maj : monter · descendre · E : atterrir · W : ranger</span>'); }
@@ -253,7 +281,7 @@
     const target = gas > 0 ? S.max * gas : gas < 0 ? -S.max * .3 : 0; v.spd += G.clamp(target - v.spd, -S.acc * 1.5 * dt, S.acc * dt); v.h -= steer * S.turn * G.clamp(Math.abs(v.spd) / 3, .35, 1) * dt * (v.spd < -.1 ? -1 : 1);
     const fx = Math.sin(v.h), fz = Math.cos(v.h), nx = v.x + fx * v.spd * dt, nz = v.z + fz * v.spd * dt;
     if (waterOk(m, nx + fx * .9, nz + fz * .9) && waterOk(m, nx, nz) && waterOk(m, nx - fx * .8, nz - fz * .8)) { v.x = nx; v.z = nz; } else { if (Math.abs(v.spd) > 3) { G.cam.shake && G.cam.shake(.2); G.sfx('splash', .4); } v.spd *= -.25; }
-    const ws = m.waterSurf(Math.floor(v.x), Math.floor(v.z)); if (Math.abs(v.spd) > 9 && !v.air && Math.random() < dt * .8) { v.air = true; v.vy = 3 + Math.random() * 2; G.sfx('splash', .5); }
+    const ws = m.waterSurf(Math.floor(v.x), Math.floor(v.z)); if (Math.abs(v.spd) > 11.5 && Math.abs(v.lean) > .12 && !v.air && Math.random() < dt * .35) { v.air = true; v.vy = 1.6 + Math.random() * 1.1; G.sfx('splash', .4); } // (un petit saut sur la vague, seulement en virage serré à pleine vitesse)
     if (v.air) { v.vy -= 14 * dt; v.y += v.vy * dt; if (v.y <= ws - .05) { v.y = ws - .05; v.air = false; G.fx.burst(v.x, ws, v.z, 14, [0xffffff, 0x9fdcff], 3, .5, 4); } } else v.y += (ws - .05 + Math.sin(v.t * 3) * .04 - v.y) * Math.min(1, 8 * dt);
     v.lean += (-steer * G.clamp(Math.abs(v.spd) / 8, 0, 1) * .35 - v.lean) * Math.min(1, 5 * dt);
     const M = v.mesh; M.position.set(v.x, v.y, v.z); M.rotation.set(-v.lean, v.h - PI / 2, -G.clamp(v.spd / S.max, -1, 1) * .1 + (v.air ? .15 : 0));

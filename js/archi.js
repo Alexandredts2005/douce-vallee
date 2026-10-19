@@ -3,7 +3,7 @@
 // Les motifs sont calculés dans le shader à partir de la position des sommets : aucun texte de plus, aucun appel de dessin en plus.
 (function () {
   const MD = G.MODELS, TAU = Math.PI * 2;
-  const PT = G.PAT = { brique: 1, pierre: 2, bardage: 3, tuiles: 4, bardeaux: 5, planches: 6, crepi: 7, ardoise: 8, moellons: 9, rondins: 10, carrelage: 11, gazon: 12, gravier: 13, buis: 14 };
+  const PT = G.PAT = { brique: 1, pierre: 2, bardage: 3, tuiles: 4, bardeaux: 5, planches: 6, crepi: 7, ardoise: 8, moellons: 9, rondins: 10, carrelage: 11, gazon: 12, gravier: 13, buis: 14, affiches: 15, zinc: 16 };
   // ---------- matériau à motifs ----------
   const PAT_FS = `
 varying float vPat; varying vec3 vOP; varying vec3 vON;
@@ -75,11 +75,36 @@ vec3 dvPat(vec3 c) {
     float rake = .97 + .03 * sin(uv.y * 30.) * (1. - smoothstep(.1, .6, fwidth(uv.y * 30.)));
     o = c * (.86 + .1 * dvN(uv * 6.)) * mix(1., .82 + .36 * r, pebble) * rake;
     return o;
-  } else { // buis taillé : petites feuilles serrées, reflets
+  } else if (id < 14.5) { // buis taillé : petites feuilles serrées, reflets
     vec2 p = uv * 13., fw = fwidth(p); float k = 1. - smoothstep(.35, 1., max(fw.x, fw.y));
     float n1 = dvN(p), n2 = dvN(p * 2.6 + 7.), n3 = dvN(uv * 1.7 + 3.);
     o = c * (.9 + .12 * n3) * mix(1., .7 + .38 * n1 + .22 * n2, k);
     return o;
+  } else if (id < 15.5) { // affiches de spectacle collées tout autour d'une colonne (autour de l'axe vertical de l'objet)
+    float an = atan(vOP.z, vOP.x) / 6.28318 + .5;
+    vec2 q = vec2(an * 9., (vOP.y - .5) / .64); q.x += mod(floor(q.y), 2.) * .5;
+    vec2 i = floor(q), f = fract(q), fw = min(fwidth(q), vec2(.08));
+    float r1 = dvH(i + 41.), r2 = dvH(i + 77.), r3 = dvH(i + 13.);
+    vec3 bg = .55 + .45 * cos(6.28318 * (r1 + vec3(0., .33, .67)));
+    bg = mix(bg, vec3(.96, .93, .84), step(.62, r2) * .85); bg = mix(bg, vec3(.93, .86, .7), .28); // (le papier vieilli)
+    vec3 ink = mix(vec3(.12, .09, .12), vec3(.72, .1, .12), step(.55, r3));
+    float title = step(.66, f.y) * step(f.y, .86) * step(.1, f.x) * step(f.x, .9) * step(.32, fract(f.x * 8. + r2 * 5.)) * step(.2, fract(f.y * 5.));
+    vec2 ic = (f - vec2(.5, .43)) * vec2(1., 1.5);
+    float img = step(r1, .5) * smoothstep(.22, .2, length(ic)) + step(.5, r1) * smoothstep(.2, .18, abs(ic.x) + abs(ic.y));
+    float lines = step(.1, f.y) * step(f.y, .27) * step(.14, f.x) * step(f.x, .86) * step(.45, fract(f.y * 22.)) * step(.15, fract(f.x * 3.1 + r3));
+    vec3 col = mix(bg, ink, title);
+    col = mix(col, mix(ink, vec3(1., .82, .28), r2), img * .92);
+    col = mix(col, ink * 1.1, lines * .75);
+    col *= .9 + .1 * dvN(vec2(an * 220., vOP.y * 40.)); // le papier un peu froissé
+    float inside = dvJ(f, vec2(.035, .03), fw);
+    o = mix(c * .7, col, inside); avg = mix(c, bg, .8); fade = max(fw.x, fw.y) * .6;
+  } else { // écailles de zinc autour de l'axe vertical (les dômes des kiosques et des colonnes)
+    float an = atan(vOP.z, vOP.x) / 6.28318 + .5;
+    vec2 q = vec2(an * 36., vOP.y / .07); q.x += mod(floor(q.y), 2.) * .5;
+    vec2 f = fract(q), fw = min(fwidth(q), vec2(.1));
+    float x = f.x * 2. - 1., e = .42 * (1. - sqrt(max(0., 1. - x * x)));
+    o = c * mix(.6, 1.1, smoothstep(e, e + .26 + fw.y, f.y)) * (.92 + .12 * dvH(floor(q) + 5.));
+    avg = c * .9; fade = max(fw.x, fw.y);
   }
   o = mix(o, avg, smoothstep(.35, .8, fade));
   return o * mix(.8, 1., smoothstep(0., .45, vOP.y));
