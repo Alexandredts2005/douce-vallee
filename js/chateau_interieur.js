@@ -10,7 +10,7 @@
 (function () {
   const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 5, KS = 3.3, RL = 17, RD = 28, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
   const VOID = 0, WALL = 1, FLOOR = 2, OPEN = 3, DOOR = 4, NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, dz: -1.7 };
+  const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, fy: 1, dz: -1.7 }, GAP = .08; // GAP : le plancher d'un étage est posé juste au-dessus du plafond de celui du dessous
   // ---------- décors ----------
   const PAINTS = { peinture_ivoire: [0xf7f3ea, 'Blanc ivoire'], peinture_lin: [0xf1ebe0, 'Lin'], peinture_or: [0xead9a8, 'Jaune Louis XV'], peinture_sauge: [0xc9d4c2, 'Vert sauge'],
     peinture_bleu: [0xbfcad6, 'Bleu Trianon'], peinture_rose: [0xead2cf, 'Rose poudré'], peinture_rouge: [0x7c2c30, 'Rouge Pompadour'], peinture_empire: [0x3f5a4a, 'Vert Empire'], peinture_nuit: [0x2c3548, 'Bleu nuit'] };
@@ -324,7 +324,7 @@
   const stairAt = (pd, x, z) => { for (const q of pd.st) if (x >= q.x0 && x < q.x1 + 1 && z >= q.z0 && z < q.z1 + 1) return q; return null; };
   const stairT = (q, x, z) => { const a = q.ax === 'x' ? x : z, a0 = q.ax === 'x' ? q.x0 : q.z0, a1 = (q.ax === 'x' ? q.x1 : q.z1) + 1; return G.clamp(q.s > 0 ? (a - a0) / (a1 - a0) : (a1 - a) / (a1 - a0), 0, 1); };
   GP.terrainH = function (x, z) { const pd = this.meta && this.meta.plan ? planData(this) : null; if (pd) { const tx = Math.floor(x), tz = Math.floor(z); if (tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H) { const c = pd.su[tz * pd.W + tx];
-      if (c === 1 || c === 2) { const q = stairAt(pd, x, z); if (q) { const t = stairT(q, x, z); return q.up ? pd.CH * t : -pd.CH * (1 - t); } }
+      if (c === 1 || c === 2) { const q = stairAt(pd, x, z); if (q) { const t = stairT(q, x, z); return q.up ? (pd.CH + GAP) * t : -(pd.CH + GAP) * (1 - t); } }
       if (pd.bl[tz * pd.W + tx]) return pd.CH; } } return oth.call(this, x, z); };
   GP.canPlace = function (t, tx, tz, r = 0) { if (this.meta && this.meta.plan) { const pd = planData(this), d = O[t]; if (d) { const [w, dd] = G.fpDims(d, r); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (x < 0 || z < 0 || x >= pd.W || z >= pd.H || pd.T[z * pd.W + x] !== FLOOR || pd.su[z * pd.W + x]) return false; } } // (rien sur les escaliers ni leurs paliers)
     return ocp.call(this, t, tx, tz, r); };
@@ -341,8 +341,8 @@
   function prepare(o) {
     if (!o || (G.net && G.net.visit) || !G.chateauInfo) return; const info = G.chateauInfo(o); if (!info || info.st !== 0) return;
     const q = info.main || o; if (!q.iid) q.iid = 'b' + q.t + '_' + q.x + '_' + q.z; const iid = q.iid, im = G.interiors[iid], sig = planSig(info);
-    if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER && im.meta.plan.door) return; // (un plan sans porte, d'une ancienne version, est refait)
-    const nm = makePlanInterior(iid, info, im); if (im) G.scene.remove(im.group); G.interiors[iid] = nm; G.scene.add(nm.group); nm.group.visible = false;
+    if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER && im.meta.plan.door) { ensureFloors(im); return; } // (un plan sans porte, d'une ancienne version, est refait)
+    const nm = makePlanInterior(iid, info, im); if (im) G.scene.remove(im.group); G.interiors[iid] = nm; G.scene.add(nm.group); nm.group.visible = false; ensureFloors(nm);
   }
   // les étages : une carte par étage, créée la première fois qu'on y monte (refaite si le château a changé, les meubles gardés)
   const FLN = ['Rez-de-chaussée', '1er étage', '2e étage', '3e étage', '4e étage'];
@@ -369,24 +369,26 @@
   // vue du village (de haut) : les murs entre la caméra et le joueur sont coupés net à hauteur d'appui, avec un dessus de pierre
   // (le reste du mur n'est pas dessiné ; son ombre, elle, reste entière). À la souris, les murs restent toujours debout.
   // wid = numéro du segment de mur ; wid + .5 = le dessus de pierre de ce segment, caché sous le sol tant que le mur est debout.
-  const CUT = { tex: { value: null }, n: { value: 1 }, low: { value: 1.12 }, top: { value: 7.2 } };
+  let CUTN = 0; const newCut = () => ({ id: ++CUTN, tex: { value: null }, n: { value: 1 }, low: { value: 1.12 }, top: { value: 7.2 } });
+  const CUT = newCut(); // (chaque étage a les siens : ses murs s'abaissent sans toucher à ceux des autres étages, visibles en même temps)
+  const CLIP = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6); // la coupe des étages empilés (tout ce qui est au-dessus est caché)
   const cutCache = new Map();
-  function cutMat(base) {
-    if (cutCache.has(base)) return cutCache.get(base); const c = base.clone(), ob = base.onBeforeCompile, k0 = base.customProgramCacheKey ? base.customProgramCacheKey() : '';
-    c.onBeforeCompile = (sh, r) => { ob.call(base, sh, r); sh.uniforms.uCutTex = CUT.tex; sh.uniforms.uCutN = CUT.n; sh.uniforms.uCutLow = CUT.low; sh.uniforms.uCutTop = CUT.top;
+  function cutMat(base, U = CUT) {
+    let mm = cutCache.get(base); if (!mm) cutCache.set(base, mm = new Map()); if (mm.has(U.id)) return mm.get(U.id); const c = base.clone(), ob = base.onBeforeCompile, k0 = base.customProgramCacheKey ? base.customProgramCacheKey() : '';
+    c.onBeforeCompile = (sh, r) => { ob.call(base, sh, r); sh.uniforms.uCutTex = U.tex; sh.uniforms.uCutN = U.n; sh.uniforms.uCutLow = U.low; sh.uniforms.uCutTop = U.top;
       sh.vertexShader = 'attribute float wid;\nuniform sampler2D uCutTex;\nuniform float uCutN, uCutLow, uCutTop;\nvarying float vCutY, vCutW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n'
         + '{ float wi = floor( wid + .01 ), cap = step( .25, wid - wi ), cw = texture2D( uCutTex, vec2( ( wi + .5 ) / uCutN, .5 ) ).r;\n'
         + '  if ( cap > .5 ) transformed.y = cw > .003 ? mix( uCutTop, uCutLow, cw ) - .004 : -3.0;\n  vCutY = transformed.y; vCutW = cap > .5 ? 0.0 : cw; }');
       sh.fragmentShader = 'uniform float uCutLow, uCutTop;\nvarying float vCutY, vCutW;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n  if ( vCutW > .003 && vCutY > mix( uCutTop, uCutLow, vCutW ) ) discard;'); };
-    c.customProgramCacheKey = () => k0 + '|cut2'; if (base.extensions) c.extensions = base.extensions; if (base.alphaToCoverage) c.alphaToCoverage = true; cutCache.set(base, c); return c;
+    c.customProgramCacheKey = () => k0 + '|cut2'; if (base.extensions) c.extensions = base.extensions; if (base.alphaToCoverage) c.alphaToCoverage = true; mm.set(U.id, c); return c;
   }
-  const cutMats = () => G.MATS.map(m => m ? cutMat(m) : m);
+  const cutMats = U => G.MATS.map(m => m ? cutMat(m, U) : m);
   const matCache = {};
   const paintMat = col => matCache['p' + col] || (matCache['p' + col] = G.premiumMat({ color: col }, { cloud: false, rough: .78 }));
   const wallTexMat = id => matCache['w' + id] || (matCache['w' + id] = G.premiumMat({ map: G.patTex('wall', id) }, { cloud: false, rough: .85 }));
   const floorMat = id => matCache['f' + id] || (matCache['f' + id] = FLOORK[id] ? G.premiumMat({ color: 0xffffff }, { cloud: false, floor: FLOORK[id], bump: 1 }) : G.premiumMat({ map: G.patTex('floor', id) }, { cloud: false, rough: .45 }));
   const mirrorMat = () => matCache.mir || (matCache.mir = G.premiumMat({ color: 0xe9eef2 }, { cloud: false, rough: .04, metal: .92 }));
-  const viewMat = sky => { const k = sky ? 'vs' : 'vt'; if (!matCache[k]) { const base = sky ? G.M.windowSky : G.M.windowTall; matCache[k] = base ? cutMat(base) : cutMat(G.M.window); } return matCache[k]; };
+  const viewMat = (sky, U) => cutMat((sky ? G.M.windowSky : G.M.windowTall) || G.M.window, U);
   // tableaux de maître peints par le jeu
   const arts = [];
   function artMat(k) { if (arts[k]) return arts[k]; const c = G.cv(256, 200), x = c.getContext('2d'), r = G.rng(70 + k);
@@ -472,34 +474,35 @@
   // ---------- les grands escaliers de marbre : la volée qui monte, ou la cage qui descend vers l'étage du dessous ----------
   const MARB = 0xf3efe7, MARB2 = 0xe3dccd, CARP = 0x9a2f3a, BALU = 0xf8f4ec, CAGE = 0xe9e1d0;
   function stairsGeo(b, pd, CH, sk) {
+    const RH = CH + GAP; // la volée monte jusqu'au plancher de l'étage du dessus (posé juste au-dessus du plafond)
     for (const q of pd.st) {
-      const along = q.ax, s = q.s, a0 = along === 'x' ? q.x0 : q.z0, a1 = (along === 'x' ? q.x1 : q.z1) + 1, b0 = along === 'x' ? q.z0 : q.x0, b1 = (along === 'x' ? q.z1 : q.x1) + 1, L = a1 - a0, Wd = b1 - b0, y0 = q.up ? 0 : -CH;
+      const along = q.ax, s = q.s, a0 = along === 'x' ? q.x0 : q.z0, a1 = (along === 'x' ? q.x1 : q.z1) + 1, b0 = along === 'x' ? q.z0 : q.x0, b1 = (along === 'x' ? q.z1 : q.x1) + 1, L = a1 - a0, Wd = b1 - b0;
       const P = (a, bb, y) => along === 'x' ? [a, y, bb] : [bb, y, a]; // (le long, en travers, hauteur) → (x, y, z)
-      const A = t => s > 0 ? a0 + t * L : a1 - t * L, n = Math.max(12, Math.round(CH / .19)), bc = (b0 + b1) / 2;
+      const A = t => s > 0 ? a0 + t * L : a1 - t * L, n = Math.max(12, Math.round(RH / .19)), bc = (b0 + b1) / 2;
       const box = (la, lb, h, col, a, bb, y) => along === 'x' ? bx(b, la, h, lb, col, a, y, bb) : bx(b, lb, h, la, col, bb, y, a);
+      if (!q.up) { // à l'étage : l'ouverture de l'escalier, bordée d'une balustrade dorée (sauf du côté du palier) ; par l'ouverture, on voit la volée et l'étage du dessous
+        b.S(sk.stone); const nb = Math.max(2, Math.round(L / .45)), nw = Math.max(2, Math.round(Wd / .45));
+        for (const bb of [b0 + .05, b1 - .05]) { box(L, .14, .08, GOLD, (a0 + a1) / 2, bb, 1.05); for (let k = 0; k <= nb; k++) box(.09, .09, 1.0, BALU, a0 + k * L / nb, bb, .5); }
+        box(.14, Wd, .08, GOLD, A(0), bc, 1.05); for (let k = 0; k <= nw; k++) box(.09, .09, 1.0, BALU, A(0), b0 + k * Wd / nw, .5); b.S(null);
+        if (q.grand) for (const ta of [0, 1]) for (const bb of [b0 + .05, b1 - .05]) { const p = P(A(ta), bb, 0); b.S(sk.stone); bx(b, .26, 1.16, .26, MARB2, p[0], .58, p[2]); bx(b, .32, .08, .32, MARB, p[0], 1.2, p[2]); b.S(null);
+          b.S(sk.gold); b.cyl(.06, .11, .1, 10, GOLD, p[0], 1.29, p[2]); dot(b, .15, GOLD, p[0], 1.46, p[2]); b.cyl(.13, .08, .08, 10, GOLD, p[0], 1.63, p[2]); b.cone(.06, .2, 8, GOLD, p[0], 1.76, p[2]); b.S(null); }
+        continue; }
       // les marches : marbre plein (deux tons), nez de marche clair, tapis rouge et tringles dorées
-      b.S(sk.stone); for (let i = 0; i < n; i++) { const t1 = (i + 1) / n, dl = L / n + .002; box(dl, Wd - .1, CH * t1, i % 2 ? MARB : MARB2, A((i + .5) / n), bc, y0 + CH * t1 / 2); box(dl * .22, Wd - .1, .04, 0xfbf8f2, A(t1) - s * dl * .11, bc, y0 + CH * t1 - .02); } b.S(null);
-      const cw = Wd * (q.grand ? .62 : .46); b.S(sk.velvet); for (let i = 0; i < n; i++) box(L / n + .002, cw, .03, CARP, A((i + .5) / n), bc, y0 + CH * (i + 1) / n + .015); b.S(null);
-      b.S(sk.gold); for (let i = 1; i < n; i += 2) box(.03, cw + .04 * Wd, .035, GOLD, A(i / n), bc, y0 + CH * i / n + .035);
-      if (q.grand) for (const sg of [-1, 1]) for (let i = 0; i < n; i++) box(L / n + .002, .06, .034, GOLD, A((i + .5) / n), bc + sg * cw / 2, y0 + CH * (i + 1) / n + .017); b.S(null);
-      // rampes : balustres de marbre sous une main courante dorée, piliers de départ à boule dorée
+      b.S(sk.stone); for (let i = 0; i < n; i++) { const t1 = (i + 1) / n, dl = L / n + .002; box(dl, Wd - .1, RH * t1, i % 2 ? MARB : MARB2, A((i + .5) / n), bc, RH * t1 / 2); box(dl * .22, Wd - .1, .04, 0xfbf8f2, A(t1) - s * dl * .11, bc, RH * t1 - .02); } b.S(null);
+      const cw = Wd * (q.grand ? .62 : .46); b.S(sk.velvet); for (let i = 0; i < n; i++) box(L / n + .002, cw, .03, CARP, A((i + .5) / n), bc, RH * (i + 1) / n + .015); b.S(null);
+      b.S(sk.gold); for (let i = 1; i < n; i += 2) box(.03, cw + .04 * Wd, .035, GOLD, A(i / n), bc, RH * i / n + .035);
+      if (q.grand) for (const sg of [-1, 1]) for (let i = 0; i < n; i++) box(L / n + .002, .06, .034, GOLD, A((i + .5) / n), bc + sg * cw / 2, RH * (i + 1) / n + .017); b.S(null);
+      // rampes : balustres de marbre sous une main courante dorée, piliers de départ (à grands candélabres pour l'escalier d'honneur)
       const rail = (bb, ya, yb) => { const pa = P(A(0), bb, ya), pb = P(A(1), bb, yb), xa = new THREE.Vector3(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]), len = xa.length(); xa.normalize();
         const za = new THREE.Vector3().crossVectors(xa, new THREE.Vector3(0, 1, 0)).normalize(), ya2 = new THREE.Vector3().crossVectors(za, xa);
         b.S(sk.gold); b.add(new THREE.BoxGeometry(len, .09, .13), GOLD, new THREE.Matrix4().makeBasis(xa, ya2, za).setPosition(new THREE.Vector3((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2))); b.S(null); };
       for (const bb of [b0 + .1, b1 - .1]) {
-        if (q.up) { rail(bb, 1.05, CH + 1.05); b.S(sk.stone); for (let t = .03; t < .99; t += .055) { const y = y0 + CH * Math.ceil(t * n) / n, p = P(A(t), bb, y + .5); bx(b, .1, 1.0, .1, BALU, p[0], p[1], p[2]); dot(b, .07, BALU, p[0], y + .35, p[2]); } b.S(null); }
-        if (q.grand && q.up) { const pn = P(A(0) - s * .32, bb + (bb < bc ? -.12 : .12), y0); b.S(sk.stone); bx(b, .7, .16, .7, MARB2, pn[0], y0 + .08, pn[2]); bx(b, .52, 1.12, .52, MARB, pn[0], y0 + .72, pn[2]); bx(b, .66, .12, .66, MARB2, pn[0], y0 + 1.34, pn[2]); b.S(null);
-          b.S(sk.gold); b.cyl(.05, .1, .55, 10, GOLD, pn[0], y0 + 1.67, pn[2]); dot(b, .09, GOLD, pn[0], y0 + 1.96, pn[2]);
-          for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI / 4, ex = pn[0] + Math.cos(a) * .26, ez = pn[2] + Math.sin(a) * .26; b.add(new THREE.BoxGeometry(.27, .035, .035), GOLD, b.M((pn[0] + ex) / 2, y0 + 1.98, (pn[2] + ez) / 2, 0, -a, 0)); b.cyl(.045, .03, .07, 8, GOLD, ex, y0 + 2.03, ez); }
-          b.S(null); b.S(sk.ceramic); for (let k = 0; k < 5; k++) { const a = k / 4 * TAU + PI / 4, r = k < 4 ? .26 : 0, ex = pn[0] + Math.cos(a) * r, ez = pn[2] + Math.sin(a) * r, cy = y0 + (k < 4 ? 2.16 : 2.2); b.cyl(.024, .024, .2, 6, 0xfff8ec, ex, cy, ez); dot(b, .04, 0xffd27a, ex, cy + .15, ez, 1); } b.S(null); }
-        else { const pn = P(A(0) - s * .15, bb, y0 + .7); b.S(sk.stone); bx(b, .32, 1.4, .32, MARB2, pn[0], pn[1], pn[2]); b.S(null); b.S(sk.gold); dot(b, .16, GOLD, pn[0], pn[1] + .85, pn[2]); b.S(null); } }
-      if (!q.up) { // la cage : murs de marbre jusqu'en bas, balustrade dorée autour de l'ouverture (sauf du côté du palier)
-        b.S(sk.stone); for (const bb of [b0, b1]) box(L, .08, CH, CAGE, (a0 + a1) / 2, bb, -CH / 2); box(.08, Wd, CH, CAGE, A(0), bc, -CH / 2);
-        const nb = Math.max(2, Math.round(L / .45)), nw = Math.max(2, Math.round(Wd / .45));
-        for (const bb of [b0 + .05, b1 - .05]) { box(L, .14, .08, GOLD, (a0 + a1) / 2, bb, 1.05); for (let k = 0; k <= nb; k++) box(.09, .09, 1.0, BALU, a0 + k * L / nb, bb, .5); }
-        box(.14, Wd, .08, GOLD, A(0), bc, 1.05); for (let k = 0; k <= nw; k++) box(.09, .09, 1.0, BALU, A(0), b0 + k * Wd / nw, .5); b.S(null);
-        if (q.grand) for (const ta of [0, 1]) for (const bb of [b0 + .05, b1 - .05]) { const p = P(A(ta), bb, 0); b.S(sk.stone); bx(b, .26, 1.16, .26, MARB2, p[0], .58, p[2]); bx(b, .32, .08, .32, MARB, p[0], 1.2, p[2]); b.S(null);
-          b.S(sk.gold); b.cyl(.06, .11, .1, 10, GOLD, p[0], 1.29, p[2]); dot(b, .15, GOLD, p[0], 1.46, p[2]); b.cyl(.13, .08, .08, 10, GOLD, p[0], 1.63, p[2]); b.cone(.06, .2, 8, GOLD, p[0], 1.76, p[2]); b.S(null); } }
+        rail(bb, 1.05, RH + 1.05); b.S(sk.stone); for (let t = .03; t < .99; t += .055) { const y = RH * Math.ceil(t * n) / n, p = P(A(t), bb, y + .5); bx(b, .1, 1.0, .1, BALU, p[0], p[1], p[2]); dot(b, .07, BALU, p[0], y + .35, p[2]); } b.S(null);
+        if (q.grand) { const pn = P(A(0) - s * .32, bb + (bb < bc ? -.12 : .12), 0); b.S(sk.stone); bx(b, .7, .16, .7, MARB2, pn[0], .08, pn[2]); bx(b, .52, 1.12, .52, MARB, pn[0], .72, pn[2]); bx(b, .66, .12, .66, MARB2, pn[0], 1.34, pn[2]); b.S(null);
+          b.S(sk.gold); b.cyl(.05, .1, .55, 10, GOLD, pn[0], 1.67, pn[2]); dot(b, .09, GOLD, pn[0], 1.96, pn[2]);
+          for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI / 4, ex = pn[0] + Math.cos(a) * .26, ez = pn[2] + Math.sin(a) * .26; b.add(new THREE.BoxGeometry(.27, .035, .035), GOLD, b.M((pn[0] + ex) / 2, 1.98, (pn[2] + ez) / 2, 0, -a, 0)); b.cyl(.045, .03, .07, 8, GOLD, ex, 2.03, ez); }
+          b.S(null); b.S(sk.ceramic); for (let k = 0; k < 5; k++) { const a = k / 4 * TAU + PI / 4, r = k < 4 ? .26 : 0, ex = pn[0] + Math.cos(a) * r, ez = pn[2] + Math.sin(a) * r, cy = k < 4 ? 2.16 : 2.2; b.cyl(.024, .024, .2, 6, 0xfff8ec, ex, cy, ez); dot(b, .04, 0xffd27a, ex, cy + .15, ez, 1); } b.S(null); }
+        else { const pn = P(A(0) - s * .15, bb, .7); b.S(sk.stone); bx(b, .32, 1.4, .32, MARB2, pn[0], pn[1], pn[2]); b.S(null); b.S(sk.gold); dot(b, .16, GOLD, pn[0], pn[1] + .85, pn[2]); b.S(null); } }
     }
   }
   function planShell(m) {
@@ -685,7 +688,7 @@
       bs.add(new THREE.RingGeometry(.46, .53, 28), GOLD, bs.M(x, CH - .022, z, PI / 2, 0, 0)); bs.add(new THREE.RingGeometry(.2, .24, 20), GOLD, bs.M(x, CH - .024, z, PI / 2, 0, 0)); bs.add(new THREE.CircleGeometry(.08, 12), GOLD, bs.M(x, CH - .026, z, PI / 2, 0, 0)); bs.S(null); }
     // dehors (la cour d'honneur et les jardins, vus des fenêtres et d'en haut) : gazon tondu à bandes, allées de gravier le long des façades,
     // et dans chaque cour fermée, un bassin à vasque au milieu d'une croisée d'allées
-    const efl = pl.fl || 0; bs.P(G.PAT.gazon); bx(bs, W + 8, .04, H + 8, 0x6ea946, W / 2, -.03 - efl * CH, H / 2); bs.P(0); // aux étages, le jardin est loin en dessous
+    const efl = pl.fl || 0, lw = new CB(992); lw.P(G.PAT.gazon); bx(lw, W + 8, .04, H + 8, 0x6ea946, W / 2, -.03 - efl * (CH + GAP), H / 2); lw.P(0); // aux étages, le jardin est loin en dessous
     stairsGeo(bs, pd, CH, sk);
     if (!efl) { const dW = new Uint8Array(W * H).fill(9), q = []; for (let i = 0; i < W * H; i++) if (solid(T[i])) { dW[i] = 0; q.push(i); }
       for (let h = 0; h < q.length; h++) { const i = q[h], x = i % W, z = (i - x) / W; if (dW[i] >= 2) continue; for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= W || zz >= H) continue; const j = zz * W + xx; if (T[j] === VOID && dW[j] > dW[i] + 1) { dW[j] = dW[i] + 1; q.push(j); } } }
@@ -724,13 +727,13 @@
       for (const [ww, dd, x, z] of [[iw + 1.4, .5, cx, cz - id / 2 - .45], [iw + 1.4, .5, cx, cz + id / 2 + .45], [.5, id + .4, cx - iw / 2 - .45, cz], [.5, id + .4, cx + iw / 2 + .45, cz]]) strip(x, z, ww, dd, CH - .025, 0xf3e7c4, sk.paint);
       for (const [x, z] of [[cx - iw / 2 - .45, cz - id / 2 - .45], [cx + iw / 2 + .45, cz - id / 2 - .45], [cx - iw / 2 - .45, cz + id / 2 + .45], [cx + iw / 2 + .45, cz + id / 2 + .45]]) { bs.S(sk.gold); bs.add(new THREE.CircleGeometry(.32, 16), GOLD, bs.M(x, CH - .028, z, PI / 2, 0, 0)); bs.S(null); } }
     // ----- assemblage -----
-    const CM = cutMats(), add = (geo, mat, shadow = true) => { if (!geo) return; const me = new THREE.Mesh(geo, mat); me.castShadow = shadow; me.receiveShadow = true; me.frustumCulled = false; g.add(me); return me; };
-    add(b.done(), CM); add(bs.done(), G.MATS);
-    for (const id in texW) add(texW[id].geo(), cutMat(wallTexMat(id)));
+    const U = m._cutU || (m._cutU = newCut()), CM = cutMats(U), add = (geo, mat, shadow = true) => { if (!geo) return; const me = new THREE.Mesh(geo, mat); me.castShadow = shadow; me.receiveShadow = true; me.frustumCulled = false; g.add(me); return me; };
+    add(b.done(), CM); add(bs.done(), G.MATS); m._lawn = add(lw.done(), G.MATS, false);
+    for (const id in texW) add(texW[id].geo(), cutMat(wallTexMat(id), U));
     for (const id in flA) add(flA[id].geo(), floorMat(id), false);
     // les vitres : le vrai dehors (photographié autour du château) dès qu'il est prêt, sinon la vue peinte
-    const vT = add(views.t.geo(), outReady(m) ? outMat() : viewMat(false), false), vS = add(views.s.geo(), outReady(m) ? outMat() : viewMat(true), false); add(mir.geo(), cutMat(mirrorMat()), false);
-    for (const k in art) add(art[k].geo(), cutMat(artMat(+k)), false);
+    const vT = add(views.t.geo(), outReady(m) ? outMat(U) : viewMat(false, U), false), vS = add(views.s.geo(), outReady(m) ? outMat(U) : viewMat(true, U), false); add(mir.geo(), cutMat(mirrorMat(), U), false);
+    for (const k in art) add(art[k].geo(), cutMat(artMat(+k), U), false);
     add(ceil.geo(), ceilMat(), false);
     m.shell = g; m.group.add(g);
     // rayons de soleil (une seule géométrie, mise à jour quand le soleil bouge)
@@ -738,7 +741,7 @@
     const bm = new THREE.Mesh(bg, beamMat()); bm.frustumCulled = false; bm.renderOrder = 4; g.add(bm);
     // les murs déjà abaissés le restent quand on redessine (retouche du décor depuis le plan)
     const oc = m._pv && m._pv.segs.length === segs.length ? m._pv.cut : null, cut = oc ? oc.slice() : new Float32Array(segs.length), cv = new Uint8Array(segs.length * 4); for (let i = 0; i < segs.length; i++) cv[i * 4] = Math.round(cut[i] * 255);
-    const tex = new THREE.DataTexture(cv, segs.length, 1, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true;
+    const tex = new THREE.DataTexture(cv, segs.length, 1, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true; U.tex.value = tex; U.n.value = segs.length; U.top.value = CH + .12;
     m._pv = { segs, cut, cv, tex, beams, bm, bt: 0, room: m._pv ? m._pv.room : 0, views: [vT, vS].filter(Boolean) };
   }
   // ---------- rayons de soleil : prismes de lumière qui partent des fenêtres ----------
@@ -772,7 +775,7 @@
   }
   // ---------- vue du village : les murs entre la caméra et le joueur sont coupés (à la souris : jamais) ----------
   function updCut(m, dt) {
-    const pv = m._pv, p = G.player, cam = G.camera; if (!pv || !p || !cam) return; CUT.tex.value = pv.tex; CUT.n.value = pv.segs.length; CUT.top.value = planData(m).CH + .12;
+    const pv = m._pv, p = G.player, cam = G.camera; if (!pv || !p || !cam) return; const U = m._cutU || CUT; U.tex.value = pv.tex; U.n.value = pv.segs.length; U.top.value = planData(m).CH + .12;
     const inside = (G.firstPerson && G.firstPerson()) || (G.mouseMode && G.mouseMode()), vx0 = cam.position.x - p.x, vz0 = cam.position.z - p.z, vl = Math.hypot(vx0, vz0) || 1, vx = vx0 / vl, vz = vz0 / vl, reach = Math.min(28, vl + 4);
     let dirty = false;
     for (let i = 1; i < pv.segs.length; i++) { const s = pv.segs[i]; let want = 0;
@@ -808,7 +811,7 @@
     OUT.rt.texture.mapping = THREE.CubeRefractionMapping; OUT.cam = new THREE.CubeCamera(.3, 900, OUT.rt); return OUT.rt;
   }
   // la vitre laisse passer la vue tout droit (réfraction neutre), à peine teintée
-  function outMat() { return OUT.mat || (OUT.mat = cutMat(new THREE.MeshBasicMaterial({ envMap: outRT().texture, refractionRatio: 1, color: 0xf4f8ff, fog: false }))); }
+  function outMat(U) { if (!OUT.base) OUT.base = new THREE.MeshBasicMaterial({ envMap: outRT().texture, refractionRatio: 1, color: 0xf4f8ff, fog: false }); return cutMat(OUT.base, U); }
   function outReady(m) { return OUT.ready && OUT.map === m && !!OUT.src; }
   // le château dans le monde (ou sur l'île) : sa place, sa hauteur, son orientation, et le milieu de l'avant-corps
   function outSrc(m) {
@@ -825,7 +828,7 @@
   // photographier le dehors : le monde redevient visible le temps des vues (ciel, nuages, mer, lumière du jour), le château intérieur est caché
   function outCapture() {
     const R = G.renderer, sc = G.scene, src = OUT.src, w = src.w, L = G.lights, cam = outRT() && OUT.cam; if (!R || !sc || !L || !cam) return;
-    const P = new THREE.Vector3(src.x, src.y, src.z), cp = G.camera.position, info = G.skyInfo || { h: 12, n: 0, day: true };
+    const P = new THREE.Vector3(src.x, src.y, src.z), cp = G.camera.position, info = G.skyInfo || { h: 12, n: 0, day: true }, svClip = CLIP.constant; CLIP.constant = 1e6;
     const vis = sc.children.map(c => c.visible), keep = c => c.isLight || c === w.group || c === G.skyMesh || c === G.stars || c === G.sunMesh || c === G.moonMesh || (G.M.cloud && c.material === G.M.cloud) || (c.userData && c.userData.map === w);
     const sv = { bg: sc.background, fn: sc.fog.near, ff: sc.fog.far, hemi: L.hemi.intensity, amb: L.amb.intensity, sun: L.sun.intensity, sp: L.sun.position.clone(), st: L.sun.target.position.clone(), room: L.roomLight ? L.roomLight.intensity : 0,
       lamps: (L.lamps || []).map(l => l.intensity), cl: G.U.cloudAmt ? G.U.cloudAmt.value : 0, glow: G.M.glow ? G.M.glow.color.clone() : null, sky: G.skyMesh && G.skyMesh.position.clone(), stars: G.stars && G.stars.position.clone(),
@@ -852,7 +855,7 @@
     } catch (e) { console.warn('vue du dehors', e); }
     finally {
       if (sv.an) { sv.an._anim = sv.anA || null; try { w.objr.refresh(sv.an); } catch (e) { } }
-      R.setRenderTarget(null); R.shadowMap.needsUpdate = true; sc.children.forEach((c, i) => { c.visible = vis[i]; }); w.group.visible = sv.wv;
+      CLIP.constant = svClip; R.setRenderTarget(null); R.shadowMap.needsUpdate = true; sc.children.forEach((c, i) => { c.visible = vis[i]; }); w.group.visible = sv.wv;
       sc.background = sv.bg; sc.fog.near = sv.fn; sc.fog.far = sv.ff; L.hemi.intensity = sv.hemi; L.amb.intensity = sv.amb; L.sun.intensity = sv.sun; L.sun.position.copy(sv.sp); L.sun.target.position.copy(sv.st); L.sun.target.updateMatrixWorld();
       if (L.roomLight) L.roomLight.intensity = sv.room; (L.lamps || []).forEach((l, i) => { l.intensity = sv.lamps[i]; }); if (G.U.cloudAmt) G.U.cloudAmt.value = sv.cl; if (sv.glow) G.M.glow.color.copy(sv.glow);
       if (G.skyMesh) G.skyMesh.position.copy(sv.sky); if (G.stars) { G.stars.position.copy(sv.stars); G.stars.material.opacity = sv.so; }
@@ -860,20 +863,20 @@
     }
   }
   // les vitres de l'intérieur passent sur la vraie vue
-  function outApply(m) { const pv = m._pv; if (!pv || !pv.views) return; for (const me of pv.views) me.material = outMat(); }
+  function outApply(m) { const pv = m._pv; if (!pv || !pv.views) return; for (const me of pv.views) me.material = outMat(m._cutU); }
   G.on('frame', dt => {
     const m = G.map; if (!m || !m.interior || !m.meta || !m.meta.plan || !m._pv || G.state === 'editor' || G.state === 'title') return;
     if (OUT.map !== m) { OUT.map = m; OUT.ready = false; OUT.src = outSrc(m); if (!OUT.src) return; outCapture(); OUT.ready = true; outApply(m); OUT.t = outQ().every; return; }
     if (OUT.src && (OUT.t -= dt) <= 0) { OUT.t = outQ().every; outCapture(); } // le ciel et la lumière changent avec l'heure
   });
-  G.on('enterMap', () => { OUT.map = null; OUT.ready = false; });
+  G.on('enterMap', () => { if (G._chSwap) return; OUT.map = null; OUT.ready = false; }); // (en changeant d'étage par l'escalier, on garde la vue)
   G.chateauOutside = OUT;
   // ---------- branchements ----------
   const obs = G.buildShell; G.buildShell = m => { if (m && m.meta && m.meta.plan) return planShell(m); return obs(m); };
   G.on('update', dt => {
     const m = G.map, p = G.player; if (!m || !m.interior || !m.meta.plan || !p) { if (lab && lab.style.opacity !== '0') lab.style.opacity = '0'; return; }
     if (!G.ui.fading && m.meta.plan.stairs) { const pd = planData(m), tx = Math.floor(p.x), tz = Math.floor(p.z), c = tx >= 0 && tz >= 0 && tx < pd.W && tz < pd.H ? pd.su[tz * pd.W + tx] : 0;
-      if (c === 1 || c === 2) { const q = stairAt(pd, p.x, p.z), t = q && stairT(q, p.x, p.z); if (q && q.up && t > .82) return goFloor(m, q, 1); if (q && !q.up && t < .5) return goFloor(m, q, -1); } }
+      if (c === 1 || c === 2) { const q = stairAt(pd, p.x, p.z), t = q && stairT(q, p.x, p.z); if (q && q.up && t > .82 && swapFloor(m, q, 1)) return; if (q && !q.up && t < .5 && swapFloor(m, q, -1)) return; } }
     const pl = m.meta.plan; if (!G.ui.fading) for (const [i, d] of (pl.doors || [pl.door]).entries()) if (d && p.x > d.x0 && p.x < d.x1 + 1 && p.z > d.z + .3) { const dw = m.meta.doorsW && m.meta.doorsW[i]; if (dw) m.meta.door = dw; G.act.exitHouse(); return; }
     if (bMat) bMat.uniforms.uT.value += dt; updCut(m, dt); updBeams(m, dt); roomLabel(m, dt);
   });
@@ -886,7 +889,8 @@
     const pd = planData(m), { W, H, T, CH } = pd, dist = C.mdist || 5.5, pit = C.mp == null ? .35 : C.mp, hd = Math.cos(pit) * dist;
     const x0 = C.cx, y0 = C.cy, z0 = C.cz, ex = Math.sin(C.yaw) * hd, ey = Math.sin(pit) * dist, ez = Math.cos(C.yaw) * hd;
     // une place libre pour la caméra : du parquet tout autour (ou une arche, sous son cintre), ni dans le sol ni contre le plafond
-    const free = (x, y, z) => { if (y > CH - .35 || y < .25) return false;
+    const yTop = (p.y > .3 ? 2 * CH + GAP : CH) - .35, yBot = p.y < -.3 ? -CH : .25;
+    const free = (x, y, z) => { if (y > yTop || y < yBot) return false;
       for (const ox of [-.27, .27]) for (const oz of [-.27, .27]) { const tx = Math.floor(x + ox), tz = Math.floor(z + oz); if (tx < 0 || tz < 0 || tx >= W || tz >= H) return false; const t = T[tz * W + tx];
         if (t !== FLOOR && !(t === OPEN && y < 2.8)) return false; } // (pas dans l'embrasure de la porte d'entrée : on la verrait de trop près)
       return true; };
@@ -896,8 +900,50 @@
     camK = k < camK ? k : Math.min(k, camK + dt * 2.5 / dist);
     cam.position.set(x0 + ex * camK, y0 + ey * camK, z0 + ez * camK); cam.lookAt(x0, y0, z0);
   });
-  G.on('enterMap', m => { if (lab) lab.style.opacity = '0'; if (m && m.meta && m.meta.plan) m.meta.cam = Object.assign({}, CAM); if (m && m._pv) { m._pv.room = 0; CUT.tex.value = m._pv.tex; CUT.n.value = m._pv.segs.length; } if (m && m.meta && m.meta.plan && !m._pv) { G.buildShell(m); m.buildAll(); }
+  G.on('enterMap', m => { if (lab) lab.style.opacity = '0'; if (m && m.meta && m.meta.plan) m.meta.cam = Object.assign({}, CAM); if (m && m._pv) { m._pv.room = 0; if (m._cutU) { m._cutU.tex.value = m._pv.tex; m._cutU.n.value = m._pv.segs.length; } } if (m && m.meta && m.meta.plan && !m._pv) { G.buildShell(m); m.buildAll(); }
     if (m && m.meta && m.meta.plan && !m.isVisit && !G.flags.chPlanTip) { G.flags.chPlanTip = 1; setTimeout(() => G.ui.toast('⚜ Ton château a de vraies pièces ! Appuie sur H pour ouvrir le plan : murs, arches, fenêtres, rideaux, lustres, décor et meubles.', 7000), 1600); } });
+  // =====================================================================
+  // ============ 6. LES ÉTAGES, LES UNS AU-DESSUS DES AUTRES ==============
+  // =====================================================================
+  // Les étages d'un château sont empilés pour de vrai : l'étage du dessous se voit par l'ouverture des escaliers, celui du dessus
+  // se dévoile (en coupe, comme une maison de poupée) à mesure qu'on monte l'escalier, et on passe de l'un à l'autre en marchant, sans fondu.
+  let stackL = [];
+  G.on('init', () => { if (G.renderer) G.renderer.clippingPlanes = [CLIP]; });
+  const floorsOf = m => { const base = m.meta.base ? G.interiors[m.meta.base] : m; if (!base || !base.meta || !base.meta.plan) return [m]; const n = base.meta.plan.nfl || 1, out = [base]; for (let f = 1; f < n; f++) out.push(G.interiors[base.id + '_f' + f] || null); return out; };
+  // tous les étages sont préparés en entrant (sinon le premier pas sur l'escalier ferait attendre)
+  function ensureFloors(base) { if (!base || !base.meta || !base.meta.plan || base.meta.base) return; const n = base.meta.plan.nfl || 1;
+    for (let f = 1; f < n; f++) { const fm = floorMap(base, f); if (fm && !fm._pv) { G.buildShell(fm); fm.buildAll(); } } }
+  // passer à l'étage du dessus (dir = 1) ou du dessous (dir = −1) : le joueur, la caméra et les étages glissent ensemble d'un étage, rien ne bouge à l'écran
+  function swapFloor(m, q, dir) {
+    const fl = (m.meta.plan.fl || 0) + dir, base = m.meta.base ? G.interiors[m.meta.base] : m; if (!base || fl < 0) return false;
+    const to = fl === 0 ? base : floorMap(base, fl); if (!to) { if (!m._noUp) { m._noUp = 1; G.ui.toast('Cet étage n’est pas ouvert aux visiteurs.'); } return false; }
+    if (!to._pv) { G.buildShell(to); to.buildAll(); }
+    const p = G.player, CH = planData(m).CH, dy = dir * (CH + GAP), C = G.cam;
+    if (m._pv) { m._pv.cut.fill(0); m._pv.cv.fill(0); m._pv.tex.needsUpdate = true; if (m._pv.bm) m._pv.bm.geometry.setDrawRange(0, 0); } // l'étage qu'on quitte : murs debout, sans rayons de soleil
+    G.map = to; to.group.visible = true; to.group.position.y = 0; m.group.position.y = -dy;
+    p.y -= dy; if (typeof p.airTop === 'number') p.airTop -= dy; if (C && C.cy) C.cy -= dy; if (G.camera) { G.camera.position.y -= dy; G.camera.updateMatrixWorld(); }
+    G.ui.mmRev = -1;
+    if (OUT.ready && OUT.src) { OUT.map = to; OUT.src = outSrc(to) || OUT.src; outApply(to); OUT.t = Math.min(OUT.t, 2); } // la vue des fenêtres suit (refaite à la hauteur de cet étage dans un instant)
+    G._chSwap = true; try { G.emit('enterMap', to); } finally { G._chSwap = false; }
+    return true;
+  }
+  G.on('frame', dt => {
+    const m = G.map, p = G.player, cur = m && m.interior && m.meta && m.meta.plan ? m : null;
+    const reset = keep => { for (const F of stackL) if (F && F !== keep) { F.group.position.y = 0; if (F !== m) F.group.visible = false; if (F._lawn) F._lawn.visible = true; } };
+    // on a quitté le château : ses étages reviennent à leur place, cachés
+    if (!cur) { if (stackL.length) { reset(null); stackL = []; } CLIP.constant = 1e6; return; }
+    const floors = floorsOf(cur); if (stackL.length && stackL[0] !== floors[0]) reset(cur); stackL = floors;
+    const fl = cur.meta.plan.fl || 0, CH = cur.meta.plan.CH, r = p ? G.clamp((p.y / CH - .28) / .5, 0, 1) : 0, rr = r * r * (3 - 2 * r);
+    // l'étage du dessous : quand on est près d'une ouverture d'escalier (ou qu'on la descend)
+    let nearWell = false; if (fl > 0 && p) { if (p.y < -.05) nearWell = true; else for (const q of planData(cur).st) if (!q.up && Math.max(q.x0 - p.x, p.x - q.x1 - 1, q.z0 - p.z, p.z - q.z1 - 1, 0) < 14) { nearWell = true; break; } }
+    let low = cur;
+    floors.forEach((F, f) => { if (!F) return; if (F === cur) { F.group.position.y = 0; F.group.visible = true; return; }
+      const d = f - fl, show = (d === -1 && nearWell) || (d === 1 && rr > .002); F.group.position.y = d * (CH + GAP); F.group.visible = show;
+      if (show) { if (!F._pv) { G.buildShell(F); F.buildAll(); } F.flush(); if (F._pv && F._pv.bm) F._pv.bm.geometry.setDrawRange(0, 0); if (d < 0) low = F; else if (dt) updCut(F, Math.min(dt, .1)); } }); // (l'étage du dessus : ses murs devant le joueur s'abaissent aussi)
+    for (const F of floors) if (F && F._lawn) F._lawn.visible = F === low;
+    // en coupe : tout ce qui dépasse est caché ; l'étage du dessus se dévoile à mesure qu'on monte
+    CLIP.constant = CH + .01 + rr * (GAP + CH * .94);
+  });
   // ranger les meubles d'une pièce (dans les casiers en mode Survie)
   const clearRoom = (m, id) => { const pd = planData(m); let n = 0; for (const o of [...m.list]) { const d = O[o.t]; if (d.ceil || o.t === 'paillasson' || pd.R[o.z * pd.W + o.x] !== id) continue; m.removeObj(o); if (G.mode === 'survie') stash(o.t); n++; } return n; };
   G.chateauInterior = { planData, clearRoom, stash, renumber, lustres, furnish, relocate, genPlan, makePlanInterior, prepare, rebuild: m => { m._pd = null; G.buildShell(m); }, VOID, WALL, FLOOR, OPEN, DOOR };

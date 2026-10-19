@@ -113,7 +113,7 @@
       C.cx = p.x; C.cy = ey; C.cz = p.z; p.root.visible = false; finishCam(C, p, m, dt); return;
     }
     else if (mouse) { C.yaw = C.tyaw; tx = p.x; ty = p.y + G.CH.mouse; tz = p.z; dist = p.vehicle ? 16 : (C.mdist || 5.5); pitch = C.mp; k = 1; }
-    else if (m.interior) { const cm = m.meta.cam; tx = G.lerp(m.W / 2, p.x, cm ? cm.fx : .35); tz = G.lerp(m.H / 2, p.z, cm ? cm.fz : .35) + (cm ? cm.dz : .5); ty = cm ? cm.ty : .6; C.yaw = 0; dist = cm ? cm.dist : Math.max(9, m.W * 1.15); pitch = cm ? cm.pitch : .9; C.tyaw = 0; }
+    else if (m.interior) { const cm = m.meta.cam; tx = G.lerp(m.W / 2, p.x, cm ? cm.fx : .35); tz = G.lerp(m.H / 2, p.z, cm ? cm.fz : .35) + (cm ? cm.dz : .5); ty = (cm ? cm.ty : .6) + (cm && cm.fy ? p.y * cm.fy : 0); C.yaw = 0; dist = cm ? cm.dist : Math.max(9, m.W * 1.15); pitch = cm ? cm.pitch : .9; C.tyaw = 0; }
     else if (p.vehicle) { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + .5; tz = p.z; dist = 24; pitch = .78; }
     else { C.yaw += (C.tyaw - C.yaw) * Math.min(1, 6 * dt); C.dist += (C.tdist - C.dist) * Math.min(1, 6 * dt); tx = p.x; ty = p.y + G.CH.vil; tz = p.z; dist = C.dist;
       const hd = Math.cos(pitch) * dist; let need = pitch; for (const t of [.12, .25, .4, .55, .7]) { const sx = tx + Math.sin(C.yaw) * hd * t, sz = tz + Math.cos(C.yaw) * hd * t, h = m.camH ? m.camH(sx, sz) : m.terrainH(sx, sz); if (h < 40) need = Math.max(need, Math.atan2(h + .9 - ty + .4, hd * t)); }
