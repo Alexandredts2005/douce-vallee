@@ -121,7 +121,7 @@
   // ---------- manger ----------
   A.eat = it => {
     const p = P();
-    if (surv()) { if (p.food >= 10 && p.hp >= 10) { G.ui.toast("Tu n'as pas faim."); return; } G.inv.useHeld(1); p.food = Math.min(10, p.food + it.food); p.hp = Math.min(10, p.hp + Math.ceil(it.food / 2)); G.ui.dirtyHud(); }
+    if (surv()) { if (p.food >= 10 && p.hp >= 10) { G.ui.toast("Tu n'as pas faim."); return; } G.inv.useHeld(1); p.food = Math.min(10, p.food + it.food); p.hp = Math.min(10, p.hp + (it.hp || Math.ceil(it.food / 2))); G.ui.dirtyHud(); }
     p.act = { kind: 'eat', t: 0, dur: .6, hitAt: .9, fn: null, done: false }; G.sfx('eat');
     G.fx.burst(p.x, p.y + .8, p.z, 6, [0xffe0b0, 0xe8c090], 1.2, .4, 6); G.popup('Miam ! ' + it.ico, p.x, p.y + 1.5, p.z, 'gold');
   };
