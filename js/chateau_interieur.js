@@ -8,7 +8,7 @@
 // rayons et de la poussière dorée, longs et chauds au lever et au coucher. Les murs entre la caméra et le joueur s'abaissent (comme dans
 // les Sims) mais gardent leur ombre. Le plan se modifie avec la touche H (chateau_plan.js). =====
 (function () {
-  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 4, KS = 3.3, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
+  const PI = Math.PI, TAU = PI * 2, O = G.OBJ, GOLD = 0xd9b04a, VER = 5, KS = 3.3, RL = 17, RD = 28, KEEP = ['v', 'f', 'g', 'iid', 'off', 'txt'];
   const VOID = 0, WALL = 1, FLOOR = 2, OPEN = 3, DOOR = 4, NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const SK = () => G.SK || {}, CAM = { pitch: .9, dist: 15, ty: 1.2, fx: 1, fz: 1, dz: -1.7 };
   // ---------- décors ----------
@@ -24,7 +24,7 @@
     manger: ['Salle à manger', 'peinture_sauge', 'batons_noyer', 'vert', 'lustre_bougies'], biblio: ['Bibliothèque', 'peinture_empire', 'chevrons_noyer', 'or', 'lustre_lanterne'],
     chambre: ['Chambre du Roi', 'peinture_bleu', 'batons_rompus', 'bleu', 'lustre_murano'], musique: ['Salon de musique', 'peinture_or', 'chevrons_chene', 'rouge', 'lustre_cascade'],
     reine: ['Chambre de la Reine', 'peinture_rose', 'batons_rompus', 'rose', 'lustre_tulipes'], cabinet: ['Cabinet', 'peinture_nuit', 'chevrons_noyer', 'or', 'lustre_globe'],
-    anti: ['Antichambre', 'peinture_lin', 'marbre', 'lin', 'lustre_anneaux'], vestibule: ['Vestibule', 'pierre_taille', 'damier_marbre', 'aucun', 'lustre_lanterne'],
+    anti: ['Antichambre', 'peinture_lin', 'marbre', 'lin', 'lustre_anneaux'], vestibule: ['Hall d’honneur', 'pierre_taille', 'damier_marbre', 'aucun', 'lustre_versailles'],
     bal: ['Salle de bal', 'peinture_or', 'chevrons_chene', 'or', 'lustre_cristal'], chapelle: ['Chapelle', 'pierre_taille', 'dalles_ivoire', 'voile', 'lustre_bougies'],
     billard: ['Salle de billard', 'peinture_empire', 'chevrons_noyer', 'vert', 'lustre_lanterne'], boudoir: ['Boudoir', 'peinture_rose', 'batons_rompus', 'rose', 'lustre_tulipes'],
     jeux: ['Salon des jeux', 'peinture_bleu', 'chevrons_chene', 'bleu', 'lustre_globe'], palier: ['Palier d’honneur', 'peinture_ivoire', 'damier_marbre', 'rouge', 'lustre_versailles'],
@@ -46,21 +46,21 @@
     let k = KS; const ar = (ex1 - ex0) * (ez1 - ez0) * k * k; if (ar > 26000) k *= Math.sqrt(26000 / ar);
     const bw = Math.ceil((ex1 - ex0) * k), px = Math.max(1, Math.ceil((24 - bw) / 2)), W = bw + 2 * px, H = Math.ceil((ez1 - ez0) * k) + 2, N = W * H;
     const X = x => (x - ex0) * k + px, Z = z => (z - ez0) * k + 1, id = new Int16Array(N).fill(-1), at = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? -1 : id[z * W + x];
-    // chaque bloc est découpé en pièces de vraie taille (8 à 13 cases) : l'avant-corps donne le vestibule (devant, derrière la porte) et le grand salon (derrière) ;
-    // les corps épais ont deux enfilades (côté cour, côté jardin) ; une aile longue et étroite reste une galerie
+    // chaque bloc est découpé en grandes pièces traversantes, d'une façade à l'autre (des fenêtres des deux côtés), longues de deux ou trois travées ;
+    // l'avant-corps entier est le hall d'honneur (avec le grand escalier) ; une aile longue et étroite reste une galerie
     const parts = [], cuts = (L, m) => { const c = []; for (let s = 0; s <= m; s++) c.push(Math.round(s * L / m)); return c; }; let gals = 0;
     BB.forEach((B, bi) => { const x0 = Math.round(X(B.x0)), x1 = Math.round(X(B.x1)), z0 = Math.round(Z(B.z0)), z1 = Math.round(Z(B.z1)), w = x1 - x0, d = z1 - z0; if (w < 1 || d < 1) return;
       const push = (a, b, c, e, role) => parts.push({ bi, k: B.k, role, x0: x0 + a, x1: x0 + b, z0: z0 + c, z1: z0 + e });
       // un nombre impair de pièces côte à côte : le vestibule reste centré sur la porte (jamais une cloison juste derrière elle)
-      if (B.k === 'centre') { const nc = Math.max(1, Math.round(w / 16)), zs = d >= 14 ? [0, Math.round(d * .56), d] : [0, d], xs = cuts(w, nc % 2 ? nc : nc + 1);
+      if (B.k === 'centre') { const nc = Math.max(1, Math.round(w / 26)), zs = d >= 30 ? [0, Math.round(d * .56), d] : [0, d], xs = cuts(w, nc % 2 ? nc : nc + 1);
         for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) push(xs[i], xs[i + 1], zs[j], zs[j + 1], zs.length > 2 && j === 0 ? 'salon' : 'vest'); return; }
       const lg = Math.max(w, d), sh = Math.min(w, d), gal = lg / sh >= 2.3 && sh <= 14 && lg >= 20 && gals < 2; if (gal) gals++;
-      const xs = cuts(w, gal && w >= d ? 1 : Math.max(1, Math.round(w / 10.5))), zs = cuts(d, gal && d > w ? 1 : Math.max(1, Math.round(d / 10.5)));
+      const xs = cuts(w, gal && w >= d ? 1 : Math.max(1, Math.round(w / (w >= d ? RL : RD)))), zs = cuts(d, gal && d > w ? 1 : Math.max(1, Math.round(d / (d > w ? RL : RD))));
       for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) push(xs[i], xs[i + 1], zs[j], zs[j + 1], gal ? 'gal' : ''); });
     parts.forEach((P, i) => { for (let z = Math.max(0, P.z0); z < Math.min(H, P.z1); z++) for (let x = Math.max(0, P.x0); x < Math.min(W, P.x1); x++) id[z * W + x] = i; });
-    // une pièce trop étroite (moins de 6 cases) rejoint sa voisine
+    // une pièce trop étroite (moins de 7 cases) rejoint sa voisine
     const rep = parts.map((_, i) => i), find = i => rep[i] === i ? i : (rep[i] = find(rep[i]));
-    parts.forEach((P, i) => { if (Math.min(P.x1 - P.x0, P.z1 - P.z0) >= 6 || P.role === 'vest' || P.role === 'salon') return; const cnt = new Map();
+    parts.forEach((P, i) => { if (Math.min(P.x1 - P.x0, P.z1 - P.z0) >= 7 || P.role === 'vest' || P.role === 'salon') return; const cnt = new Map();
       for (let z = P.z0; z < P.z1; z++) for (let x = P.x0; x < P.x1; x++) for (const [dx, dz] of NB4) { const q = at(x + dx, z + dz); if (q >= 0 && q !== i) cnt.set(q, (cnt.get(q) || 0) + 1); }
       let best = -1, bc = 0; for (const [q, c] of cnt) { if (parts[q].role === 'vest') continue; if (c > bc || (c === bc && parts[q].k === 'pav')) { best = q; bc = c; } } if (best >= 0) rep[find(i)] = find(best); });
     for (let i = 0; i < N; i++) if (id[i] >= 0) id[i] = find(id[i]);
@@ -106,7 +106,8 @@
     const cen = r => [(box[r].x0 + box[r].x1) / 2, (box[r].z0 + box[r].z1) / 2], dist = (a, b) => { const [ax, az] = cen(a), [bx2, bz] = cen(b); return Math.hypot(ax - bx2, az - bz); };
     let vest = door ? fl(door.x0 + 1, door.z - 1) : 0; if (!vest) for (let r = 1; r <= R; r++) if (role[r] === 'vest') { vest = r; break; } if (!vest) vest = 1;
     let salon = 0; for (let r = 1; r <= R; r++) if (role[r] === 'salon' && (!salon || dist(r, vest) < dist(salon, vest))) salon = r;
-    const kindOf = {}; kindOf[vest] = etg ? 'palier' : salon ? 'vestibule' : 'salon'; if (salon) kindOf[salon] = etg ? 'apparat' : 'salon';
+    if (!salon) { let bd = Infinity; for (let r = 1; r <= R; r++) if (r !== vest && box[r].a >= 60 && dist(r, vest) - box[r].a * .01 < bd) { bd = dist(r, vest) - box[r].a * .01; salon = r; } } // la grande pièce la plus proche du hall
+    const kindOf = {}; kindOf[vest] = etg ? 'palier' : 'vestibule'; if (salon) kindOf[salon] = etg ? 'apparat' : 'salon';
     const rest = []; for (let r = 1; r <= R; r++) if (!kindOf[r]) rest.push(r); const ref = salon || vest; rest.sort((a, b) => dist(a, ref) - dist(b, ref) || cen(a)[0] - cen(b)[0]);
     let ng = 0; for (const r of rest) if (role[r] === 'gal' && ng < 2) { kindOf[r] = 'galerie'; ng++; }
     if (etg) { let oj = etg * 3; for (const r of rest) if (!kindOf[r]) kindOf[r] = ORDER2[oj++ % ORDER2.length]; }
@@ -123,23 +124,31 @@
   const planSig = info => '0|' + info.cols + '|' + info.rows;
   function genPlan(info) { const fl = info.fl || 0, pl = genPlan0(info, fl), S = stairsOf(info); pl.nfl = S.nfl; pl.stairs = S.list; return pl; }
   G.genChateauPlan = genPlan;
-  // ---------- les grands escaliers de marbre : une volée droite par étage, près de l'entrée et au bout des ailes ----------
-  // { lvl : étage de départ, ax : 'x' ou 'z' (sens de la montée), s : +1 / -1, x0 z0 x1 z1 : la volée, lo / hi : où l'on arrive en bas / en haut }
-  let SLEN = 8, SLND = 2; const SWD = 3, SCache = {};
+  // ---------- les grands escaliers de marbre ----------
+  // au centre, dans le hall d'honneur, face à l'entrée : un escalier majestueux, aussi large que le hall le permet ;
+  // dans chaque aile (à gauche et à droite) : un escalier droit ; aux étages supérieurs : un escalier près du palier et dans les ailes
+  // { lvl : étage de départ, ax : 'x' ou 'z' (sens de la montée), s : +1 / -1, x0 z0 x1 z1 : la volée, lnd : profondeur des paliers,
+  //   lo / hi : où l'on arrive en bas / en haut, grand : l'escalier d'honneur }
+  const SCache = {};
+  // les cases d'une volée : le long de l'axe (a), en travers (b) ; les paliers en bas (lo) et en haut (hi)
+  function flightCells(x0, z0, ax, s, len, lnd, wd) { const r = [], lo = [], hi = [];
+    for (let a = -lnd; a < len + lnd; a++) for (let b = 0; b < wd; b++) { const aa = s > 0 ? a : len - 1 - a, x = ax === 'x' ? x0 + aa : x0 + b, z = ax === 'z' ? z0 + aa : z0 + b; (a < 0 ? lo : a >= len ? hi : r).push([x, z]); }
+    return { r, lo, hi }; }
+  G.chFlightCells = flightCells;
   function stairsOf(info) {
     const key = planSig(info); if (SCache[key]) return SCache[key];
-    const L = G.chateauFusion.layout(0, info.cols, info.rows), nfl = Math.max(1, ...L.C.B.map(B => B.nf)), list = [];
+    const L = G.chateauFusion.layout(0, info.cols, info.rows), C = L.C, list = []; let nfl = Math.max(1, ...C.B.map(B => B.nf));
+    if (nfl >= 3 && C.B.filter(B => B.nf >= 3).every(B => B === C.D)) nfl = 2; // le dernier étage n'est qu'au-dessus du hall (les combles du pavillon central) : il ne se visite pas
     if (nfl < 2) return SCache[key] = { nfl, list };
     const P = []; for (let f = 0; f < nfl; f++) P.push(genPlan0(info, f));
-    const W = P[0].W, H = P[0].H, D = P.map(p => ({ T: G.b64.dec(p.T), R: G.b64.dec(p.R) }));
+    const W = P[0].W, H = P[0].H, D = P.map(p => ({ T: G.b64.dec(p.T), R: G.b64.dec(p.R) })), k = P[0].k, px = P[0].px;
+    let ex0 = Infinity, ez0 = Infinity; for (const B of C.B) { ex0 = Math.min(ex0, B.x0); ez0 = Math.min(ez0, B.z0); }
+    const X = x => (x - ex0) * k + px, Z = z => (z - ez0) * k + 1;
     // trop près d'une arche ou d'une porte (on garde les passages libres)
     const near = P.map((p, f) => { const T = D[f].T, o = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) if (T[i] === OPEN || T[i] === DOOR) { const x = i % W, z = (i - x) / W; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) o[zz * W + xx] = 1; } } return o; });
-    const anchors = P[0].doors.filter(Boolean).map(d => [Math.floor(d.sx), Math.floor(d.sz) - 2]);
     const taken = new Uint8Array(W * H * nfl);
-    // les cases d'une volée : le long de l'axe (a), en travers (b) ; les paliers en bas et en haut
-    const cellsOf = (x0, z0, ax, s) => { const r = [], lo = [], hi = []; for (let a = -SLND; a < SLEN + SLND; a++) for (let b = 0; b < SWD; b++) { const aa = s > 0 ? a : SLEN - 1 - a, x = ax === 'x' ? x0 + aa : x0 + b, z = ax === 'z' ? z0 + aa : z0 + b; (a < 0 ? lo : a >= SLEN ? hi : r).push([x, z]); } return { r, lo, hi }; };
-    function fits(lvl, x0, z0, ax, s) {
-      const A = D[lvl], B2 = D[lvl + 1], c = cellsOf(x0, z0, ax, s), ok = (x, z, F, f2) => x >= 0 && z >= 0 && x < W && z < H && F.T[z * W + x] === FLOOR && !near[f2][z * W + x];
+    function fits(lvl, x0, z0, ax, s, len, lnd, wd) {
+      const A = D[lvl], B2 = D[lvl + 1], c = flightCells(x0, z0, ax, s, len, lnd, wd), ok = (x, z, F, f2) => x >= 0 && z >= 0 && x < W && z < H && F.T[z * W + x] === FLOOR && !near[f2][z * W + x];
       let rA = -1, rB = -1; for (const [x, z] of c.r) { if (!ok(x, z, A, lvl) || !ok(x, z, B2, lvl + 1) || taken[lvl * W * H + z * W + x] || taken[(lvl + 1) * W * H + z * W + x]) return null;
         const ra = A.R[z * W + x], rb = B2.R[z * W + x]; if (rA < 0) { rA = ra; rB = rb; } else if (ra !== rA || rb !== rB) return null; }
       for (const [x, z] of c.lo) if (!ok(x, z, A, lvl) || A.R[z * W + x] !== rA || taken[lvl * W * H + z * W + x]) return null;
@@ -148,24 +157,43 @@
       let wall = 0; for (const [x, z] of c.r) for (const [dx, dz] of NB4) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && A.T[zz * W + xx] === WALL) wall++; }
       return { c, wall };
     }
-    function place(lvl, ax0, az0, rad) {
-      let best = null, bs = Infinity;
-      for (let z0 = Math.max(0, az0 - rad); z0 < Math.min(H, az0 + rad); z0++) for (let x0 = Math.max(0, ax0 - rad); x0 < Math.min(W, ax0 + rad); x0++) for (const ax of ['x', 'z']) for (const s of [1, -1]) {
-        const q = fits(lvl, x0, z0, ax, s); if (!q) continue; const mx = q.c.lo.reduce((t, p) => t + p[0], 0) / q.c.lo.length, mz = q.c.lo.reduce((t, p) => t + p[1], 0) / q.c.lo.length, sc = Math.hypot(mx - ax0, mz - az0) - q.wall * .8;
-        if (sc < bs) { bs = sc; best = { lvl, ax, s, x0, z0, c: q.c }; } }
-      if (!best) return false; const c = best.c, xs = c.r.map(p => p[0]), zs = c.r.map(p => p[1]);
+    function take(lvl, best, len, lnd, wd, grand) {
+      const c = best.c, xs = c.r.map(p => p[0]), zs = c.r.map(p => p[1]);
       for (const [x, z] of c.r.concat(c.lo)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) taken[lvl * W * H + zz * W + xx] = 1; }
       for (const [x, z] of c.r.concat(c.hi)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, zz = z + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H) taken[(lvl + 1) * W * H + zz * W + xx] = 1; }
       const mid = arr => [arr.reduce((t, p) => t + p[0], 0) / arr.length + .5, arr.reduce((t, p) => t + p[1], 0) / arr.length + .5];
-      list.push({ lvl, ax: best.ax, s: best.s, x0: Math.min(...xs), z0: Math.min(...zs), x1: Math.max(...xs), z1: Math.max(...zs), lo: mid(c.lo.slice(0, SWD)), hi: mid(c.hi.slice(-SWD)), len: SLEN }); return true;
+      const lo = c.lo.filter(p => Math.abs((best.ax === 'x' ? p[0] : p[1]) - (best.ax === 'x' ? c.lo[0][0] : c.lo[0][1])) < .5), hi = c.hi.filter(p => Math.abs((best.ax === 'x' ? p[0] : p[1]) - (best.ax === 'x' ? c.hi[c.hi.length - 1][0] : c.hi[c.hi.length - 1][1])) < .5);
+      list.push({ lvl, ax: best.ax, s: best.s, x0: Math.min(...xs), z0: Math.min(...zs), x1: Math.max(...xs), z1: Math.max(...zs), lnd, lo: mid(lo.length ? lo : c.lo), hi: mid(hi.length ? hi : c.hi), len, grand: grand ? 1 : 0 }); return true;
     }
-    // une volée de 8 marches-cases avec de vrais paliers ; dans les petits châteaux, plus courte et plus raide
-    for (let lvl = 0; lvl < nfl - 1; lvl++) { let n = 0; SLEN = 8; SLND = 2;
-      for (const [ax0, az0] of anchors) if (place(lvl, ax0, az0, 16)) n++;
-      for (const [L2, D2] of [[8, 2], [7, 1], [6, 1]]) { if (n) break; SLEN = L2; SLND = D2; if (place(lvl, Math.floor(W / 2), Math.floor(H / 2), Math.max(W, H))) n++; } } // au moins un escalier par étage
+    // un escalier droit près d'un point (ax0, az0) : la meilleure place à moins de rad cases, contre un mur si possible
+    function place(lvl, ax0, az0, rad, wd = 3, rm = 0) { // rm : seulement dans cette pièce
+      for (const [len, lnd] of [[8, 2], [7, 2], [7, 1], [6, 1], [5, 1]]) { let best = null, bs = Infinity;
+        for (let z0 = Math.max(0, Math.round(az0 - rad)); z0 < Math.min(H, az0 + rad); z0++) for (let x0 = Math.max(0, Math.round(ax0 - rad)); x0 < Math.min(W, ax0 + rad); x0++) for (const ax of ['x', 'z']) for (const s of [1, -1]) {
+          const q = fits(lvl, x0, z0, ax, s, len, lnd, wd); if (!q || (rm && D[lvl].R[q.c.r[0][1] * W + q.c.r[0][0]] !== rm)) continue; const mx = q.c.lo.reduce((t, p) => t + p[0], 0) / q.c.lo.length, mz = q.c.lo.reduce((t, p) => t + p[1], 0) / q.c.lo.length, sc = Math.hypot(mx - ax0, mz - az0) - q.wall * .8;
+          if (sc < bs) { bs = sc; best = { ax, s, c: q.c }; } }
+        if (best) return take(lvl, best, len, lnd, wd, false); }
+      return false;
+    }
+    // 1. l'escalier d'honneur : dans le hall, dans l'axe de la porte, il monte vers le fond ; le plus large possible (jusqu'à 7 cases)
+    const door = P[0].door, hall = door ? D[0].R[(door.z - 1) * W + door.x0 + 1] : 0; let hallBox = null;
+    if (hall) { let x0 = W, x1 = 0, z0 = H, z1 = 0; for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) if (D[0].T[z * W + x] === FLOOR && D[0].R[z * W + x] === hall) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } hallBox = { x0, x1, z0, z1 }; }
+    const grandAt = (lvl, hb) => { if (!hb) return false; const iw = hb.x1 - hb.x0 + 1, id = hb.z1 - hb.z0 + 1, cxh = (hb.x0 + hb.x1 + 1) / 2, front = id >= 13 ? 3 : 2;
+      const wds = []; for (let wd = Math.min(7, iw - 2); wd >= 3; wd--) wds.push(wd); wds.sort((a, b) => ((iw - a) % 2) - ((iw - b) % 2) || b - a); // bien au milieu du hall d'abord
+      for (const wd of wds) for (const [len, lnd] of [[10, 2], [9, 2], [8, 2], [8, 1], [7, 1], [6, 1]]) { if (2 * lnd + len + front > id) continue;
+        for (const dz of [0, 1, 2]) { const x0 = Math.round(cxh - wd / 2), z0 = hb.z0 + lnd + dz; if (z0 + len + lnd - 1 > hb.z1 - front) continue; const q = fits(lvl, x0, z0, 'z', -1, len, lnd, wd); if (q) return take(lvl, { ax: 'z', s: -1, c: q.c }, len, lnd, wd, wd >= 4); } }
+      return false; };
+    // les ailes : les deux bouts du château (pavillons au bout des ailes, ou les pavillons d'angle)
+    const xsB = C.B.filter(B => B !== C.D); let wings = (C.ends || []).filter(Boolean);
+    if (wings.length < 2 && xsB.length) { const lft = xsB.reduce((a, b) => b.x0 < a.x0 ? b : a), rgt = xsB.reduce((a, b) => b.x1 > a.x1 ? b : a); wings = lft === rgt ? [lft] : [lft, rgt]; }
+    for (let lvl = 0; lvl < nfl - 1; lvl++) { let n = 0;
+      if (lvl === 0 && grandAt(0, hallBox)) n++;
+      else if (!n && hallBox && place(lvl, (hallBox.x0 + hallBox.x1 + 1) / 2, (hallBox.z0 + hallBox.z1 + 1) / 2, 22, lvl ? 3 : 4)) n++;
+      for (const B of wings) { if (B.nf <= lvl + 1) continue; const wx = X((B.x0 + B.x1) / 2), wz = Z((B.z0 + B.z1) / 2); let rm = 0; // dans la pièce de l'aile (sinon la plus proche)
+        for (let r2 = 0; r2 < 4 && !rm; r2++) for (let dz = -r2; dz <= r2 && !rm; dz++) for (let dx = -r2; dx <= r2 && !rm; dx++) { const xx = Math.floor(wx) + dx, zz = Math.floor(wz) + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && D[lvl].T[zz * W + xx] === FLOOR) rm = D[lvl].R[zz * W + xx]; }
+        if ((rm && place(lvl, wx, wz, 24, 3, rm)) || place(lvl, wx, wz, 12)) n++; }
+      if (!n) place(lvl, Math.floor(W / 2), Math.floor(H / 2), Math.max(W, H)); } // au moins un escalier par étage
     return SCache[key] = { nfl, list };
   }
-
 
   // ---------- lecture du plan (mise en cache sur la carte) ----------
   function planData(m) {
@@ -174,7 +202,9 @@
     const su = new Uint8Array(N), st = [], efl = pl.fl || 0;
     for (const q of pl.stairs || []) { const up = q.lvl === efl; if (!up && q.lvl !== efl - 1) continue; const o = Object.assign({ up }, q); st.push(o);
       for (let z = q.z0; z <= q.z1; z++) for (let x = q.x0; x <= q.x1; x++) su[z * W + x] = up ? 1 : 2;
-      const Lp = up ? q.lo : q.hi; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = Math.floor(Lp[0]) + dx, zz = Math.floor(Lp[1]) + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && !su[zz * W + xx]) su[zz * W + xx] = 3; } }
+      const Lp = up ? q.lo : q.hi; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const xx = Math.floor(Lp[0]) + dx, zz = Math.floor(Lp[1]) + dz; if (xx >= 0 && zz >= 0 && xx < W && zz < H && !su[zz * W + xx]) su[zz * W + xx] = 3; }
+      const wd = q.ax === 'x' ? q.z1 - q.z0 + 1 : q.x1 - q.x0 + 1, len = q.ax === 'x' ? q.x1 - q.x0 + 1 : q.z1 - q.z0 + 1, fc = flightCells(q.x0, q.z0, q.ax, q.s, len, q.lnd || 2, wd);
+      for (const [xx, zz] of up ? fc.lo : fc.hi) if (xx >= 0 && zz >= 0 && xx < W && zz < H && !su[zz * W + xx]) su[zz * W + xx] = 3; }
     return m._pd = { pl, W, H, T, R, bl, su, st, CH: pl.CH, room: id => pl.rooms.find(q => q.id === id) || pl.rooms[0] };
   }
   // une pièce est faite des cases de sol reliées sans passer par une arche (après une retouche du plan, on renumérote)
@@ -248,9 +278,12 @@
       const group = (gx, gz) => { P('tapis_savonnerie', gx - 1, gz - 1) || P('tapis', gx - 1, gz); P('gueridon', gx, gz - 1) || P('table_basse', gx, gz - 1); P('fauteuil_louis', gx - 2, gz - 1, 1); P('fauteuil_louis', gx + 1, gz - 1, 3); P('canape_velours', gx - 1, gz + 1, 2); };
       const fire = (s = 'n') => atWall('cheminee_marbre', s, .5, true) || atWall('cheminee_marbre', s === 'n' ? 's' : 'n', .5, true) || atWall('cheminee_marbre', s === 'w' ? 'e' : 'w', .5, true) || atWall('cheminee_marbre', s === 'e' ? 'w' : 'e', .5, true);
       switch (rm.k) {
-        case 'vestibule': atWall('console_doree', 'n', .5, true) || atWall('console_doree', 'w', .5, true); P('statue_antique', x0, z0) || P('statue_antique', x0 + 1, z0 + 1); P('statue_antique', x1, z0) || P('statue_antique', x1 - 1, z0 + 1);
-          for (const s of ['w', 'e']) { atWall('buste', s, .25, true); atWall('buste', s, .75, true); atWall('banc_coussins', s, .5); }
-          P('gueridon', cx, cz) || P('gueridon', cx, cz - 1); corners('vase_chine'); P('torchere', x0 + 1, z1 - 1); P('torchere', x1 - 1, z1 - 1); break;
+        case 'vestibule': { const gs = pd.st.find(q => q.up && q.grand && q.ax === 'z' && R[q.z0 * W + q.x0] === rm.id);
+          if (gs) { const lnd = gs.lnd || 2, zb = gs.s < 0 ? gs.z1 + 1 : gs.z0 - 1, zt = gs.s < 0 ? gs.z0 : gs.z1; // au pied du grand escalier : statues et torchères, de chaque côté
+            for (const [xx, sg] of [[gs.x0 - 2, -1], [gs.x1 + 2, 1]]) { P('statue_antique', xx, zb) || P('statue_antique', xx - sg, zb); P('torchere', xx, zb + (gs.s < 0 ? lnd : -lnd)) ; P('vase_chine', xx, zt + (gs.s < 0 ? 1 : -1)); P('buste', xx, Math.round((gs.z0 + gs.z1) / 2)); } }
+          else P('gueridon', cx, cz) || P('gueridon', cx, cz - 1);
+          for (const s of ['w', 'e']) { atWall('console_doree', s, .2, true); atWall('console_doree', s, .8, true); atWall('banc_coussins', s, .5); }
+          P('statue_antique', x0, z0) || P('statue_antique', x0 + 1, z0 + 1); P('statue_antique', x1, z0) || P('statue_antique', x1 - 1, z0 + 1); corners('vase_chine'); P('torchere', x0 + 1, z1 - 1); P('torchere', x1 - 1, z1 - 1); break; }
         case 'salon': fire('n'); group(cx, cz + 1); pairWall('console_doree', 'w', true); pairWall('console_doree', 'e', true); corners('torchere');
           P('harpe', x0 + 1, z1 - 1); P('statue_antique', x1 - 1, z1 - 1); if (pl.n >= 4) atWall('trone', 's', .5); corners('vase_chine', 1); break;
         case 'galerie': { const L = long ? w : d; for (let i = 2, k = 0; i < L - 2; i += 3, k++) { const a = (long ? x0 : z0) + i;
@@ -446,20 +479,27 @@
       const box = (la, lb, h, col, a, bb, y) => along === 'x' ? bx(b, la, h, lb, col, a, y, bb) : bx(b, lb, h, la, col, bb, y, a);
       // les marches : marbre plein (deux tons), nez de marche clair, tapis rouge et tringles dorées
       b.S(sk.stone); for (let i = 0; i < n; i++) { const t1 = (i + 1) / n, dl = L / n + .002; box(dl, Wd - .1, CH * t1, i % 2 ? MARB : MARB2, A((i + .5) / n), bc, y0 + CH * t1 / 2); box(dl * .22, Wd - .1, .04, 0xfbf8f2, A(t1) - s * dl * .11, bc, y0 + CH * t1 - .02); } b.S(null);
-      b.S(sk.velvet); for (let i = 0; i < n; i++) box(L / n + .002, Wd * .46, .03, CARP, A((i + .5) / n), bc, y0 + CH * (i + 1) / n + .015); b.S(null);
-      b.S(sk.gold); for (let i = 1; i < n; i += 2) box(.03, Wd * .5, .035, GOLD, A(i / n), bc, y0 + CH * i / n + .035); b.S(null);
+      const cw = Wd * (q.grand ? .62 : .46); b.S(sk.velvet); for (let i = 0; i < n; i++) box(L / n + .002, cw, .03, CARP, A((i + .5) / n), bc, y0 + CH * (i + 1) / n + .015); b.S(null);
+      b.S(sk.gold); for (let i = 1; i < n; i += 2) box(.03, cw + .04 * Wd, .035, GOLD, A(i / n), bc, y0 + CH * i / n + .035);
+      if (q.grand) for (const sg of [-1, 1]) for (let i = 0; i < n; i++) box(L / n + .002, .06, .034, GOLD, A((i + .5) / n), bc + sg * cw / 2, y0 + CH * (i + 1) / n + .017); b.S(null);
       // rampes : balustres de marbre sous une main courante dorée, piliers de départ à boule dorée
       const rail = (bb, ya, yb) => { const pa = P(A(0), bb, ya), pb = P(A(1), bb, yb), xa = new THREE.Vector3(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]), len = xa.length(); xa.normalize();
         const za = new THREE.Vector3().crossVectors(xa, new THREE.Vector3(0, 1, 0)).normalize(), ya2 = new THREE.Vector3().crossVectors(za, xa);
         b.S(sk.gold); b.add(new THREE.BoxGeometry(len, .09, .13), GOLD, new THREE.Matrix4().makeBasis(xa, ya2, za).setPosition(new THREE.Vector3((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2))); b.S(null); };
       for (const bb of [b0 + .1, b1 - .1]) {
         if (q.up) { rail(bb, 1.05, CH + 1.05); b.S(sk.stone); for (let t = .03; t < .99; t += .055) { const y = y0 + CH * Math.ceil(t * n) / n, p = P(A(t), bb, y + .5); bx(b, .1, 1.0, .1, BALU, p[0], p[1], p[2]); dot(b, .07, BALU, p[0], y + .35, p[2]); } b.S(null); }
-        const pn = P(A(0) - s * .15, bb, y0 + .7); b.S(sk.stone); bx(b, .32, 1.4, .32, MARB2, pn[0], pn[1], pn[2]); b.S(null); b.S(sk.gold); dot(b, .16, GOLD, pn[0], pn[1] + .85, pn[2]); b.S(null); }
+        if (q.grand && q.up) { const pn = P(A(0) - s * .32, bb + (bb < bc ? -.12 : .12), y0); b.S(sk.stone); bx(b, .7, .16, .7, MARB2, pn[0], y0 + .08, pn[2]); bx(b, .52, 1.12, .52, MARB, pn[0], y0 + .72, pn[2]); bx(b, .66, .12, .66, MARB2, pn[0], y0 + 1.34, pn[2]); b.S(null);
+          b.S(sk.gold); b.cyl(.05, .1, .55, 10, GOLD, pn[0], y0 + 1.67, pn[2]); dot(b, .09, GOLD, pn[0], y0 + 1.96, pn[2]);
+          for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI / 4, ex = pn[0] + Math.cos(a) * .26, ez = pn[2] + Math.sin(a) * .26; b.add(new THREE.BoxGeometry(.27, .035, .035), GOLD, b.M((pn[0] + ex) / 2, y0 + 1.98, (pn[2] + ez) / 2, 0, -a, 0)); b.cyl(.045, .03, .07, 8, GOLD, ex, y0 + 2.03, ez); }
+          b.S(null); b.S(sk.ceramic); for (let k = 0; k < 5; k++) { const a = k / 4 * TAU + PI / 4, r = k < 4 ? .26 : 0, ex = pn[0] + Math.cos(a) * r, ez = pn[2] + Math.sin(a) * r, cy = y0 + (k < 4 ? 2.16 : 2.2); b.cyl(.024, .024, .2, 6, 0xfff8ec, ex, cy, ez); dot(b, .04, 0xffd27a, ex, cy + .15, ez, 1); } b.S(null); }
+        else { const pn = P(A(0) - s * .15, bb, y0 + .7); b.S(sk.stone); bx(b, .32, 1.4, .32, MARB2, pn[0], pn[1], pn[2]); b.S(null); b.S(sk.gold); dot(b, .16, GOLD, pn[0], pn[1] + .85, pn[2]); b.S(null); } }
       if (!q.up) { // la cage : murs de marbre jusqu'en bas, balustrade dorée autour de l'ouverture (sauf du côté du palier)
         b.S(sk.stone); for (const bb of [b0, b1]) box(L, .08, CH, CAGE, (a0 + a1) / 2, bb, -CH / 2); box(.08, Wd, CH, CAGE, A(0), bc, -CH / 2);
         const nb = Math.max(2, Math.round(L / .45)), nw = Math.max(2, Math.round(Wd / .45));
         for (const bb of [b0 + .05, b1 - .05]) { box(L, .14, .08, GOLD, (a0 + a1) / 2, bb, 1.05); for (let k = 0; k <= nb; k++) box(.09, .09, 1.0, BALU, a0 + k * L / nb, bb, .5); }
-        box(.14, Wd, .08, GOLD, A(0), bc, 1.05); for (let k = 0; k <= nw; k++) box(.09, .09, 1.0, BALU, A(0), b0 + k * Wd / nw, .5); b.S(null); }
+        box(.14, Wd, .08, GOLD, A(0), bc, 1.05); for (let k = 0; k <= nw; k++) box(.09, .09, 1.0, BALU, A(0), b0 + k * Wd / nw, .5); b.S(null);
+        if (q.grand) for (const ta of [0, 1]) for (const bb of [b0 + .05, b1 - .05]) { const p = P(A(ta), bb, 0); b.S(sk.stone); bx(b, .26, 1.16, .26, MARB2, p[0], .58, p[2]); bx(b, .32, .08, .32, MARB, p[0], 1.2, p[2]); b.S(null);
+          b.S(sk.gold); b.cyl(.06, .11, .1, 10, GOLD, p[0], 1.29, p[2]); dot(b, .15, GOLD, p[0], 1.46, p[2]); b.cyl(.13, .08, .08, 10, GOLD, p[0], 1.63, p[2]); b.cone(.06, .2, 8, GOLD, p[0], 1.76, p[2]); b.S(null); } }
     }
   }
   function planShell(m) {
