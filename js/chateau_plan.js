@@ -53,7 +53,7 @@
 `; document.head.appendChild(css);
 
   // ---------- ouvrir ----------
-  const odec = U.openDecor; U.openDecor = tab => { const m = G.map; if (m && m.interior && m.meta && m.meta.plan) return openPlan(); return odec(tab); };
+  const odec = U.openDecor; U.openDecor = tab => { const m = G.map; if (m && m.interior && m.meta && m.meta.plan && !m.meta.plan.gen) return openPlan(); return odec(tab); };
   function openPlan(tool) {
     const m = G.map; if (!m || !m.meta || !m.meta.plan) return;
     if (!st || st.m !== m) st = { m, tool: 'piece', sel: 0, opType: 'a', winSt: 'cintree', curt: 'rouge', lus: 'lustre_cristal', item: null, carry: null, rot: 0, zoom: 1, fam: 'salon', q: '', hover: null };

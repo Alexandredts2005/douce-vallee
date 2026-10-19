@@ -122,7 +122,8 @@
     return { v: VER, sig: planSig(info), fl: etg, W, H, k, px, court: etg ? null : court, doors, CH: n >= 8 ? 7 : 6.2, T: G.b64.enc(T), R: G.b64.enc(Rg), ops: {}, rooms, wins: wl, door, n };
   }
   const planSig = info => '0|' + info.cols + '|' + info.rows;
-  function genPlan(info) { const fl = info.fl || 0, pl = genPlan0(info, fl), S = stairsOf(info); pl.nfl = S.nfl; pl.stairs = S.list; return pl; }
+  function genPlan(info) { const gen = info.gen && G.CHGEN && G.CHGEN[info.gen]; if (gen) return Object.assign(gen.plan(info.fl || 0), { v: VER, gen: info.gen }); // (un autre grand bâtiment à étages : la mairie…)
+    const fl = info.fl || 0, pl = genPlan0(info, fl), S = stairsOf(info); pl.nfl = S.nfl; pl.stairs = S.list; return pl; }
   G.genChateauPlan = genPlan;
   // ---------- les grands escaliers de marbre ----------
   // au centre, dans le hall d'honneur, face à l'entrée : un escalier majestueux, aussi large que le hall le permet ;
@@ -224,13 +225,13 @@
   // ============ 2. LA CARTE DE L'INTÉRIEUR, ses meubles, ses lustres =====
   // =====================================================================
   function makePlanInterior(iid, info, old) {
-    const pl = genPlan(info), m = new G.GMap(pl.W, pl.H, { interior: true, kind: 'maison', id: iid });
-    m.surf.fill(6); Object.assign(m.meta, { shell: { kind: 'maison' }, stage: G.HOME_STAGES.length, plan: pl, noExit: 1, ceilH: pl.CH, sunny: 1, bright: 1, cam: Object.assign({}, CAM) });
+    const pl = genPlan(info), kind = pl.kind || 'maison', m = new G.GMap(pl.W, pl.H, { interior: true, kind, id: iid });
+    m.surf.fill(6); Object.assign(m.meta, { shell: { kind }, stage: G.HOME_STAGES.length, plan: pl, noExit: 1, ceilH: pl.CH, sunny: 1, bright: 1, cam: Object.assign({}, CAM, pl.cam || {}) });
     if (old) for (const k of ['door', 'title', 'fromId']) if (old.meta[k] != null) m.meta[k] = old.meta[k];
     if (pl.door) m.addObj('paillasson', pl.door.x0 + 1, pl.door.z - 1);
     const op = old && old.meta.plan, ok2 = op && op.k ? op.k : pl.k, sc = pl.k / ok2, opx = op ? (op.px != null ? op.px : op.W > 25 ? 1 : Math.max(1, Math.round((op.W - (pl.W - 2 * pl.px) / pl.k * ok2) / 2))) : pl.px;
     if (old) for (const q of old.list) { if (q.t === 'paillasson' || !O[q.t]) continue; const ex = {}; for (const k of KEEP) if (q[k] != null) ex[k] = q[k]; const nx = op ? Math.round((q.x - opx) * sc + pl.px) : q.x, nz = op ? Math.round((q.z - 1) * sc + 1) : q.z; if (!relocate(m, q.t, nx, nz, q.r || 0, ex)) stash(q.t); }
-    lustres(m); furnish(m);
+    const gen = pl.gen && G.CHGEN && G.CHGEN[pl.gen]; if (gen && gen.furnish) gen.furnish(m); else { lustres(m); furnish(m); }
     G.buildShell(m); m.buildAll(); return m;
   }
   const stash = t => { if (!G.ITEMS[t]) return; const left = G.storeAdd ? G.storeAdd(t, 1) : 1; if (left > 0 && G.inv) G.inv.add(t, 1); };
@@ -350,7 +351,7 @@
     if (!fl) return base; const id = base.id + '_f' + fl, pl0 = base.meta.plan; let im = G.interiors[id];
     if (im && im.meta.plan && im.meta.plan.sig === pl0.sig && im.meta.plan.v === VER) return im;
     if (G.net && G.net.visit) return null;
-    const sg = pl0.sig.split('|'), nm = makePlanInterior(id, { cols: +sg[1], rows: +sg[2], fl }, im);
+    const sg = pl0.sig.split('|'), nm = makePlanInterior(id, pl0.gen ? { gen: pl0.gen, fl } : { cols: +sg[1], rows: +sg[2], fl }, im);
     nm.meta.base = base.id; nm.meta.title = (base.meta.title || 'Château') + ' — ' + (FLN[fl] || fl + 'e étage');
     if (im) G.scene.remove(im.group); G.interiors[id] = nm; G.scene.add(nm.group); nm.group.visible = false; return nm;
   }
@@ -513,6 +514,7 @@
     const ti = (x, z) => x < 0 || z < 0 || x >= W || z >= H ? VOID : T[z * W + x], isF = (x, z) => ti(x, z) === FLOOR, solid = t => t === WALL || t === OPEN || t === DOOR;
     const g = new THREE.Group(), b = new CB(990), bs = new CB(991), texW = {}, flA = {}, views = { t: new Acc(), s: new Acc() }, mir = new Acc(), art = {}, ceil = new Acc();
     const roomOf = r => pd.room(r);
+    const atr = pl.atr, inAtr = i => !!atr && i % W >= atr[0] && i % W < atr[2] && Math.floor(i / W) >= atr[1] && Math.floor(i / W) < atr[3]; // (un atrium : le vide ouvert sur tous les étages)
     // ----- segments de mur (ce qui s'abaisse ensemble) -----
     const hs = new Int32Array(W * H).fill(-1), vs = new Int32Array(W * H).fill(-1), segs = [null];
     for (let z = 0; z < H; z++) { let s = -1; for (let x = 0; x < W; x++) { const i = z * W + x; if (solid(T[i]) && (isF(x, z - 1) || isF(x, z + 1))) { if (s < 0) { s = segs.length; segs.push({ o: 'h', c: z, a: x, b: x }); } segs[s].b = x; hs[i] = s; } else s = -1; } }
@@ -676,7 +678,7 @@
         b.wid = wid + .5; b.S(sk.stone); b.fquad([x, -1, z + 1], [x2 + 1, -1, z + 1], [x2 + 1, -1, z], [x, -1, z], 0xd8ccb3); b.S(null); x = x2 + 1; } }
     b.wid = 0;
     // ----- sols (par pièce), bordure de frise le long des murs ; plafonds peints, rosaces sous les lustres -----
-    for (const rm of pl.rooms) for (const pass of [0, 1]) { const cells = new Uint8Array(W * H); let any = false; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR && R[i] === rm.id && pd.su[i] !== (pass ? 1 : 2)) { cells[i] = 1; any = true; } if (!any) continue; // sol sans la cage, plafond sans la volée
+    for (const rm of pl.rooms) for (const pass of [0, 1]) { const cells = new Uint8Array(W * H); let any = false; for (let i = 0; i < W * H; i++) if (T[i] === FLOOR && R[i] === rm.id && pd.su[i] !== (pass ? 1 : 2) && !(pass && inAtr(i))) { cells[i] = 1; any = true; } if (!any) continue; // sol sans la cage, plafond sans la volée (ni au-dessus d'un atrium)
       const acc = flA[rm.floor] || (flA[rm.floor] = new Acc());
       for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) { if (!cells[z * W + x]) continue; let x2 = x; while (x2 + 1 < W && cells[z * W + x2 + 1]) x2++; let z2 = z, ok = true; while (ok && z2 + 1 < H) { for (let xx = x; xx <= x2; xx++) if (!cells[(z2 + 1) * W + xx]) { ok = false; break; } if (ok) z2++; }
         for (let zz = z; zz <= z2; zz++) for (let xx = x; xx <= x2; xx++) cells[zz * W + xx] = 0; const w = x2 - x + 1, d = z2 - z + 1;
@@ -726,6 +728,7 @@
       for (const [ww, dd, x, z] of [[iw + .3, .16, cx, cz - id / 2 - .07], [iw + .3, .16, cx, cz + id / 2 + .07], [.16, id + .3, cx - iw / 2 - .07, cz], [.16, id + .3, cx + iw / 2 + .07, cz]]) strip(x, z, ww, dd, CH - .03, GOLD, sk.gold);
       for (const [ww, dd, x, z] of [[iw + 1.4, .5, cx, cz - id / 2 - .45], [iw + 1.4, .5, cx, cz + id / 2 + .45], [.5, id + .4, cx - iw / 2 - .45, cz], [.5, id + .4, cx + iw / 2 + .45, cz]]) strip(x, z, ww, dd, CH - .025, 0xf3e7c4, sk.paint);
       for (const [x, z] of [[cx - iw / 2 - .45, cz - id / 2 - .45], [cx + iw / 2 + .45, cz - id / 2 - .45], [cx - iw / 2 - .45, cz + id / 2 + .45], [cx + iw / 2 + .45, cz + id / 2 + .45]]) { bs.S(sk.gold); bs.add(new THREE.CircleGeometry(.32, 16), GOLD, bs.M(x, CH - .028, z, PI / 2, 0, 0)); bs.S(null); } }
+    const genS = pl.gen && G.CHGEN && G.CHGEN[pl.gen]; if (genS && genS.shell) genS.shell(m, { b, bs, g, pd, sk, GAP, rowGeo, dot });
     // ----- assemblage -----
     const U = m._cutU || (m._cutU = newCut()), CM = cutMats(U), add = (geo, mat, shadow = true) => { if (!geo) return; const me = new THREE.Mesh(geo, mat); me.castShadow = shadow; me.receiveShadow = true; me.frustumCulled = false; g.add(me); return me; };
     add(b.done(), CM); add(bs.done(), G.MATS); m._lawn = add(lw.done(), G.MATS, false);
@@ -815,6 +818,13 @@
   function outReady(m) { return OUT.ready && OUT.map === m && !!OUT.src; }
   // le château dans le monde (ou sur l'île) : sa place, sa hauteur, son orientation, et le milieu de l'avant-corps
   function outSrc(m) {
+    if (m && m.meta && m.meta.plan && m.meta.plan.gen) { const bid = m.meta.base || m.id; // un autre bâtiment (la mairie) : la photo est prise en son milieu
+      for (const w of [G.world, G.island]) { if (!w || !w.list || !w.center) continue; let o = null; for (const q of w.list) if (q.iid === bid) { o = q; break; } if (!o) continue;
+        const [x, z] = w.center(o), CL = G.CELL || 8, cw = Math.ceil(w.W / CL), ch = Math.ceil(w.H / CL), V = new Uint8Array(cw * ch);
+        for (let k = 0; k < V.length; k++) V[k] = Math.hypot((k % cw) * CL + CL / 2 - x, Math.floor(k / cw) * CL + CL / 2 - z) < 130 ? 1 : 0;
+        for (const gg of w.chunks) if (gg) for (const me of gg.children) me.frustumCulled = true;
+        return { w, o, x, z, V, y: w.terrainH(x, z) + 2.6 + (m.meta.plan.fl || 0) * 2.4, rot: (o.r & 3) * PI / 2 }; }
+      return null; }
     if (!m || !m.meta || !m.meta.plan || !G.chateauInfo || !G.chateauFusion) return null;
     for (const w of [G.world, G.island]) { if (!w || !w.list) continue; let o = null; const bid = m.meta.base || m.id; for (const q of w.list) if (q.iid === bid) { o = q; break; } if (!o) continue;
       const info = G.chateauInfo(o); if (!info || info.cx == null) return null; let dx = 0, dz = 0, fh = 3;
@@ -889,7 +899,7 @@
     const pd = planData(m), { W, H, T, CH } = pd, dist = C.mdist || 5.5, pit = C.mp == null ? .35 : C.mp, hd = Math.cos(pit) * dist;
     const x0 = C.cx, y0 = C.cy, z0 = C.cz, ex = Math.sin(C.yaw) * hd, ey = Math.sin(pit) * dist, ez = Math.cos(C.yaw) * hd;
     // une place libre pour la caméra : du parquet tout autour (ou une arche, sous son cintre), ni dans le sol ni contre le plafond
-    const yTop = (p.y > .3 ? 2 * CH + GAP : CH) - .35, yBot = p.y < -.3 ? -CH : .25;
+    const yTop = Math.max(m.meta.plan.atr && (m._atrA || 0) > .5 ? (m.meta.plan.nfl || 1) * (CH + GAP) : 0, p.y > .3 ? 2 * CH + GAP : CH) - .35, yBot = p.y < -.3 ? -CH : .25; // (dans un atrium, aussi haut qu'il faut)
     const free = (x, y, z) => { if (y > yTop || y < yBot) return false;
       for (const ox of [-.27, .27]) for (const oz of [-.27, .27]) { const tx = Math.floor(x + ox), tz = Math.floor(z + oz); if (tx < 0 || tz < 0 || tx >= W || tz >= H) return false; const t = T[tz * W + tx];
         if (t !== FLOOR && !(t === OPEN && y < 2.8)) return false; } // (pas dans l'embrasure de la porte d'entrée : on la verrait de trop près)
@@ -900,8 +910,8 @@
     camK = k < camK ? k : Math.min(k, camK + dt * 2.5 / dist);
     cam.position.set(x0 + ex * camK, y0 + ey * camK, z0 + ez * camK); cam.lookAt(x0, y0, z0);
   });
-  G.on('enterMap', m => { if (lab) lab.style.opacity = '0'; if (m && m.meta && m.meta.plan) m.meta.cam = Object.assign({}, CAM); if (m && m._pv) { m._pv.room = 0; if (m._cutU) { m._cutU.tex.value = m._pv.tex; m._cutU.n.value = m._pv.segs.length; } } if (m && m.meta && m.meta.plan && !m._pv) { G.buildShell(m); m.buildAll(); }
-    if (m && m.meta && m.meta.plan && !m.isVisit && !G.flags.chPlanTip) { G.flags.chPlanTip = 1; setTimeout(() => G.ui.toast('⚜ Ton château a de vraies pièces ! Appuie sur H pour ouvrir le plan : murs, arches, fenêtres, rideaux, lustres, décor et meubles.', 7000), 1600); } });
+  G.on('enterMap', m => { if (lab) lab.style.opacity = '0'; if (m && m.meta && m.meta.plan) m.meta.cam = Object.assign({}, CAM, m.meta.plan.cam || {}); if (m && m._pv) { m._pv.room = 0; if (m._cutU) { m._cutU.tex.value = m._pv.tex; m._cutU.n.value = m._pv.segs.length; } } if (m && m.meta && m.meta.plan && !m._pv) { G.buildShell(m); m.buildAll(); }
+    if (m && m.meta && m.meta.plan && !m.meta.plan.gen && !m.isVisit && !G.flags.chPlanTip) { G.flags.chPlanTip = 1; setTimeout(() => G.ui.toast('⚜ Ton château a de vraies pièces ! Appuie sur H pour ouvrir le plan : murs, arches, fenêtres, rideaux, lustres, décor et meubles.', 7000), 1600); } });
   // =====================================================================
   // ============ 6. LES ÉTAGES, LES UNS AU-DESSUS DES AUTRES ==============
   // =====================================================================
@@ -936,15 +946,17 @@
     const fl = cur.meta.plan.fl || 0, CH = cur.meta.plan.CH, r = p ? G.clamp((p.y / CH - .28) / .5, 0, 1) : 0, rr = r * r * (3 - 2 * r);
     // l'étage du dessous : quand on est près d'une ouverture d'escalier (ou qu'on la descend)
     let nearWell = false; if (fl > 0 && p) { if (p.y < -.05) nearWell = true; else for (const q of planData(cur).st) if (!q.up && Math.max(q.x0 - p.x, p.x - q.x1 - 1, q.z0 - p.z, p.z - q.z1 - 1, 0) < 14) { nearWell = true; break; } }
+    const atr = cur.meta.plan.atr; let A = 0; if (atr) { const inA = fl === 0 && p && p.x >= atr[0] && p.x < atr[2] && p.z >= atr[1] && p.z < atr[3]; A = cur._atrA = G.clamp((cur._atrA || 0) + (inA ? 1.4 : -1.8) * Math.min(dt || 0, .1), 0, 1); }
+    const As = A * A * (3 - 2 * A); // (au milieu de l'atrium, on voit tout, jusqu'au toit ; sous les galeries, la coupe habituelle)
     let low = cur;
     floors.forEach((F, f) => { if (!F) return; if (F === cur) { F.group.position.y = 0; F.group.visible = true; return; }
-      const d = f - fl, show = (d === -1 && nearWell) || (d === 1 && rr > .002); F.group.position.y = d * (CH + GAP); F.group.visible = show;
+      const d = f - fl, show = (d === -1 && nearWell) || (d < 0 && !!atr) || (d === 1 && rr > .002) || (d > 0 && As > .002); F.group.position.y = d * (CH + GAP); F.group.visible = show;
       if (show) { if (!F._pv) { G.buildShell(F); F.buildAll(); } F.flush(); if (F._pv && F._pv.bm) F._pv.bm.geometry.setDrawRange(0, 0); if (d < 0) low = F; else if (dt) updCut(F, Math.min(dt, .1)); } }); // (l'étage du dessus : ses murs devant le joueur s'abaissent aussi)
     for (const F of floors) if (F && F._lawn) F._lawn.visible = F === low;
     // en coupe : tout ce qui dépasse est caché ; l'étage du dessus se dévoile à mesure qu'on monte
-    CLIP.constant = CH + .01 + rr * (GAP + CH * .94);
+    CLIP.constant = (CH + .01 + rr * (GAP + CH * .94)) * (1 - As) + As * ((cur.meta.plan.nfl || 1) * (CH + GAP) + 6);
   });
   // ranger les meubles d'une pièce (dans les casiers en mode Survie)
   const clearRoom = (m, id) => { const pd = planData(m); let n = 0; for (const o of [...m.list]) { const d = O[o.t]; if (d.ceil || o.t === 'paillasson' || pd.R[o.z * pd.W + o.x] !== id) continue; m.removeObj(o); if (G.mode === 'survie') stash(o.t); n++; } return n; };
-  G.chateauInterior = { planData, clearRoom, stash, renumber, lustres, furnish, relocate, genPlan, makePlanInterior, prepare, rebuild: m => { m._pd = null; G.buildShell(m); }, VOID, WALL, FLOOR, OPEN, DOOR };
+  G.chateauInterior = { planData, clearRoom, stash, renumber, lustres, furnish, relocate, genPlan, makePlanInterior, prepare, ensureFloors, rebuild: m => { m._pd = null; G.buildShell(m); }, VOID, WALL, FLOOR, OPEN, DOOR };
 })();
