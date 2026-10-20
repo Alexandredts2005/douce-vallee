@@ -73,7 +73,7 @@
   }
   function connectWS() {
     const base = NET.serverBase || location.origin; let ws; try { ws = new WebSocket(base.replace(/^http/, 'ws') + '/ws'); } catch (e) { return; } NET.ws = ws;
-    ws.onopen = () => { NET.wsOk = true; NET.lastPres = ''; NET.curRoom = null; };
+    ws.onopen = () => { NET.wsOk = true; NET.lastPres = ''; NET.curRoom = null; NET.pubRev = -1; NET.pubT = 3; setTimeout(() => NET.publish(true), 2500); }; // serveur redémarré : il a pu tout oublier, on republie aussitôt
     ws.onclose = () => { NET.wsOk = false; NET.curRoom = null; NET.peers.clear(); onPeers(); setTimeout(connectWS, 3000); };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; }
       if (m.t === 'pres' && m.id != null) { const pr = m.d || {}; if (pr.pid) for (const [id, q] of NET.peers) if (id !== m.id && q.pr && q.pr.pid === pr.pid) NET.peers.delete(id); NET.peers.set(m.id, { id: m.id, pr, t: performance.now() }); onPeers(); }
@@ -134,8 +134,8 @@
   const ownerTag = (sid, code) => G.sha256('dv-own:' + sid + ':' + code).slice(0, 40);
   // le village est republié dès que quelque chose change dehors… ou dans un intérieur
   const pubRevNow = () => { let r = G.world ? G.world.rev : 0; for (const id in G.interiors) r += G.interiors[id].rev * 7 + 1; return r; };
-  NET.publish = async () => {
-    const s = G.session; if (!s || !s.code || !G.world || NET.visit || !NET.online() || NET.pubBusy) return; const I = ids(s.code);
+  NET.publish = async force => {
+    const s = G.session; if (!s || !s.code || !G.world || (NET.visit && !force) || !NET.online() || NET.pubBusy) return; const I = ids(s.code);
     NET.pubBusy = true; NET.pubRev = pubRevNow(); NET.pubClosed = NET.closed();
     try {
       if (NET.pubClosed) { await unpublish(s.code, s.sid); return; }
@@ -173,7 +173,9 @@
       if (NET.mode === 'claude' && NET.db) { const q = await NET.db.collection('towns').where('k', 'array-contains', I.doc).limit(5).get(); let best = null;
         for (const d of q.docs) { const sn = await NET.db.doc('towns/' + d.id + '/s/' + I.doc).get(); if (!sn.exists) continue; try { const snap = await unseal(code, sn.data()); if (!best || (snap.at || 0) > (best.at || 0)) best = snap; } catch (e) { } }
         return best ? { snap: best, code } : { err: 'Aucun village ouvert avec ce code… Vérifie le code : ton ami doit avoir ouvert le jeu, et ses portes, au moins une fois.' }; }
-      if (NET.mode === 'server') { const r = (await wsReq({ t: 'get', h: I.doc }, 60000)) || (await wsReq({ t: 'get', h: ids2(code).doc }, 60000)); if (!r) return { err: 'Aucun village ouvert avec ce code sur ce serveur.' }; try { return { snap: await unseal(code, r), code }; } catch (e) { return { err: e.message === 'navigateur' ? 'Ton navigateur est trop ancien pour ouvrir ce village.' : 'Ce village est illisible.' }; } }
+      if (NET.mode === 'server') { if (!NET.wsOk) return { err: 'Connexion au serveur en cours… réessaie dans un instant.' }; let bad = null;
+        for (const h of [I.doc, ids2(code).doc]) { const r = await wsReq({ t: 'get', h }, 60000); if (!r) continue; try { return { snap: await unseal(code, r), code }; } catch (e) { bad = e; } }
+        return { err: bad ? (bad.message === 'navigateur' ? 'Ton navigateur est trop ancien pour ouvrir ce village.' : 'Ce village est illisible… demande à ton ami de relancer le jeu, puis réessaie.') : 'Aucun village ouvert avec ce code pour l\'instant… Ton ami doit avoir lancé le jeu, portillon ouvert.' }; }
     } catch (e) { return { err: 'Connexion impossible pour le moment.' }; }
     return { err: 'Tu joues hors ligne : ouvre le jeu depuis son lien claude.ai, ou lance le serveur sur ton PC.' };
   };
@@ -337,15 +339,34 @@
     const f = $('panel-foot'); f.innerHTML = '<div class="desc">🔒 Villages privés : on ne voit que les joueurs du village où l\'on est. Entrée : discuter.</div>';
     if (!NET.visit) { const on = NET.editOpen(), b = document.createElement('button'); b.className = 'btn' + (on ? ' warn' : ''); b.textContent = on ? '🚫 Mes amis ne modifient plus' : '⭐ Tous mes visiteurs peuvent modifier (sauf les maisons)'; b.onclick = () => { NET.setEditOpen(!on); G.sfx('craft'); openPlayers(); }; f.appendChild(b); }
   }
-  // ---------- visiter un village (code ami obligatoire) ----------
+  // ---------- le carnet de voyage : les villages d'amis où l'on est déjà allé, gardés dans la session (et, chiffrés, dans la session en ligne) ----------
+  const myRec = () => { const s = G.session; return s && G.sessions ? G.sessions.get(s.sid) : null; };
+  NET.amis = () => { const r = myRec(); return r && Array.isArray(r.amis) ? r.amis.filter(a => a && typeof a.c === 'string' && CODE_RE.test(a.c) && a.c !== myCode()) : []; };
+  const setAmis = l => { const r = myRec(); if (!r) return; r.amis = l.slice(0, 30); G.sessions.put(r); };
+  const noteAmi = (c, vil) => setAmis([{ c, v: clean(vil, 24) || 'Village', t: Date.now() }].concat(NET.amis().filter(a => a.c !== c)));
+  // ---------- prendre le train : chez un ami (son code ami, une fois, puis il reste dans le carnet), chez soi, ou la ville commune ----------
   NET.askVisit = () => {
-    G.ui.open('visit', '🚂 Visiter un ami'); const body = $('panel-body');
-    body.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px"><label class="fld" style="font-weight:800;color:var(--bark)">CODE AMI DE TON AMI<input id="vs-code" type="text" maxlength="12" placeholder="DV-ABCD-1234" autocomplete="off" spellcheck="false" style="border:none;border-radius:14px;padding:10px 14px;font:700 18px Fredoka,sans-serif;letter-spacing:1px;text-transform:uppercase;background:#fff;color:#3d2b1d"></label><div id="vs-err" class="err"></div>'
-      + '<p style="margin:0;color:var(--bark);font-weight:700;font-size:14px">🔒 Les villages sont privés : il n\'y a aucune liste. Seul le code ami permet de trouver un village et d\'y entrer.</p></div>';
+    const away = !!NET.visit || !!(G.commune && G.commune.map), amis = NET.amis();
+    G.ui.open('visit', '🚂 Où va le train ?'); const body = $('panel-body');
+    body.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px"><div id="vs-top" style="display:flex;flex-direction:column;gap:8px"></div>'
+      + (amis.length ? '<div style="font-weight:800;color:var(--bark)">🚂 LES VILLAGES DE MES AMIS</div><div id="vs-list" style="display:flex;flex-direction:column;gap:6px"></div>' : '')
+      + '<label class="fld" style="font-weight:800;color:var(--bark)">' + (amis.length ? 'UN AUTRE AMI ? SON CODE AMI' : 'CODE AMI DE TON AMI') + '<input id="vs-code" type="text" maxlength="12" placeholder="DV-ABCD-1234" autocomplete="off" spellcheck="false" style="border:none;border-radius:14px;padding:10px 14px;font:700 18px Fredoka,sans-serif;letter-spacing:1px;text-transform:uppercase;background:#fff;color:#3d2b1d"></label><div id="vs-err" class="err"></div>'
+      + '<p style="margin:0;color:var(--bark);font-weight:700;font-size:14px">🔒 Les villages sont privés : il n\'y a aucune liste publique. Seul le code ami permet de trouver un village ; ceux où tu es déjà allé·e restent ici, dans ton carnet.</p></div>';
     const f = $('panel-foot'); f.innerHTML = '<div class="desc">Ton code ami : <b>' + (myCode() || '—') + '</b> — ne le donne qu\'à tes amis.</div>'; const go = document.createElement('button'); go.className = 'btn'; go.textContent = 'Prendre le train'; f.appendChild(go);
-    const inp = $('vs-code'); inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') go.click(); }); setTimeout(() => inp.focus(), 50);
-    go.onclick = async () => { const c = inp.value.trim().toUpperCase().replace(/\s/g, ''); if (c === myCode()) { $('vs-err').textContent = 'C\'est ton propre code !'; return; } go.disabled = true; $('vs-err').textContent = 'Recherche du village…'; const ok = await NET.visitTown(c, true); go.disabled = false; if (ok && ok.err && $('vs-err')) $('vs-err').textContent = ok.err; };
-    if (!NET.online()) $('vs-err').textContent = 'Tu joues hors ligne : ouvre le jeu depuis son lien claude.ai partagé, ou lance « Serveur Douce Vallée » sur ton PC.';
+    const err = t => { const e = $('vs-err'); if (e) e.textContent = t; };
+    const travel = async (c, btn) => { if (c === myCode()) { err('C\'est ton propre code !'); return; } if (btn) btn.disabled = true; err('🚂 Recherche du village…'); const ok = await NET.visitTown(c, true); if (btn) btn.disabled = false; if (ok && ok.err) err(ok.err); };
+    const big = (txt, sub, fn) => { const b = document.createElement('button'); b.className = 'btn'; b.style.cssText = 'display:flex;align-items:center;gap:10px;text-align:left;padding:10px 14px;font-size:16px'; const t = document.createElement('span'); t.style.flex = '1'; t.textContent = txt; b.appendChild(t);
+      if (sub) { const u = document.createElement('small'); u.style.cssText = 'opacity:.75;font-size:12px;letter-spacing:.5px'; u.textContent = sub; b.appendChild(u); } b.onclick = fn; return b; };
+    const top = $('vs-top');
+    if (away) top.appendChild(big('🏠 Rentrer chez moi, à ' + clean(G.villageName, 24), '', () => { G.ui.closePanel && G.ui.closePanel(); NET.visit ? NET.goHome() : G.commune.leave(); }));
+    if (G.commune && !G.commune.map) top.appendChild(big('🌍 La ville commune (tous les joueurs)', '', () => { G.ui.closePanel && G.ui.closePanel(); G.commune.join(); }));
+    const list = $('vs-list'); if (list) for (const a of amis) { const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;align-items:stretch';
+      const here = NET.visit && NET.visit.code === a.c, b = big((here ? '📍 ' : '🚂 ') + a.v + (here ? ' (tu y es)' : ''), a.c, () => here ? G.ui.toast('Tu es déjà ici !') : travel(a.c, b)); b.style.flex = '1'; row.appendChild(b);
+      const x = document.createElement('button'); x.className = 'btn alt'; x.style.cssText = 'padding:6px 12px;font-size:14px'; x.textContent = '✕'; x.title = 'Retirer ce village du carnet';
+      x.onclick = () => { setAmis(NET.amis().filter(q => q.c !== a.c)); G.sfx('ui'); NET.askVisit(); }; row.appendChild(x); list.appendChild(row); }
+    const inp = $('vs-code'); inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') go.click(); }); if (!amis.length) setTimeout(() => inp.focus(), 50);
+    go.onclick = () => { const c = inp.value.trim().toUpperCase().replace(/\s/g, ''); if (!c) { err(amis.length ? 'Choisis un village du carnet, ou entre le code ami d\'un autre ami.' : 'Entre le code ami de ton ami (il ressemble à DV-ABCD-1234).'); inp.focus(); return; } travel(c, go); };
+    if (!NET.online()) err('Tu joues hors ligne : ouvre le jeu sur douce-vallee.onrender.com (ou l\'appli), ou lance « Serveur Douce Vallée » sur ton PC.');
   };
   NET.visitTown = async (code, fromPanel) => {
     code = clean(code, 16).toUpperCase().replace(/\s/g, '');
@@ -356,10 +377,10 @@
     G.ui.closePanel && G.ui.modal === 'panel' && G.ui.closePanel();
     m.id = 'world'; m.kind = 'world'; m.visit = true; G.scene.add(m.group); m.buildAll(); m.group.visible = false;
     if (m.meta.rueGate && G.mapLabel) G.mapLabel(m, '🏬 Rue commerçante', m.meta.rueGate.sx, (m.meta.rueGate.y || 0) + (m.meta.rueGate.big ? 9.4 : 3.25), m.meta.rueGate.z - 1.05, m.meta.rueGate.big ? 1.7 : 1.1);
-    const old = NET.visit; if (old) cleanupVisit(old); seen.clear();
+    const old = NET.visit; if (old) cleanupVisit(old); seen.clear(); noteAmi(code, sn.vil);
     NET.visit = { code, vil: clean(sn.vil, 24) || 'Village', map: m, homes: sn.homes && typeof sn.homes === 'object' ? sn.homes : {}, interiors: {}, homesAt: Date.now(), ses: sn.ses, seq: sn.seq || 0, lastSeq: sn.seq || 0, opsSes: sn.ses, myClock: { min: G.clock.min, day: G.clock.day } };
     G.ents.spawnVillagers(m); trainSfx();
-    G.ui.fade(() => { const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start(0); G.ui.toast('🚂 Bienvenue à ' + NET.visit.vil + ' ! Rentre quand tu veux avec 🏠 ou par la gare.'); sendPresence(true); }, 1.6);
+    G.ui.fade(() => { if (G.commune && G.commune.map) G.commune.leave(true); const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start(0); G.ui.toast('🚂 Bienvenue à ' + NET.visit.vil + ' ! Rentre quand tu veux avec 🏠 ou par la gare.'); sendPresence(true); }, 1.6);
     return {};
   };
   function dropMap(im) { G.scene.remove(im.group); for (const a of G.ents.villagers.slice()) if (a.map === im) { G.scene.remove(a.root); G.scene.remove(a.blob); G.ents.villagers.splice(G.ents.villagers.indexOf(a), 1); } }
@@ -368,6 +389,7 @@
   const refreshHomes = () => { const v = NET.visit; if (!v) return Promise.resolve(); v.homesAt = Date.now();
     return v.refP || (v.refP = (async () => { try { const r = await NET.findTown(v.code), h = r && r.snap && r.snap.homes; if (NET.visit !== v || !h || typeof h !== 'object') return;
       for (const id in h) { const im = v.interiors[id]; if (im && im.gen && G.map !== im) { dropMap(im); delete v.interiors[id]; } if (!v.interiors[id]) v.homes[id] = h[id]; } } catch (e) { } finally { v.refP = null; } })()); };
+  NET.endVisit = () => leaveVisit(true);
   NET.refreshHomes = refreshHomes; NET.homesStale = () => !!NET.visit && Date.now() - (NET.visit.homesAt || 0) > 4000;
   function leaveVisit(silent) { const v = NET.visit; if (!v) return; cleanupVisit(v); NET.visit = null; if (v.myClock) { G.clock.min = v.myClock.min; G.clock.day = v.myClock.day; } if (!silent) sendPresence(true); }
   NET.goHome = () => { if (!NET.visit) return; trainSfx(); G.ui.fade(() => { const g = G.world.meta.gare || G.world.meta.spawn; G.enterMap(G.world, g.x, (g.z || 0) + .4, 0); leaveVisit(); G.train && G.train.start(0); G.ui.toast('🏠 De retour à ' + G.villageName + ' !'); }, 1.6); };
@@ -402,10 +424,11 @@
   NET.newCode = rec => { const old = rec.code; rec.code = G.sessions.newCode(); G.sessions.put(rec); if (G.session && G.session.sid === rec.sid) G.session.code = rec.code; if (NET.online() && old) unpublish(old, rec.sid); NET.pubRev = -1; NET.pubT = 2; return rec.code; };
   // Pablo et le capitaine connaissent les visites
   G.npcRoles.gare = v => {
-    if (NET.visit && G.map.visit) return G.npcSay(v, ['Bienvenue à ' + NET.visit.vil + ' ! Tu es venu·e en visite, hi hi !'], ['Rentrer chez moi', 'Rester encore']).then(k => { if (k === 0) NET.goHome(); });
+    if (NET.visit && G.map.visit) return G.npcSay(v, ['Bienvenue à ' + NET.visit.vil + ' ! Tu es venu·e en visite, hi hi !', 'Le train t\'emmène où tu veux : chez toi, chez un autre ami, ou dans la ville commune.'], ['🏠 Rentrer chez moi', '🚂 Aller chez un autre ami', '🌍 La ville commune', 'Rester encore'])
+      .then(k => { if (k === 0) NET.goHome(); else if (k === 1) NET.askVisit(); else if (k === 2) G.commune && G.commune.join(); });
     const closed = NET.closed(), edit = NET.editOpen();
     return G.npcSay(v, ['Bienvenue à la gare de ' + G.villageName + ' ! Hi hi !', 'Ton code ami : ' + (myCode() || '—') + '. Ne le donne qu\'à tes amis : sans lui, personne ne peut entrer.' + (closed ? ' (Ton portillon est fermé.)' : ' (Ton portillon est ouvert.)')],
-      ['Visiter un ami', '🌍 La ville commune (tous les joueurs)', closed ? '🔓 Ouvrir le portillon' : '🔒 Fermer le portillon', edit ? '🚫 Mes amis ne modifient plus' : '⭐ Mes amis peuvent modifier', 'Attendre le prochain train', 'Utiliser les casiers', 'Au revoir']).then(k => {
+      ['🚂 Aller chez un ami', '🌍 La ville commune (tous les joueurs)', closed ? '🔓 Ouvrir le portillon' : '🔒 Fermer le portillon', edit ? '🚫 Mes amis ne modifient plus' : '⭐ Mes amis peuvent modifier', 'Attendre le prochain train', 'Utiliser les casiers', 'Au revoir']).then(k => {
       if (k === 0) return NET.askVisit();
       if (k === 1) return G.commune && G.commune.join();
       k--; if (k === 1) { NET.setClosed(!closed); return G.npcSay(v, closed ? ['Portillon ouvert ! Tes amis peuvent venir avec ton code ami.'] : ['Portillon fermé. Plus personne ne peut venir, même avec ton code. Reviens me voir pour rouvrir !']); }

@@ -46,7 +46,6 @@
   // ---------- rejoindre / quitter ----------
   async function join() {
     if (C.map) { G.ui.toast('Tu es déjà dans la ville commune !'); return; }
-    if (NET.visit) { G.ui.toast('Rentre d\'abord chez toi, puis prends le train pour la ville commune.'); return; }
     if (!okServer()) { G.ui.toast(NET.mode === 'claude' ? '🌍 La ville commune vit sur le serveur Douce Vallée : ouvre le jeu sur douce-vallee.onrender.com.' : '🌍 Pas de connexion au serveur pour l\'instant… (il se réveille parfois en une minute) Réessaie bientôt !', 7000); return; }
     if (C.busy) return; C.busy = true; G.ui.toast('🌍 En route pour la ville commune…', 4000);
     try {
@@ -61,7 +60,7 @@
       apply(r.ops);
       G.scene.add(m.group); m.buildAll(); m.group.visible = false; G.ents.spawnVillagers(m);
       NET.forceRoom = ROOM; trainSfx();
-      G.ui.fade(() => { const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start && G.train.start(0);
+      G.ui.fade(() => { if (NET.visit && NET.endVisit) NET.endVisit(); const g = m.meta.gare || m.meta.spawn; G.enterMap(m, g.x, (g.z || 0) + .4, 0); G.train && G.train.start && G.train.start(0);
         G.ui.toast('🌍 Bienvenue dans la ville commune ! Tous les joueurs y construisent ensemble, en direct. Entrée : discuter · 🏠 : rentrer chez toi.', 9000); }, 1.6);
     } catch (e) { console.error(e); G.ui.toast('La ville commune ne répond pas pour le moment. Réessaie dans un instant.'); }
     finally { C.busy = false; }
@@ -100,7 +99,7 @@
     const ott = G.toTitle; G.toTitle = () => { if (C.map) leave(true); ott(); };
     // Pablo, à la gare de la ville commune
     const og = G.npcRoles.gare; G.npcRoles.gare = v => { if (G.map !== C.map) return og(v);
-      return G.npcSay(v, ['Bienvenue à la gare de la ville commune ! Ici, tous les joueurs construisent ensemble, hi hi !', 'Ce que tu poses reste pour tout le monde. Ce qu\'un autre a posé, seul lui peut le retirer.'], ['🏠 Rentrer chez moi', 'Rester encore']).then(k => { if (k === 0) leave(); }); };
+      return G.npcSay(v, ['Bienvenue à la gare de la ville commune ! Ici, tous les joueurs construisent ensemble, hi hi !', 'Ce que tu poses reste pour tout le monde. Ce qu\'un autre a posé, seul lui peut le retirer.'], ['🏠 Rentrer chez moi', '🚂 Aller chez un ami', 'Rester encore']).then(k => { if (k === 0) leave(); else if (k === 1 && NET.askVisit) NET.askVisit(); }); };
     // le bouton du menu Pause
     const pm = document.getElementById('p-map'); if (pm) { const b = document.createElement('button'); b.className = 'mbtn'; b.id = 'p-commune'; b.innerHTML = '<span class="e">🌍</span><span class="t">Ville commune</span>'; pm.insertAdjacentElement('afterend', b);
       b.addEventListener('click', () => { G.audio.init && G.audio.init(); G.sfx('ui'); G.ui.resume(); C.map ? leave() : join(); }); }

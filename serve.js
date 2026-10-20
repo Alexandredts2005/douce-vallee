@@ -4,7 +4,7 @@
 // Sur ton PC :  node serve.js [dossier] [port]   puis ouvrir http://localhost:5180 (ou http://IP-du-PC:5180 pour les amis)
 // Sur Render :  « node serve.js » — Render fournit le port (PORT). Les villages sont gardés en mémoire (ou dans /data si un disque est monté).
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os');
-const VER = '9.0';
+const VER = '9.1';
 const root = path.resolve(process.argv[2] || __dirname), PORT = +(process.env.PORT || process.argv[3] || 5180), ON_RENDER = !!process.env.RENDER;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const DATA = path.join(fs.existsSync('/data') ? '/data' : root, 'douce-vallee-serveur.json');
@@ -101,8 +101,9 @@ function onMessage(c, txt) {
     const pid = m.d && m.d.pid; if (pid) for (const o of clients.values()) if (o !== c && o.pres && o.pres.pid === pid) { leave(o); try { o.sock.destroy(); } catch (e) { } clients.delete(o.id); }
     inRoom(c.room, { t: 'pres', id: c.id, d: m.d }, c); }
   // publier : seul le premier qui a publié ce village (son « propriétaire ») peut le remplacer ou le retirer
-  else if (m.t === 'pub') { const t = towns[m.h], ok = okH(m.h) && okH(m.ow) && m.rec && typeof m.rec.d === 'string' && typeof m.rec.n === 'string' && m.rec.d.length < 3e6 && (t ? t.ow === m.ow : Object.keys(towns).length < 5000);
-    if (ok) { towns[m.h] = { ow: m.ow, rec: { v: 2, z: m.rec.z ? 1 : 0, n: m.rec.n, d: m.rec.d }, at: Date.now() }; persist(); } send(c, { t: 'res', rid: m.rid, data: !!ok }); }
+  // le village est gardé tel quel, avec son format (v3 : chiffré ET signé — sans sa signature « t », plus personne ne pourrait l'ouvrir)
+  else if (m.t === 'pub') { const t = towns[m.h], r = m.rec, v3 = !!(r && r.v === 3), ok = okH(m.h) && okH(m.ow) && r && typeof r.d === 'string' && typeof r.n === 'string' && r.d.length < 3e6 && r.n.length < 40 && (!v3 || (typeof r.t === 'string' && r.t.length < 80)) && (t ? t.ow === m.ow : Object.keys(towns).length < 5000);
+    if (ok) { towns[m.h] = { ow: m.ow, rec: v3 ? { v: 3, z: r.z ? 1 : 0, n: r.n, d: r.d, t: r.t } : { v: 2, z: r.z ? 1 : 0, n: r.n, d: r.d }, at: Date.now() }; persist(); } send(c, { t: 'res', rid: m.rid, data: !!ok }); }
   else if (m.t === 'unpub') { const t = towns[m.h], ok = okH(m.h) && t && t.ow === m.ow; if (ok) { delete towns[m.h]; persist(); } send(c, { t: 'res', rid: m.rid, data: !!ok }); }
   else if (m.t === 'get') send(c, { t: 'res', rid: m.rid, data: okH(m.h) && towns[m.h] ? towns[m.h].rec : null });
   // ---------- la ville commune : on lit la ville (carte de départ + constructions), on la crée, on construit ----------

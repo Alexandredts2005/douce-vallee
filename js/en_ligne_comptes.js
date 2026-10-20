@@ -25,7 +25,7 @@
   async function pack(enc, obj) { let u = u8(JSON.stringify(obj)), z = 0; if (typeof CompressionStream !== 'undefined') { try { const c = await pipe(u, CompressionStream); if (c.length < u.length) { u = c; z = 1; } } catch (e) { } }
     const s = D.seal(enc, u); return { v: 3, z, n: G.b64.enc(s.n), d: G.b64.enc(s.c), t: G.b64.enc(s.t) }; }
   async function unpack(enc, b) { let u = D.open(enc, G.b64.dec(b.n), G.b64.dec(b.d), G.b64.dec(b.t)); if (!u) throw new Error('illisible'); if (b.z) u = await pipe(u, DecompressionStream); return JSON.parse(new TextDecoder().decode(u)); }
-  const cleanRec = rec => { const o = {}; for (const k of ['sid', 'code', 'village', 'mode', 'residents', 'closed', 'at']) if (rec[k] !== undefined) o[k] = rec[k]; return o; };
+  const cleanRec = rec => { const o = {}; for (const k of ['sid', 'code', 'village', 'mode', 'residents', 'closed', 'amis', 'at']) if (rec[k] !== undefined) o[k] = rec[k]; return o; };
   // ---------- après la connexion à une session (ou sa création) : on la met en ligne, ou on récupère la version plus récente ----------
   C.login = async (rec, pw, create) => { try { if (!rec || !rec.code || !pw) return; C.tok = null; C.sid = rec.sid;
       const r = await connect(rec.code, pw, create); if (r.err) { if (r.err === 'mdp') G.ui.toast('☁️ Ce code ami existe déjà en ligne avec un autre mot de passe : cette session reste sur ce PC.', 6000); return; }
