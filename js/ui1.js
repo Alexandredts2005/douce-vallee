@@ -98,6 +98,7 @@
     if (p.fish) return p.fish.phase === 'bite' ? '<kbd>F</kbd>Ferrer !' : '<kbd>F</kbd>Remonter la ligne';
     const out = []; const v = G.ents.villagerInFront(p); if (v) out.push(`<kbd>E</kbd>${v.shop ? 'Boutique de' : 'Parler à'} ${v.D.n}`);
     const fv = !v && G.nearFriendVehicle && G.nearFriendVehicle(); if (fv) out.push('<kbd>E</kbd>Monter avec ' + String(fv.pr.n || 'ton ami').replace(/[<>&]/g, ''));
+    const xp = !v && !fv && G.extraPrompt && G.extraPrompt(); if (xp) out.push(xp); // un animal à caresser…
     const m = G.map, [tx, tz] = p.target(); G._deckPick = p.y; const o = m.objAt(tx, tz); G._deckPick = null; const d = o && G.OBJ[o.t], it = G.inv.held();
     if (!v && d) {
       let e = null; if (d.shop) e = 'Entrer dans la boutique'; else if (d.enter) e = G.act.front(o) ? 'Entrer' : null; else if (d.storage) e = 'Rangement'; else if (d.wardrobe) e = 'Changer de tenue'; else if (d.balloon) e = d.veh2 ? d.ico + ' Monter : ' + d.n : d.moto ? '🏍️ Monter sur la moto (W)' : d.vessel ? '⛵ Prendre le bateau' : d.plane ? '✈️ Monter dans l\'avion' : 'Monter dans la montgolfière'; else if (d.games) e = 'Jouer';
