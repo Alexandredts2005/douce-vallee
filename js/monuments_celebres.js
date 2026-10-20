@@ -1,6 +1,6 @@
 'use strict';
 // ===== Monuments célèbres du monde, en version Douce Vallée, à poser dans le village (catalogue Construction) :
-// tour Eiffel (illuminée la nuit), arc de Triomphe, pyramide du Louvre, Notre-Dame de Paris, Sacré-Cœur, obélisque de la Concorde,
+// (la tour Eiffel et Notre-Dame sont dans monuments_grands.js) arc de Triomphe, pyramide du Louvre, Notre-Dame de Paris, Sacré-Cœur, obélisque de la Concorde,
 // Moulin Rouge (enseigne au néon, ailes qui tournent), statue de la Liberté (flambeau allumé), Big Ben (cadrans éclairés),
 // tour de Pise (qui penche !), Colisée, Parthénon, Taj Mahal, pagode à cinq toits, Atomium, Christ Rédempteur,
 // basilique Saint-Basile et ses bulbes de toutes les couleurs, moaï, Stonehenge, pyramide de Khéops et le Sphinx. =====
@@ -39,33 +39,6 @@
     for (const ch of txt) { const g = FONT[ch] || FONT[' ']; g.forEach((row, j) => { for (let i = 0; i < 5; i++) if (row[i] === '1') b.add(new THREE.BoxGeometry(px * .82, px * .82, px * .4), col, b.M(cx + (i + .5) * px, y + (6 - j + .5) * px, z), 1, false); }); cx += 6 * px; } }
 
   const IRON = 0x7a6450, IRON2 = 0x5e4c3c, STONE = 0xe6dcc4, MARBLE = 0xf4f0e6, GOLD = 0xe8c25a, SLATE = 0x4a5562, GLASS = 0x9fd8ff, WARM = 0xffd98a, DARK = 0x2e2a26;
-
-  // =====================================================================
-  // 1. TOUR EIFFEL
-  // =====================================================================
-  MD.tour_eiffel = () => { const b = G.mb(5100), sk = SK(); b.S(sk.iron);
-    const sq = (c, h) => [[c[0] - h, c[1], c[2] - h], [c[0] + h, c[1], c[2] - h], [c[0] + h, c[1], c[2] + h], [c[0] - h, c[1], c[2] + h]];
-    const lattice = (P, H, N, wc, wb) => { for (let i = 0; i < N; i++) { const A = sq(P(i / N), H(i / N)), B = sq(P((i + 1) / N), H((i + 1) / N));
-      for (let k = 0; k < 4; k++) { const k2 = (k + 1) % 4; beam(b, A[k], B[k], wc, IRON); beam(b, A[k], B[k2], wb, IRON2); beam(b, A[k2], B[k], wb, IRON2); beam(b, B[k], B[k2], wb * 1.1, IRON2); } } };
-    // les quatre piliers, courbés vers l'intérieur
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const P = t => { const e = 1 - Math.pow(1 - t, 1.7); return [sx * (2.45 - 1.12 * e), 5.2 * t, sz * (2.45 - 1.12 * e)]; };
-      lattice(P, t => .45 - .17 * t, 8, .075, .03); b.S(sk.stone); b.P(PT.pierre); b.box(1.15, .32, 1.15, 0xd8ccb0, sx * 2.45, .16, sz * 2.45); b.P(0); b.S(sk.iron);
-      for (let i = 0; i <= 8; i++) { const c = P(i / 8); b.add(new THREE.BoxGeometry(.06, .06, .06), WARM, b.M(c[0] + sx * .45, c[1], c[2] + sz * .45), 1, false); } } // ampoules dorées
-    // les grandes arches entre les piliers
-    for (let s = 0; s < 4; s++) { const ry = s * PI / 2; for (let k = 0; k < 2; k++) { const r = 1.75 - k * .16, P = []; for (let i = 0; i <= 16; i++) { const a = PI * i / 16; P.push([Math.cos(a) * r, 2.0 + Math.sin(a) * 1.55 * (r / 1.75), 1.62]); }
-        for (let i = 0; i < 16; i++) { const R = (q) => [q[0] * Math.cos(ry) + q[2] * Math.sin(ry), q[1], -q[0] * Math.sin(ry) + q[2] * Math.cos(ry)]; beam(b, R(P[i]), R(P[i + 1]), .06, IRON); if (k === 1) { const Q = [P[i][0] * 1.1, P[i][1] + .13, P[i][2]]; beam(b, R(P[i]), R(Q), .025, IRON2); } } } }
-    // 1er étage
-    const deck = (y, s, h, n) => { b.S(sk.iron); b.box(s, .16, s, IRON2, 0, y, 0); for (let i = 0; i < 4; i++) { const ry = i * PI / 2, c = Math.cos(ry), sn = Math.sin(ry);
-        b.add(new THREE.BoxGeometry(s, h, .06), IRON, b.M(sn * s / 2, y + .08 + h / 2, c * s / 2, 0, ry, 0), 0, false);
-        for (let k = 0; k < n; k++) { const u = (k + .5) / n - .5; b.add(new THREE.BoxGeometry(s / n * .6, h * .5, .02), WARM, b.M(sn * (s / 2 + .035) + c * u * s, y + .08 + h / 2, c * (s / 2 + .035) - sn * u * s), 1, false);
-          const a0 = [sn * s / 2 + c * (u - .5 / n) * s, y - .08, c * s / 2 - sn * (u - .5 / n) * s], a1 = [sn * s / 2 + c * (u + .5 / n) * s, y - .08, c * s / 2 - sn * (u + .5 / n) * s], am = [(a0[0] + a1[0]) / 2, y - .32, (a0[2] + a1[2]) / 2]; beam(b, a0, am, .03, IRON); beam(b, am, a1, .03, IRON); } } };
-    deck(5.25, 3.7, .55, 10);
-    lattice(t => [0, 5.35 + 6.2 * t, 0], t => 1.3 - .7 * Math.pow(t, .9), 7, .07, .028); // partie centrale
-    deck(11.6, 1.75, .45, 6);
-    lattice(t => [0, 11.7 + 9.3 * t, 0], t => .62 - .44 * (1 - Math.pow(1 - t, 1.6)), 10, .06, .022); // la flèche
-    b.box(.62, .55, .62, IRON2, 0, 21.3, 0); for (let i = 0; i < 4; i++) b.add(new THREE.BoxGeometry(.4, .22, .02), WARM, b.M(Math.sin(i * PI / 2) * .32, 21.35, Math.cos(i * PI / 2) * .32, 0, i * PI / 2, 0), 1, false);
-    dome(b, .32, .3, IRON, 0, 21.58, 0); rod(b, [0, 21.8, 0], [0, 23.9, 0], .05, IRON2, 8, 0, .025); b.add(new THREE.SphereGeometry(.09, 10, 8), 0xfff2c0, b.M(0, 22.3, 0), 1, true); // phare au sommet
-    b.S(null); return b.done(); };
 
   // =====================================================================
   // 2. ARC DE TRIOMPHE
@@ -191,39 +164,6 @@
     for (let i = 0; i < 14; i++) { const a = 2.4 + (rnd() - .5) * 1.4, [x, z] = P(a, 1.25 + rnd() * .2); b.add(new THREE.BoxGeometry(.3 + rnd() * .3, .18, .25), C, b.M(x, .09, z, rnd(), rnd() * 3, 0), 0, false); } // blocs tombés
     b.S(null); return b.done(); };
   const shade = (c, k) => new THREE.Color(c).multiplyScalar(k).getHex();
-
-  // =====================================================================
-  // 8. NOTRE-DAME DE PARIS
-  // =====================================================================
-  MD.notre_dame = () => { const b = G.mb(5170), sk = SK(), C = 0xd9cdb0, D = 0xc6b996, ROOF = 0x6a7480, rnd = G.rng(5170); b.S(sk.stone); b.P(PT.pierre);
-    const zF = 3.9;
-    for (const sx of [-1, 1]) { b.box(1.65, 6.9, 1.7, C, sx * 1.72, 3.45, zF - .85); b.box(1.8, .14, 1.85, D, sx * 1.72, 6.92, zF - .85); for (let i = 0; i < 8; i++) b.box(.14, .25, .14, D, sx * 1.72 + (i % 4 - 1.5) * .45, 7.1, zF - .85 + (i < 4 ? .85 : -.85)); } // les deux tours
-    b.box(1.8, 5.6, 1.4, C, 0, 2.8, zF - .7); b.P(0);
-    // portails (arcs brisés) et leurs voussures
-    for (const [x, w] of [[0, .95], [-1.72, .8], [1.72, .8]]) { extrude(b, arched(w + .3, 2.0, [{ x: 0, w, h: 1.75, pointed: 1 }]), .12, D, b.M(x, .0, zF + .06)); b.add(new THREE.BoxGeometry(w, 1.6, .02), 0x3a3024, b.M(x, .8, zF - .02), 0, false);
-      for (let k = 0; k < 3; k++) ell(b, 0xcfc2a2, x + (k - 1) * w * .28, 1.25, zF + .02, .06, .14, .03); }
-    // galerie des rois
-    for (let i = 0; i < 28; i++) { const x = -2.45 + i * .18; b.add(new THREE.BoxGeometry(.08, .3, .05), 0xcabd9c, b.M(x, 2.35, zF + .04), 0, false); ell(b, 0xd2c6a6, x, 2.53, zF + .04, .035, .04, .03); }
-    b.box(5.2, .08, .12, D, 0, 2.15, zF + .03); b.box(5.2, .08, .12, D, 0, 2.62, zF + .03);
-    // la rose (vitrail éclairé la nuit)
-    const ry = 4.15; b.add(new THREE.CylinderGeometry(.68, .68, .05, 40), 0x2a2a6a, b.M(0, ry, zF + .02, PI / 2, 0, 0), 1, true);
-    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; b.add(new THREE.CylinderGeometry(.1, .1, .02, 10), [0x3a5ad8, 0xc83a4a, 0x8a4ad8, 0xe8b83a][i % 4], b.M(Math.cos(a) * .42, ry + Math.sin(a) * .42, zF + .05, PI / 2, 0, 0), 1, true); beam(b, [Math.cos(a) * .15, ry + Math.sin(a) * .15, zF + .06], [Math.cos(a) * .66, ry + Math.sin(a) * .66, zF + .06], .025, D); }
-    b.add(new THREE.TorusGeometry(.7, .05, 6, 40), D, b.M(0, ry, zF + .06), 0, true); b.add(new THREE.TorusGeometry(.2, .03, 6, 20), D, b.M(0, ry, zF + .07), 0, true); b.add(new THREE.CylinderGeometry(.12, .12, .02, 14), 0xe8b83a, b.M(0, ry, zF + .06, PI / 2, 0, 0), 1, true);
-    for (let i = 0; i < 9; i++) b.add(new THREE.CylinderGeometry(.03, .03, .5, 8), D, b.M(-.8 + i * .2, 5.25, zF + .04), 0, true); // galerie de la Vierge
-    for (const sx of [-1, 1]) for (const dx of [-.33, .33]) b.add(new THREE.BoxGeometry(.2, 1.7, .02), 0x2a2420, b.M(sx * 1.72 + dx, 5.6, zF + .02), 0, false); // baies des tours
-    // la nef, les bas-côtés, les toits
-    b.P(PT.pierre); b.box(2.6, 4.8, 6.8, C, 0, 2.4, -.35); for (const sx of [-1, 1]) b.box(.95, 2.6, 6.6, C, sx * 1.75, 1.3, -.4); b.P(PT.ardoise);
-    for (const s of [-1, 1]) { b.box(1.62, .1, 6.9, ROOF, s * .66, 5.55, -.35, 0, 0, -s * .95); b.box(1.05, .08, 6.6, ROOF, s * 1.78, 2.75, -.4, 0, 0, -s * .35); }
-    b.P(0); b.box(.06, .06, 6.9, 0xb8a060, 0, 6.12, -.35);
-    for (let i = 0; i < 6; i++) { const z = 2.5 - i * 1.15; for (const sx of [-1, 1]) { b.add(new THREE.BoxGeometry(.12, .9, .02), [0x3a5ad8, 0xc83a4a, 0x8a4ad8][i % 3], b.M(sx * 1.31, 3.7, z), 1, false); // vitraux hauts
-        b.box(.22, 3.0, .3, C, sx * 2.55, 1.5, z); rod(b, [sx * 2.55, 2.9, z], [sx * 1.32, 4.3, z], .07, D); rod(b, [sx * 2.55, 2.4, z], [sx * 2.2, 2.62, z], .05, D); b.cone(.1, .5, 6, D, sx * 2.55, 3.2, z); } } // arcs-boutants
-    b.P(PT.pierre); b.box(5.8, 4.6, 1.5, C, 0, 2.3, -.6); b.P(PT.ardoise); for (const s of [-1, 1]) b.box(1.6, .1, 5.9, ROOF, 0, 5.5, -.6 + s * .5, 0, PI / 2, s * .95); b.P(0); // transept
-    for (const sx of [-1, 1]) { b.add(new THREE.CylinderGeometry(.48, .48, .04, 32), 0x3a3a8a, b.M(sx * 2.92, 3.4, -.6, 0, 0, PI / 2), 1, true); b.add(new THREE.TorusGeometry(.5, .04, 6, 30), D, b.M(sx * 2.93, 3.4, -.6, 0, PI / 2, 0), 0, true); }
-    b.P(PT.pierre); b.cyl(1.3, 1.3, 4.6, 8, C, 0, 2.3, -3.75); b.P(PT.ardoise); b.cone(1.4, 1.5, 8, ROOF, 0, 5.35, -3.75); b.P(0); // chevet
-    // la flèche
-    b.cyl(.32, .36, .9, 8, ROOF, 0, 6.5, -.6); b.cone(.32, 5.2, 8, ROOF, 0, 9.55, -.6); for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; rod(b, [Math.cos(a) * .36, 6.9, -.6 + Math.sin(a) * .36], [Math.cos(a) * .08, 10.3, -.6 + Math.sin(a) * .08], .02, 0x8a92a0); }
-    b.S(sk.gold); rod(b, [0, 12.1, -.6], [0, 12.6, -.6], .02, GOLD); b.add(new THREE.BoxGeometry(.2, .03, .03), GOLD, b.M(0, 12.48, -.6), 0, false); ell(b, GOLD, 0, 12.66, -.6, .05, .04, .03);
-    b.S(null); return b.done(); };
 
   // =====================================================================
   // 9. SACRÉ-CŒUR
@@ -430,10 +370,8 @@
   // =====================================================================
   const add = (id, n, o, sell, desc) => { O[id] = Object.assign({ id, n, model: id, v: 0, take: 1, cat: 'construction', monument: 1 }, o);
     G.ITEMS[id] = Object.assign(G.ITEMS[id] || {}, { id, n, kind: 'place', obj: id, cat: 'construction', thumb: 'obj:' + id, sell, stack: 1, desc }); if (G.SHOPLIST && !G.SHOPLIST.includes(id)) G.SHOPLIST.push(id); };
-  add('tour_eiffel', 'Tour Eiffel', { fp: [6, 6], h: 24, light: 1, ly: 22.3, ld: 18, li: 1.6 }, 80000, 'La Dame de fer, 24 cases de haut : piliers en treillis, grandes arches, deux étages et sa flèche. La nuit, elle scintille d\'or.');
   add('arc_triomphe', 'Arc de Triomphe', { fp: [5, 3], h: 5.1 }, 45000, 'Grand arc, frises sculptées, boucliers de l\'attique et le drapeau tricolore sous la voûte.');
   add('pyramide_louvre', 'Pyramide du Louvre', { fp: [5, 5], h: 2.8 }, 40000, 'Verre et acier en losanges, entourée de ses bassins et de leurs jets d\'eau.');
-  add('notre_dame', 'Notre-Dame de Paris', { fp: [6, 9], h: 12.7, light: 1, ly: 4.2, ld: 6, li: .6 }, 90000, 'Tours, rosace en vitrail (éclairée la nuit), portails, galerie des rois, arcs-boutants et la flèche.');
   add('sacre_coeur', 'Basilique du Sacré-Cœur', { fp: [6, 7], h: 12.3 }, 70000, 'Toute blanche, son grand dôme sur un tambour à colonnes, ses quatre petits dômes et son campanile.');
   add('obelisque', 'Obélisque de la Concorde', { fp: [2, 2], h: 8.9 }, 25000, 'Granit rose couvert de hiéroglyphes, et sa pointe dorée.');
   add('moulin_rouge', 'Moulin Rouge', { fp: [4, 3], h: 6.2, light: 1, ly: 3.2, ld: 8, li: 1.2 }, 50000, 'Enseigne au néon, marquise d\'ampoules et ses ailes rouges qui tournent.');
