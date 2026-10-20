@@ -1,0 +1,39 @@
+{
+  "name": "douce-vallee-appli",
+  "productName": "Douce Vallée",
+  "version": "1.0.0",
+  "description": "Douce Vallée — l'appli Windows",
+  "author": "Douce Vallée",
+  "license": "MIT",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "preparer": "node preparer.js",
+    "start": "node preparer.js && electron .",
+    "exe": "node preparer.js && electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "44.9.1",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "fr.doucevallee.jeu",
+    "productName": "Douce Vallée",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "icone.png", "icone.ico"],
+    "extraResources": [{ "from": "jeu", "to": "jeu" }],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }],
+      "icon": "icone.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Douce Vallée",
+      "artifactName": "Douce-Vallee-Installation-${version}.exe"
+    },
+    "portable": { "artifactName": "Douce-Vallee-${version}-portable.exe" }
+  }
+}

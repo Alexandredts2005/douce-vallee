@@ -4,21 +4,29 @@
 // Sur ton PC :  node serve.js [dossier] [port]   puis ouvrir http://localhost:5180 (ou http://IP-du-PC:5180 pour les amis)
 // Sur Render :  « node serve.js » — Render fournit le port (PORT). Les villages sont gardés en mémoire (ou dans /data si un disque est monté).
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os');
-const VER = '8.2';
+const VER = '9.0';
 const root = path.resolve(process.argv[2] || __dirname), PORT = +(process.env.PORT || process.argv[3] || 5180), ON_RENDER = !!process.env.RENDER;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const DATA = path.join(fs.existsSync('/data') ? '/data' : root, 'douce-vallee-serveur.json');
 // la ville commune (façon serveur Minecraft) : une seule ville pour tous les joueurs, gardée ici — sa carte de départ, puis chaque construction
 const COMMUNE = 't' + 'c0'.repeat(20), CMAX = 120000;
-let towns = {}, commune = { base: null, bseq: 0, seq: 0, ops: [] }; try { const d = JSON.parse(fs.readFileSync(DATA, 'utf8')); if (d.v === 2) { towns = d.towns || {}; if (d.commune && d.commune.base) commune = d.commune; } } catch (e) { } // l'ancien format (codes en clair) est oublié
-let saveT = null; const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { fs.writeFileSync(DATA, JSON.stringify({ v: 2, towns, commune })); } catch (e) { console.error('écriture impossible', e.message); } }, 1500); };
+let towns = {}, commune = { base: null, bseq: 0, seq: 0, ops: [] }, accts = {}; try { const d = JSON.parse(fs.readFileSync(DATA, 'utf8')); if (d.v === 2 || d.v === 3) { towns = d.towns || {}; if (d.commune && d.commune.base) commune = d.commune; accts = d.accts || {}; } } catch (e) { } // l'ancien format (codes en clair) est oublié
+// écriture atomique (fichier temporaire puis renommage) : une coupure en pleine écriture ne corrompt jamais les données
+let saveT = null; const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { const tmp = DATA + '.tmp'; fs.writeFileSync(tmp, JSON.stringify({ v: 3, towns, commune, accts }), { mode: 0o600 }); fs.renameSync(tmp, DATA); } catch (e) { console.error('écriture impossible', e.message); } }, 1500); };
+// le « poivre » : un secret propre au serveur (variable DV_PEPPER, sinon un fichier créé une fois), mêlé à chaque empreinte de mot de passe.
+// Même si quelqu'un volait le fichier des comptes, sans ce secret il ne pourrait rien essayer.
+const PEPPER = (() => { const e = process.env.DV_PEPPER; if (e && e.length >= 32) return Buffer.from(e); const kf = DATA + '.key'; try { const k = fs.readFileSync(kf); if (k.length >= 32) return k; } catch (x) { }
+  const k = crypto.randomBytes(48); try { fs.writeFileSync(kf, k, { mode: 0o600 }); } catch (x) { } return k; })();
 // le jeu ouvert depuis le fichier (ou un autre site) peut aussi joindre ce serveur
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
+const SEC = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'SAMEORIGIN', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()', 'Cross-Origin-Opener-Policy': 'same-origin' };
+if (ON_RENDER) SEC['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'; // toujours en https sur Render
+const ipOf = req => String((req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || '').split(',')[0].trim().slice(0, 64);
 const isLocal = req => { const a = (req.socket && req.socket.remoteAddress) || ''; return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1'; };
 
 const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
-  for (const k in CORS) res.setHeader(k, CORS[k]);
+  for (const k in CORS) res.setHeader(k, CORS[k]); for (const k in SEC) res.setHeader(k, SEC[k]);
   let p; try { p = decodeURIComponent(req.url.split('?')[0]); } catch (e) { res.writeHead(400); return res.end(); }
   if (p === '/') p = '/index.html';
   if (p === '/api/ping') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); return res.end(JSON.stringify({ ok: true, server: 'douce-vallee', v: 2, ver: VER })); }
@@ -52,8 +60,41 @@ function readFrame(c) {
   if (masked) { const m = b.slice(off, off + 4); for (let i = 0; i < data.length; i++) data[i] ^= m[i & 3]; }
   c.buf = b.slice(off + mk + len); return { op, fin, data };
 }
+// ===================== COMPTES EN LIGNE (sessions qui tournent sur le serveur) =====================
+// Le mot de passe ne quitte JAMAIS l'ordinateur du joueur : son jeu en tire, par PBKDF2 (150 000 tours), une « preuve » (k) et une clé de
+// chiffrement (que le serveur ne voit pas). Ici, la preuve n'est jamais gardée telle quelle : on garde scrypt(HMAC(poivre, preuve), sel)
+// — lent, gourmand en mémoire, salé, poivré. La sauvegarde arrive déjà chiffrée : le serveur ne peut pas la lire.
+// Contre les essais en masse : 5 erreurs bloquent le compte (15 min, puis de plus en plus longtemps), et chaque adresse est limitée.
+const HEX64 = /^[0-9a-f]{64}$/, HEX32 = /^[0-9a-f]{32}$/, SCRYPT = { N: 32768, r: 8, p: 1, maxmem: 96 * 1024 * 1024 };
+const tokens = new Map(), hits = new Map(); let busy = 0; const waitQ = [];
+const hit = (key, max, win) => { const now = Date.now(), l = (hits.get(key) || []).filter(t => now - t < win); l.push(now); hits.set(key, l); return l.length <= max; };
+function scryptHash(k, salt) { return new Promise((ok, ko) => { const run = () => { busy++; crypto.scrypt(crypto.createHmac('sha256', PEPPER).update(k).digest(), salt, 32, SCRYPT, (e, h) => { busy--; if (waitQ.length) waitQ.shift()(); e ? ko(e) : ok(h); }); };
+  if (busy < 2) run(); else if (waitQ.length < 60) waitQ.push(run); else ko(new Error('occupé')); }); }
+const newToken = a => { const t = crypto.randomBytes(32).toString('hex'); tokens.set(crypto.createHash('sha256').update(t).digest('hex'), { a, exp: Date.now() + 12 * 3600 * 1000 }); return t; };
+const tokAcct = t => { if (typeof t !== 'string' || !HEX64.test(t)) return null; const e = tokens.get(crypto.createHash('sha256').update(t).digest('hex')); return e && e.exp > Date.now() && accts[e.a] ? e.a : null; };
+const okBlob = b => b && typeof b === 'object' && b.v === 3 && typeof b.n === 'string' && typeof b.d === 'string' && typeof b.t === 'string' && b.n.length < 40 && b.t.length < 80 && b.d.length < 8e6;
+async function account(c, m) { const reply = d => send(c, { t: 'res', rid: m.rid, data: d });
+  if (m.t === 'asalt') { // le sel du mot de passe de ce compte (il ne change pas quand on change de code ami)
+    if (!hit('salt:' + c.ip, 60, 10 * 60000)) return reply({ err: 'trop' }); if (!HEX64.test(m.a || '')) return reply({ err: 'format' }); const A = accts[m.a]; return reply(A ? { ok: 1, ps: A.ps } : { ok: 1, none: 1 }); }
+  if (m.t === 'alog') { // se connecter (ou créer le compte la première fois)
+    if (!hit('ip:' + c.ip, 30, 10 * 60000)) return reply({ err: 'trop' }); if (!HEX64.test(m.a || '') || !HEX64.test(m.k || '')) return reply({ err: 'format' });
+    const A = accts[m.a], now = Date.now(), k = Buffer.from(m.k, 'hex');
+    if (!A) { if (!m.c) return reply({ err: 'inconnu' }); if (!HEX32.test(m.ps || '')) return reply({ err: 'format' }); if (Object.keys(accts).length >= 20000) return reply({ err: 'plein' });
+      const salt = crypto.randomBytes(16); let h; try { h = await scryptHash(k, salt); } catch (e) { return reply({ err: 'occupe' }); } if (accts[m.a]) return reply({ err: 'deja' });
+      accts[m.a] = { ps: m.ps, s: salt.toString('hex'), h: h.toString('hex'), at: 0, seen: now, fails: 0, locks: 0, lock: 0, b: null }; persist(); return reply({ ok: 1, tok: newToken(m.a), at: 0, nouveau: 1 }); }
+    if (A.lock > now) return reply({ err: 'bloque', s: Math.ceil((A.lock - now) / 1000) });
+    let h; try { h = await scryptHash(k, Buffer.from(A.s, 'hex')); } catch (e) { return reply({ err: 'occupe' }); }
+    if (!crypto.timingSafeEqual(h, Buffer.from(A.h, 'hex'))) { A.fails = (A.fails || 0) + 1; if (A.fails >= 5) { A.locks = (A.locks || 0) + 1; A.lock = now + Math.min(24 * 3600e3, 15 * 60e3 * Math.pow(2, A.locks - 1)); A.fails = 0; } persist(); return reply({ err: 'mdp' }); }
+    A.fails = 0; A.locks = 0; A.lock = 0; A.seen = now; persist(); return reply({ ok: 1, tok: newToken(m.a), at: A.at || 0 }); }
+  const a = tokAcct(m.tok); if (!a) return reply({ err: 'jeton' }); const A = accts[a];
+  if (m.t === 'asav') { if (!okBlob(m.b) || !Number.isFinite(m.at)) return reply({ err: 'format' }); if (!hit('sav:' + a, 30, 60000)) return reply({ err: 'trop' }); A.b = { v: 3, z: m.b.z ? 1 : 0, n: m.b.n, d: m.b.d, t: m.b.t }; A.at = m.at; A.seen = Date.now(); persist(); return reply({ ok: 1 }); }
+  if (m.t === 'aget') return reply({ ok: 1, b: A.b, at: A.at || 0 });
+  if (m.t === 'aren') { if (!HEX64.test(m.a2 || '') || accts[m.a2]) return reply({ err: 'format' }); accts[m.a2] = A; delete accts[a]; for (const e of tokens.values()) if (e.a === a) e.a = m.a2; persist(); return reply({ ok: 1 }); } // nouveau code ami
+  if (m.t === 'adel') { delete accts[a]; for (const [h, e] of tokens) if (e.a === a) tokens.delete(h); persist(); return reply({ ok: 1 }); }
+}
 function onMessage(c, txt) {
   let m; try { m = JSON.parse(txt); } catch (e) { return; } if (!m || typeof m !== 'object') return;
+  if (m.t === 'asalt' || m.t === 'alog' || m.t === 'asav' || m.t === 'aget' || m.t === 'aren' || m.t === 'adel') { account(c, m).catch(() => send(c, { t: 'res', rid: m.rid, data: { err: 'serveur' } })); return; }
   if (m.t === 'join') { const r = okRoom(m.room) ? m.room : null; if (r === c.room) return; leave(c); c.room = r; if (r) for (const o of clients.values()) if (o !== c && o.room === r && o.pres) send(c, { t: 'pres', id: o.id, d: o.pres }); }
   else if (m.t === 'pres') { if (!c.room || JSON.stringify(m.d || null).length > 8000) return; c.pres = m.d;
     // même page reconnectée : l'ancienne connexion (fantôme) est fermée, pour ne pas voir le joueur en double
@@ -80,11 +121,13 @@ server.on('upgrade', (req, sock) => {
   if (req.url.split('?')[0] !== '/ws') return sock.destroy(); const key = req.headers['sec-websocket-key']; if (!key) return sock.destroy();
   const acc = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
   sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + acc + '\r\n\r\n'); sock.setNoDelay(true);
-  const c = { id: ++N, sock, buf: Buffer.alloc(0), parts: [], pres: null, room: null, last: Date.now() }; clients.set(c.id, c);
+  const ip = ipOf(req); let same = 0; for (const o of clients.values()) if (o.ip === ip) same++; if (same >= 16) return sock.destroy(); // 16 connexions au plus par adresse
+  const c = { id: ++N, sock, ip, buf: Buffer.alloc(0), parts: [], pres: null, room: null, last: Date.now(), win: Date.now(), msgs: 0 }; clients.set(c.id, c);
   sock.on('data', d => { c.last = Date.now(); c.buf = Buffer.concat([c.buf, d]); let f;
     while ((f = readFrame(c))) { if (f.op === 8) { try { sock.end(Buffer.from([0x88, 0])); } catch (e) { } return; }
       if (f.op === 9) { try { sock.write(Buffer.concat([Buffer.from([0x8a, f.data.length]), f.data])); } catch (e) { } continue; }
-      if (f.op === 1 || f.op === 0) { c.parts.push(f.data); if (f.fin) { const txt = Buffer.concat(c.parts).toString(); c.parts = []; onMessage(c, txt); } } } });
+      if (f.op === 1 || f.op === 0) { const now = Date.now(); if (now - c.win > 10000) { c.win = now; c.msgs = 0; } if (++c.msgs > 600) { try { sock.destroy(); } catch (e) { } return; } // un déluge de messages : coupé
+        c.parts.push(f.data); if (f.fin) { const txt = Buffer.concat(c.parts).toString(); c.parts = []; onMessage(c, txt); } } } });
   const bye = () => { if (!clients.has(c.id)) return; leave(c); clients.delete(c.id); };
   sock.on('close', bye); sock.on('end', bye); sock.on('error', bye);
 });
@@ -92,6 +135,8 @@ server.on('upgrade', (req, sock) => {
 setInterval(() => { const lim = Date.now() - 90000; for (const c of [...clients.values()]) if (c.last < lim) { leave(c); try { c.sock.destroy(); } catch (e) { } clients.delete(c.id); } }, 10000);
 // les villages qui ne sont plus publiés depuis 7 jours sont oubliés (leurs propriétaires les republient en jouant)
 setInterval(() => { const lim = Date.now() - 7 * 24 * 3600 * 1000; let n = 0; for (const h in towns) if (towns[h].at < lim) { delete towns[h]; n++; } if (n) persist(); }, 3600 * 1000);
+// jetons expirés et compteurs d'essais anciens : nettoyés ; comptes abandonnés depuis 1 an : oubliés
+setInterval(() => { const now = Date.now(); for (const [h, e] of tokens) if (e.exp < now) tokens.delete(h); for (const [k, l] of hits) if (!l.length || now - l[l.length - 1] > 3600e3) hits.delete(k); let n = 0; for (const a in accts) if (now - (accts[a].seen || 0) > 365 * 24 * 3600e3) { delete accts[a]; n++; } if (n) persist(); }, 10 * 60 * 1000);
 // en ligne 24 h/24 : sur Render (offre gratuite), le serveur s'endort après 15 min sans visite ; il se rend donc visite toutes les 10 min
 // par son adresse publique (un réveil extérieur tourne aussi sur GitHub : .github/workflows/reveil.yml)
 if (ON_RENDER && process.env.RENDER_EXTERNAL_URL) setInterval(() => { try { require('https').get(process.env.RENDER_EXTERNAL_URL + '/api/ping', r => r.resume()).on('error', () => { }); } catch (e) { } }, 10 * 60 * 1000);
@@ -99,6 +144,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('\n  🌿 Douce Vallée ' + VER + ' — serveur prêt !\n  Sur ce PC :              http://localhost:' + PORT);
   if (!ON_RENDER) for (const list of Object.values(os.networkInterfaces())) for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log('  Amis sur le même Wi-Fi : http://' + a.address + ':' + PORT);
   if (process.env.RENDER_EXTERNAL_URL) console.log('  🌍 Adresse mondiale (Render) : ' + process.env.RENDER_EXTERNAL_URL);
-  console.log('  🔒 Villages privés : on n\'entre chez quelqu\'un qu\'avec son code ami.');
+  console.log('  🔒 Villages privés : on n\'entre chez quelqu\'un qu\'avec son code ami. Comptes en ligne : mots de passe jamais envoyés, empreintes scrypt salées et poivrées.');
   if (!ON_RENDER) console.log('  (Ferme cette fenêtre pour arrêter le serveur.)\n');
 });

@@ -13,7 +13,12 @@
   const CODE_RE = /^DV-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
   // ---------- empreintes du code ami (le code lui-même ne quitte jamais l'ordinateur) ----------
   const IDC = new Map();
-  const ids = code => { code = String(code || '').toUpperCase(); let r = IDC.get(code); if (!r) { const h = s => G.sha256(s); r = { room: 't' + h('dv-room:' + code).slice(0, 40), doc: h('dv-doc:' + code).slice(0, 40), id: h('dv-id:' + code).slice(0, 16), key: h('dv-key:' + code) }; IDC.set(code, r); } return r; };
+  // v3 : une clé maîtresse « étirée » (PBKDF2, 60 000 tours) dont dérivent la salle, la place dans la base et la clé ; même en volant
+  // les données du serveur, retrouver un code demanderait des années de calcul (l'ancienne empreinte, un seul SHA-256, se cassait en heures)
+  const IDC2 = new Map(), D = G.DVC, u8 = s => D.utf8(s);
+  const ids = code => { code = String(code || '').toUpperCase(); let r = IDC.get(code); if (!r) { const mk = D.pbkdf2(u8('dv-code-v3:' + code), u8('douce-vallee'), 60000, 32), h = t => D.hex(D.hmac(mk, u8(t)));
+      r = { room: 't' + h('room').slice(0, 40), doc: h('doc').slice(0, 40), id: h('id').slice(0, 16), key: D.hmac(mk, u8('seal')) }; IDC.set(code, r); } return r; };
+  const ids2 = code => { code = String(code || '').toUpperCase(); let r = IDC2.get(code); if (!r) { const h = s => G.sha256(s); r = { doc: h('dv-doc:' + code).slice(0, 40), key: h('dv-key:' + code) }; IDC2.set(code, r); } return r; }; // ancien format, lu seulement
   const myCode = () => G.session && G.session.code;
   const townCode = () => NET.visit ? NET.visit.code : myCode();
   NET.me = () => myCode() ? ids(myCode()).id : null;
@@ -37,14 +42,15 @@
   async function seal(code, obj) {
     let u8 = new TextEncoder().encode('DV2:' + JSON.stringify(obj)), z = 0;
     if (typeof CompressionStream !== 'undefined') { const c = await pipe(u8, CompressionStream).catch(() => null); if (c && c.length < u8.length) { u8 = c; z = 1; } }
-    const nonce = new Uint8Array(12); crypto.getRandomValues(nonce); return { v: 2, z, n: G.b64.enc(nonce), d: G.b64.enc(chacha(ids(code).key, nonce, u8)) };
+    const S = D.seal(ids(code).key, u8); return { v: 3, z, n: G.b64.enc(S.n), d: G.b64.enc(S.c), t: G.b64.enc(S.t) }; // chiffré ET authentifié
   }
   async function unseal(code, rec) {
-    if (!rec || rec.v !== 2 || typeof rec.d !== 'string' || typeof rec.n !== 'string') throw new Error('format');
-    let u8 = chacha(ids(code).key, G.b64.dec(rec.n), G.b64.dec(rec.d)); if (rec.z) { if (typeof DecompressionStream === 'undefined') throw new Error('navigateur'); u8 = await pipe(u8, DecompressionStream); }
+    if (!rec || (rec.v !== 2 && rec.v !== 3) || typeof rec.d !== 'string' || typeof rec.n !== 'string') throw new Error('format');
+    let u8; if (rec.v === 3) { if (typeof rec.t !== 'string') throw new Error('format'); u8 = D.open(ids(code).key, G.b64.dec(rec.n), G.b64.dec(rec.d), G.b64.dec(rec.t)); if (!u8) throw new Error('code'); } // falsifié ou mauvais code : refusé
+    else u8 = chacha(ids2(code).key, G.b64.dec(rec.n), G.b64.dec(rec.d)); if (rec.z) { if (typeof DecompressionStream === 'undefined') throw new Error('navigateur'); u8 = await pipe(u8, DecompressionStream); }
     const s = new TextDecoder().decode(u8); if (!s.startsWith('DV2:')) throw new Error('code'); return JSON.parse(s.slice(4));
   }
-  NET.seal = seal; NET.unseal = unseal;
+  NET.seal = seal; NET.unseal = unseal; NET.wsReq = (m, ms) => wsReq(m, ms);
   // ---------- transports ----------
   async function bootClaude() {
     if (!window.claude || typeof window.claude.use !== 'function') return false;
@@ -167,7 +173,7 @@
       if (NET.mode === 'claude' && NET.db) { const q = await NET.db.collection('towns').where('k', 'array-contains', I.doc).limit(5).get(); let best = null;
         for (const d of q.docs) { const sn = await NET.db.doc('towns/' + d.id + '/s/' + I.doc).get(); if (!sn.exists) continue; try { const snap = await unseal(code, sn.data()); if (!best || (snap.at || 0) > (best.at || 0)) best = snap; } catch (e) { } }
         return best ? { snap: best, code } : { err: 'Aucun village ouvert avec ce code… Vérifie le code : ton ami doit avoir ouvert le jeu, et ses portes, au moins une fois.' }; }
-      if (NET.mode === 'server') { const r = await wsReq({ t: 'get', h: I.doc }, 60000); if (!r) return { err: 'Aucun village ouvert avec ce code sur ce serveur.' }; try { return { snap: await unseal(code, r), code }; } catch (e) { return { err: e.message === 'navigateur' ? 'Ton navigateur est trop ancien pour ouvrir ce village.' : 'Ce village est illisible.' }; } }
+      if (NET.mode === 'server') { const r = (await wsReq({ t: 'get', h: I.doc }, 60000)) || (await wsReq({ t: 'get', h: ids2(code).doc }, 60000)); if (!r) return { err: 'Aucun village ouvert avec ce code sur ce serveur.' }; try { return { snap: await unseal(code, r), code }; } catch (e) { return { err: e.message === 'navigateur' ? 'Ton navigateur est trop ancien pour ouvrir ce village.' : 'Ce village est illisible.' }; } }
     } catch (e) { return { err: 'Connexion impossible pour le moment.' }; }
     return { err: 'Tu joues hors ligne : ouvre le jeu depuis son lien claude.ai, ou lance le serveur sur ton PC.' };
   };

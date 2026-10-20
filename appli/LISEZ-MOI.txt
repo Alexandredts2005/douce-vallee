@@ -1,0 +1,24 @@
+DOUCE VALLÉE — L'APPLI WINDOWS
+==============================
+
+Fabriquer l'exe (sur un PC Windows avec Node.js) :
+    cd appli
+    npm install
+    npm run exe
+
+Résultat, dans appli\dist :
+  • Douce-Vallee-Installation-1.0.0.exe  → installateur (raccourci Bureau et menu Démarrer)
+  • Douce-Vallee-1.0.0-portable.exe      → se lance directement, sans installation
+
+Ce que fait l'appli :
+  • Carte graphique dédiée (RTX / Radeon) : au premier lancement, l'appli règle pour elle-même
+    « Hautes performances » (comme Paramètres › Système › Écran › Graphiques), puis se relance.
+  • Résolution native de l'écran, qualité maximale, jamais de baisse automatique de la netteté.
+  • Le jeu est dans l'appli : il marche hors ligne ; en ligne, il rejoint le serveur Douce Vallée
+    (sessions en ligne, villages des amis, ville commune).
+  • F11 : plein écran.
+  • Sécurité : la fenêtre ne peut aller sur aucun autre site, n'a accès à aucun fichier, et refuse
+    caméra, micro et localisation.
+
+Windows peut afficher « Windows a protégé votre ordinateur » au premier lancement : l'appli n'est pas
+signée par un certificat payant. Cliquer sur « Informations complémentaires » puis « Exécuter quand même ».

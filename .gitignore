@@ -1,5 +1,5 @@
 node_modules/
-douce-vallee-serveur.json
+douce-vallee-serveur.json*
 *.shot.jpg
 .env
 .DS_Store

@@ -17,7 +17,12 @@
     let out = ''; for (let i = 0; i < 8; i++) for (let j = 3; j + 1; j--) { const b = (hash[i] >> (j * 8)) & 255; out += (b < 16 ? '0' : '') + b.toString(16); } return out;
   }
   G.sha256 = sha256;
-  const hashPass = (pw, salt) => { let h = salt + ':' + pw; for (let i = 0; i < 400; i++) h = sha256(h + salt); return h; };
+  const hashPass = (pw, salt) => { let h = salt + ':' + pw; for (let i = 0; i < 400; i++) h = sha256(h + salt); return h; }; // ancienne méthode (lue une dernière fois, puis remplacée)
+  const hashPass2 = (pw, salt) => G.DVC.hex(G.DVC.pbkdf2(G.DVC.utf8(pw), G.DVC.utf8('dv-local:' + salt), 120000, 32)); // PBKDF2-SHA256, 120 000 tours
+  // un mot de passe solide : 8 caractères au moins, pas un des mots de passe que tout le monde essaie
+  const COMMON = ['12345678', '123456789', '1234567890', 'azertyui', 'azertyuiop', 'qwertyui', 'qwertyuiop', 'password', 'motdepasse', 'mot2passe', 'doucevallee', 'iloveyou', 'abcdefgh', 'azerty123', 'password1', 'soleil123', 'bonjour1', 'football', 'marseille', 'loveyou1'];
+  const weakPass = pw => pw.length < 8 ? 'Choisis un mot de passe d\'au moins 8 caractères.' : /^(.)\1+$/.test(pw) || COMMON.includes(pw.toLowerCase()) ? 'Ce mot de passe est trop facile à deviner : choisis-en un autre.' : null;
+  G.weakPass = weakPass;
   const rnd = n => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; const r = new Uint32Array(n); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(r) : r.forEach((_, i) => r[i] = Math.random() * 4e9); for (let i = 0; i < n; i++) s += A[r[i] % A.length]; return s; };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   // ---------- registre des sessions (navigateur) ----------
@@ -29,7 +34,9 @@
     put(rec) { const l = S.list(), i = l.findIndex(x => x.sid === rec.sid); if (i >= 0) l[i] = rec; else l.push(rec); S.save(l); },
     del(sid) { S.save(S.list().filter(x => x.sid !== sid)); G.store.del('dv_s_' + sid); },
     newCode: () => 'DV-' + rnd(4) + '-' + rnd(4),
-    check(rec, pw) { return !rec.hash || hashPass(pw, rec.salt) === rec.hash; }
+    check(rec, pw) { if (!rec.hash) return true; const D = G.DVC; if (rec.kdf === 2) return D.ctEqStr(hashPass2(pw, rec.salt), rec.hash);
+      const ok = D.ctEqStr(hashPass(pw, rec.salt), rec.hash); if (ok) { rec.salt = rnd(16); rec.hash = hashPass2(pw, rec.salt); rec.kdf = 2; S.put(rec); } return ok; }, // l'ancienne empreinte devient une empreinte PBKDF2
+    hashPass: hashPass2
   };
   G.homeId = () => (G.session && G.session.home) || 'home';
   // une ancienne partie devient une session (sans mot de passe tant qu'on n'en choisit pas)
@@ -76,11 +83,11 @@
     const ost = G.startNew; G.startNew = o => {
       if (!S.creating) return ost(o);
       const pw = $('ng-pass').value, pw2 = $('ng-pass2').value, err = $('ng-err');
-      if (pw.length < 3) { err.textContent = 'Choisis un mot de passe d\'au moins 3 caractères.'; G.sfx('error'); return; }
+      const wk = weakPass(pw); if (wk) { err.textContent = wk; G.sfx('error'); return; }
       if (pw !== pw2) { err.textContent = 'Les deux mots de passe ne sont pas identiques.'; G.sfx('error'); return; }
-      err.textContent = ''; const g = S.gender || 'f', sid = 'S' + rnd(8), salt = rnd(12), rec = { sid, code: S.newCode(), village: o.village, salt, hash: hashPass(pw, salt), mode: o.mode, residents: [], at: Date.now() };
+      err.textContent = ''; const g = S.gender || 'f', sid = 'S' + rnd(8), salt = rnd(16), rec = { sid, code: S.newCode(), village: o.village, salt, hash: hashPass2(pw, salt), kdf: 2, mode: o.mode, residents: [], at: Date.now() };
       o.look = genderLook(o.look, g); rec.residents.push({ name: o.name, gender: g, look: o.look, home: 'home' }); S.put(rec); S.creating = false;
-      G.saveKey = 'dv_s_' + sid; G.session = { sid, code: rec.code, village: rec.village, rid: 0, home: 'home', gender: g, residents: [] };
+      G.saveKey = 'dv_s_' + sid; G.session = { sid, code: rec.code, village: rec.village, rid: 0, home: 'home', gender: g, residents: [] }; if (G.cloud) G.cloud.login(rec, pw, true); // la session part aussi en ligne
       return ost(o);
     };
     const ott = G.toTitle; G.toTitle = () => { ott(); refreshTitle(); };
@@ -161,9 +168,9 @@
     const noPw = !rec.hash; $('lg-new-wrap').hidden = !noPw; $('lg-sub').textContent = noPw ? 'Cette ancienne partie n\'a pas encore de mot de passe : choisis-en un pour la protéger.' : 'Entre le mot de passe de la session.'; $('lg-go').textContent = noPw ? 'Protéger et entrer' : 'Se connecter';
     G.ui.show('screen-login'); setTimeout(() => $('lg-pass').focus(), 50); }
   function doLogin() { const rec = UI.rec, pw = $('lg-pass').value;
-    if (!rec.hash) { if (pw.length < 3) return fail('lg-err', 'Au moins 3 caractères, s\'il te plaît.'); if (pw !== $('lg-pass2').value) return fail('lg-err', 'Les deux mots de passe ne sont pas identiques.'); rec.salt = rnd(12); rec.hash = hashPass(pw, rec.salt); S.put(rec); }
+    if (!rec.hash) { const wk = weakPass(pw); if (wk) return fail('lg-err', wk); if (pw !== $('lg-pass2').value) return fail('lg-err', 'Les deux mots de passe ne sont pas identiques.'); rec.salt = rnd(16); rec.hash = hashPass2(pw, rec.salt); rec.kdf = 2; S.put(rec); }
     else if (!S.check(rec, pw)) { $('lg-pass').value = ''; return fail('lg-err', 'Mot de passe incorrect.'); }
-    G.sfx('craft'); UI.logged = rec.sid; showResidents(); }
+    G.sfx('craft'); UI.logged = rec.sid; if (G.cloud) G.cloud.login(rec, pw, true); showResidents(); }
   const fail = (id, msg) => { $(id).textContent = msg; G.sfx('error'); };
   function showResidents() { const rec = UI.rec = S.get(UI.rec.sid) || UI.rec; $('rs-title').textContent = 'Qui joue à ' + rec.village + ' ?'; $('rs-code').textContent = rec.code; const box = $('rs-list'); box.innerHTML = '';
     for (let k = 0; k < 4; k++) { const r = (rec.residents || [])[k], b = document.createElement('button');
@@ -201,6 +208,7 @@
   function doDelete() { const D = UI.del, rec = D && S.get(D.rec.sid); if (!rec) return showSessions(); const pw = $('ds-pass').value;
     if (rec.hash && !S.check(rec, pw) && sha256('dv-efface:' + pw.trim()) !== SECRET) { $('ds-pass').value = ''; return fail('ds-err', 'Mot de passe incorrect.'); }
     try { if (G.net && G.net.unpublish && rec.code) G.net.unpublish(rec.code, rec.sid); } catch (e) { }
+    try { if (G.cloud && rec.hash && pw && S.check(rec, pw)) G.cloud.forget(rec, pw); } catch (e) { } // la session en ligne est supprimée aussi
     S.del(rec.sid); G.store.del('dv_admin_' + rec.sid); if (G.session && G.session.sid === rec.sid) { G.session = null; G.saveKey = null; }
     UI.del = null; G.sfx('pop'); refreshTitle(); showSessions(); G.ui.toast('🗑️ La session « ' + rec.village + ' » a été supprimée.'); }
   $('ds-go').onclick = doDelete; $('ds-back').onclick = () => { const D = UI.del; UI.del = null; G.sfx('ui'); ((D && D.back) || showSessions)(); };
@@ -211,5 +219,6 @@
   vis.onclick = () => { if (!G.net || !G.net.askVisit) return; G.ui.resume(); setTimeout(() => G.net.askVisit(), 60); };
   sw.onclick = () => { if (!G.session) return; G.saveGame(true); const rec = S.get(G.session.sid); G.toTitle(); if (rec) { UI.rec = rec; showResidents(); } };
   const opause = G.ui.pause; G.ui.pause = () => { opause(); const s = G.session; chip.textContent = s ? (G.villageName + ' · ' + G.playerName + ' · Code ami ' + s.code + (G.net && G.net.closed && G.net.closed() ? ' · portes fermées' : '')) : ''; sw.hidden = !s; vis.hidden = !s || !(G.net && G.net.online && G.net.online()); };
+  G.sessionsUI = { showSessions, refreshTitle };
   G.on('init', () => { migrate(); refreshTitle(); });
 })();

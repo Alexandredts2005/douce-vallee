@@ -3,13 +3,18 @@
 (function () {
   const P = G.perf = { ema: 16.7, scale: 1, last: 0, t: 0, frames: 0, fps: 60, fpsT: 0, fpsN: 0 };
   const V2 = new THREE.Vector2();
-  const cap = () => { const dpr = window.devicePixelRatio || 1, q = G.settings.quality; return q === 'low' ? Math.min(dpr, 1) * .8 : q === 'high' ? Math.min(dpr, 2) : Math.min(dpr, 1.35); };
+  // dans l'appli Windows (carte graphique dédiée) : la résolution native de l'écran, sans aucun plafond
+  const cap = () => { const dpr = window.devicePixelRatio || 1, q = G.settings.quality; if (window.DV_DESKTOP && q !== 'low') return Math.max(1, dpr); return q === 'low' ? Math.min(dpr, 1) * .8 : q === 'high' ? Math.min(dpr, 2) : Math.min(dpr, 1.35); };
   P.apply = () => { const R = G.renderer, c = G.camera; if (!R || !c) return; const pr = Math.max(.5, cap() * P.scale); if (Math.abs(R.getPixelRatio() - pr) < .01) return;
     R.setPixelRatio(pr); R.setSize(innerWidth, innerHeight); G.U.pscale.value = R.getDrawingBufferSize(V2).y / (2 * Math.tan(c.fov * Math.PI / 360)); };
   G.on('init', () => {
     const R = G.renderer; R.shadowMap.autoUpdate = false; R.shadowMap.needsUpdate = true;
     const os = G.setQuality; G.setQuality = (q, sh) => { os(q, sh); P.scale = 1; P.apply(); R.shadowMap.needsUpdate = true; };
     addEventListener('resize', () => setTimeout(P.apply, 50));
+    // appli Windows : au premier lancement, qualité maximale et résolution fixe (jamais baissée)
+    const s = G.settings; if (window.DV_DESKTOP && !s.desktopInit) { s.desktopInit = 1; s.quality = 'high'; s.shadow = true; s.autoRes = false; s.gpuChecked = 1; G.ui.saveSettings && G.ui.saveSettings(); G.ui.applySettings && G.ui.applySettings(); P.scale = 1; P.apply(); }
+    // tous les shaders sont préparés pendant le chargement : plus de petite saccade quand un objet apparaît pour la première fois
+    const warm = () => setTimeout(() => { try { R.compile(G.scene, G.camera); } catch (e) { } R.shadowMap.needsUpdate = true; }, 200); G.on('load', warm); G.on('newGame', warm);
   });
   const lastCam = new THREE.Vector3();
   G.on('frame', dt => {

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+jeu/
+.cache/
+icone.png
+icone.ico
