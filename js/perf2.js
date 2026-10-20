@@ -8,14 +8,20 @@
   // hauteurs min/max par case (terrain, plus la place des objets hauts)
   function cellY(m) {
     const tr = m.tRev || 0, now = performance.now(); if (m._cy && m._cyT === tr && (m._cyO === m.rev || now - (m._cyAt || 0) < 500)) return m._cy; m._cyAt = now; const rv = tr;
-    const cw = Math.ceil(m.W / CELL), ch = Math.ceil(m.H / CELL), Y = new Float32Array(cw * ch * 2);
+    const cw = Math.ceil(m.W / CELL), ch = Math.ceil(m.H / CELL);
+    if (m._cyBase && m._cyBT === tr && m._cyBase.length === cw * ch * 2) { const Y = m._cyBase.slice(); tall(m, Y, cw, ch); m._cy = Y; m._cyT = rv; m._cyO = m.rev; m._cw = cw; m._ch = ch; return Y; } // seuls des objets ont changé
+    const Y = new Float32Array(cw * ch * 2);
     for (let cz = 0; cz < ch; cz++) for (let cx = 0; cx < cw; cx++) { let lo = 99, hi = -99;
       for (let z = cz * CELL; z < Math.min(m.H, cz * CELL + CELL); z++) for (let x = cx * CELL; x < Math.min(m.W, cx * CELL + CELL); x++) { const l = m.lvl[z * m.W + x]; if (l < lo) lo = l; if (l > hi) hi = l; }
       const k = (cz * cw + cx) * 2; Y[k] = lo * T - 2; Y[k + 1] = hi * T + (m.meta && m.meta.parc ? 40 : 9.5); } // au parc : la tour et la grande roue montent très haut
-    // ce qui est posé en hauteur (terrasses et escaliers en fer, ponts au-dessus d'un ravin…) : la case garde toute sa hauteur, sinon le plancher disparaîtrait sous certains angles
+    m._cyBase = Y.slice(); m._cyBT = tr; tall(m, Y, cw, ch);
+    m._cy = Y; m._cyT = rv; m._cyO = m.rev; m._cw = cw; m._ch = ch; return Y;
+  }
+  // ce qui est posé en hauteur (terrasses et escaliers en fer, ponts au-dessus d'un ravin…) : la case garde toute sa hauteur, sinon le plancher disparaîtrait sous certains angles
+  function tall(m, Y, cw, ch) {
     const OB = G.OBJ; for (const o of m.list) { const d = OB[o.t]; if (!d || !(d.plat || d.stair || d.bridge || d.up || o.cy)) continue; const top = (d.plat || d.stair) && G.platDeck ? G.platDeck(o) + 1.4 : (o.y || 0) + (d.h || 0) + 1.5;
       const [w, dd] = G.fpDims(d, o.r || 0); for (let cz = Math.floor(o.z / CELL); cz <= Math.floor((o.z + dd - 1) / CELL); cz++) for (let cx = Math.floor(o.x / CELL); cx <= Math.floor((o.x + w - 1) / CELL); cx++) { if (cx < 0 || cz < 0 || cx >= cw || cz >= ch) continue; const k = (cz * cw + cx) * 2 + 1; if (top > Y[k]) Y[k] = top; } }
-    m._cy = Y; m._cyT = rv; m._cyO = m.rev; m._cw = cw; m._ch = ch; return Y;
+    
   }
   // une case est visible si sa boîte (descendue par l'arrondi du monde, élargie vers l'ombre portée) touche le champ de la caméra
   function computeV(m) {
@@ -43,7 +49,7 @@
   // très grande carte : terrain construit autour du joueur (tout de suite à l'arrivée, puis quelques morceaux par image)
   const viewR = () => G.U.curve.value > .003 ? 210 : 330;
   function lazyTerrain(m) { if (!m.lazyT || !m.lazyT()) return; const p = G.player, R = viewR() + 12, cx = Math.floor(p.x / 24), cz = Math.floor(p.z / 24), hole = cx >= 0 && cz >= 0 && cx < m.cw && cz < m.chh && !m.chunks[cz * m.cw + cx];
-    if (hole) m.ensureChunks(p.x, p.z, 110, 1e9, R + 72); m.ensureChunks(p.x, p.z, R, hole ? 40 : 5, R + 72); }
+    if (hole) m.ensureChunks(p.x, p.z, 66, 1e9, R + 72); m.ensureChunks(p.x, p.z, R, hole ? 40 : 8, R + 72); } // à l'arrivée : le terrain proche tout de suite, le lointain se construit dans les images suivantes
   G.lazyTerrain = lazyTerrain;
   G.on('frame', () => {
     const m = G.map; if (!m || !G.camera) return; const t0 = performance.now(); lazyTerrain(m);

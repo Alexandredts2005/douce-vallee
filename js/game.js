@@ -81,6 +81,8 @@
     G.interiors = {}; G.world = m; scene.add(m.group); m.buildAll(); G.ents.clear(); G.ents.spawnVillagers(m); makeSea(m); placeClouds(m); G.map = m; m.group.visible = true; G.ui.mmRev = -1;
   }
   G.enterMap = (m, x, z, yaw) => {
+    if (m._needBuild) { m._needBuild = false; G.buildShell(m); m.buildAll(); }
+    if (m._needSpawn) { m._needSpawn = false; G.ents.spawnVillagers(m); }
     if (G.map && G.map !== m) { G.map.group.visible = false; G.feat.clearFish(); }
     if (!m.group.parent) scene.add(m.group); m.group.visible = true; const outdoorChange = !m.interior && seaG && seaG.userData.map !== m; G.map = m;
     const inside = m.interior; sky.visible = stars.visible = sunM.visible = moonM.visible = !inside; if (outdoorChange) makeSea(m); seaG && (seaG.visible = !inside); clouds.forEach(c => c.visible = !inside);
@@ -215,7 +217,7 @@
     G.designs = (d.designs || new Array(8).fill(null)).map(x => x && { name: x.name, img: x.img }); while (G.designs.length < 8) G.designs.push(null);
     if (G.island) { scene.remove(G.island.group); G.island = null; }
     setWorld(G.GMap.deserialize(d.world));
-    for (const id in d.interiors || {}) { const im = G.GMap.deserialize(d.interiors[id]); G.buildShell(im); im.buildAll(); im.group.visible = false; scene.add(im.group); G.interiors[id] = im; G.ents.spawnVillagers(im); }
+    for (const id in d.interiors || {}) { const im = G.GMap.deserialize(d.interiors[id]); im._needBuild = im._needSpawn = true; im.group.visible = false; /* dessinée en 3D, et ses habitants créés, la première fois qu'on y entre */ scene.add(im.group); G.interiors[id] = im; }
     G.inv.slots = d.inv || new Array(30).fill(null); G.inv.hot = d.hot || new Array(10).fill(null);
     const p = G.player; p.look = G.normLook(d.look); p.vehicle = null; p.build(); p.attach(scene); p.hp = d.player.hp; p.food = d.player.food; p.dead = false;
     const im = G.interiors[d.player.map];
@@ -254,10 +256,10 @@
   function start(hotData) {
     init();
     const d = hotData && hotData.save;
-    setWorld(G.genWorld(G.DEFAULT_LAYOUT, 1234)); G.clock.min = 8.5 * 60; G.player.teleport(G.world.meta.spawn.x, G.world.meta.spawn.z, 0); G.player.root.visible = G.player.blob.visible = false;
+    // le menu s'affiche d'abord ; le village du décor se prépare juste après (sauf si on a déjà lancé une partie)
     $('loading').hidden = true; G.state = 'title'; G.ui.show('screen-title'); $('btn-continue').hidden = !G.store.get(G.saveKey || 'dv_save');
-    requestAnimationFrame(frame);
-    if (d) setTimeout(() => G.restore(d), 50);
+    setTimeout(() => { if (!G.world) { setWorld(G.genWorld(G.DEFAULT_LAYOUT, 1234)); G.clock.min = 8.5 * 60; G.player.teleport(G.world.meta.spawn.x, G.world.meta.spawn.z, 0); G.player.root.visible = G.player.blob.visible = false; }
+      requestAnimationFrame(frame); if (d) setTimeout(() => G.restore(d), 50); }, 40);
   }
   window.claude?.hot?.snapshot?.(() => ({ save: G.state === 'play' || G.state === 'pause' ? G.serialize() : null }));
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

@@ -67,11 +67,12 @@
       s.low = mk(s.low, s.lg); s.lvis = 0; if (s.lg2) { s.low2 = mk(s.low2, s.lg2); s.lvis2 = 0; }
     }
     outline(s) {
-      if (s.om) { this.group.remove(s.om); s.om = null; } const geo = s.mesh.geometry; if (geo.boundingSphere.radius < .36 || geo.userData.noOutline) return;
+      if (s.om) { this.group.remove(s.om); s.om = null; } if (!this.olOn) return; // contour calculé seulement quand l'option « tout » est choisie
+      const geo = s.mesh.geometry; if (geo.boundingSphere.radius < .36 || geo.userData.noOutline) return;
       const om = new THREE.InstancedMesh(G.outlineGeo(geo), G.M.outlineI, s.cap); om.instanceMatrix = s.mesh.instanceMatrix; om.count = s.vis; om.frustumCulled = false; om.castShadow = false;
       om.visible = this.olOn && s.vis > 0; this.group.add(om); s.om = om;
     }
-    setOutlines(on) { this.olOn = on; for (const k in this.sets) { const s = this.sets[k]; if (s.om) s.om.visible = on && s.vis > 0; } }
+    setOutlines(on) { this.olOn = on; for (const k in this.sets) { const s = this.sets[k]; if (on && !s.om) { this.outline(s); if (s.om) s.om.count = s.vis; } if (s.om) s.om.visible = on && s.vis > 0; } }
     grow(s) {
       const cap = s.cap * 2, m = new THREE.InstancedMesh(s.mesh.geometry, G.MATS, cap); m.frustumCulled = false; m.castShadow = s.mesh.castShadow; m.receiveShadow = true; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.count = 0; m.visible = false; this.group.remove(s.mesh); s.mesh.dispose(); this.group.add(m); s.mesh = m; s.cap = cap; s.vis = 0; this.outline(s); if (s.lg) this.lowMesh(s); this.mark(s);

@@ -119,14 +119,18 @@
   const mmBase = G.cv(16, 16);
   const SC = { 2: '#d2ab72', 3: '#c3c0b4', 4: '#a8a196', 5: '#f2dfa4', 6: '#c99158', 7: '#87593a', 8: '#f4f8ff', 9: '#c4654a', 11: '#e6e1d6', 12: '#e6e1d6', 13: '#c9554e', 15: '#c8b28a' };
   const GRASS = ['#7fca62', '#93d672', '#a6df82', '#b9e796', '#cdeeb0'];
+  // couleurs lues une seule fois (avant : chaque case relisait sa couleur en texte, 200 000 fois — la carte était lente à redessiner)
+  const RGB = h => { const c = new THREE.Color(h); return [c.r * 255, c.g * 255, c.b * 255]; };
+  const SCR = {}; for (const k in SC) SCR[k] = RGB(SC[k]); const GRR = GRASS.map(RGB), FOR = RGB('#5fa94e'), SEA = RGB('#3d8fd0'), FRESH = RGB('#5ab8ea');
+  const OC = { cherry: RGB('#f5a6c4'), tree: RGB('#3a8a42'), shop: RGB('#ffc23d'), house: RGB('#e2574c'), rock: RGB('#9d9a93'), wood: RGB('#b98a55') };
+  const ocol = d => d.chop >= 3 ? (d.model === 'tree_cherry' ? OC.cherry : OC.tree) : d.enter || d.shop ? (d.shop ? OC.shop : OC.house) : d.mine ? OC.rock : d.onWater || d.walk ? OC.wood : null;
   U.drawMapBase = m => {
-    mmBase.width = m.W; mmBase.height = m.H; const c = mmBase.getContext('2d'), im = c.createImageData(m.W, m.H), D = im.data, col = new THREE.Color();
-    for (let z = 0; z < m.H; z++) for (let x = 0; x < m.W; x++) {
-      const i = z * m.W + x; let hex;
-      if (m.water[i]) hex = m.water[i] === 2 ? '#3d8fd0' : '#5ab8ea'; else if (SC[m.surf[i]]) hex = SC[m.surf[i]]; else hex = m.surf[i] === 1 ? '#5fa94e' : GRASS[Math.min(4, m.lvl[i])];
-      col.set(hex); let k = 1; if (!m.water[i] && ((x > 0 && m.lvl[i - 1] < m.lvl[i]) || (z < m.H - 1 && m.lvl[i + m.W] < m.lvl[i]))) k = .72;
-      const o = m.objAt(x, z); if (o) { const d = G.OBJ[o.t]; if (d.chop >= 3) col.set(d.model === 'tree_cherry' ? '#f5a6c4' : '#3a8a42'); else if (d.enter || d.shop) col.set(d.shop ? '#ffc23d' : '#e2574c'); else if (d.mine) col.set('#9d9a93'); else if (d.onWater || d.walk) col.set('#b98a55'); }
-      D[i * 4] = col.r * 255 * k; D[i * 4 + 1] = col.g * 255 * k; D[i * 4 + 2] = col.b * 255 * k; D[i * 4 + 3] = 255;
+    if (mmBase.width !== m.W || mmBase.height !== m.H) { mmBase.width = m.W; mmBase.height = m.H; } const c = mmBase.getContext('2d'), im = c.createImageData(m.W, m.H), D = im.data, W = m.W, L = m.lvl, Wa = m.water, Su = m.surf, occ = m.occ, objs = m.objs, OB = G.OBJ;
+    for (let z = 0; z < m.H; z++) for (let x = 0; x < W; x++) {
+      const i = z * W + x, w = Wa[i]; let col = w ? (w === 2 ? SEA : FRESH) : SCR[Su[i]] || (Su[i] === 1 ? FOR : GRR[Math.min(4, Math.max(0, L[i]))]);
+      let k = 1; if (!w && ((x > 0 && L[i - 1] < L[i]) || (z < m.H - 1 && L[i + W] < L[i]))) k = .72;
+      const oi = occ[i]; if (oi) { const o = objs[oi - 1], d = o && OB[o.t]; if (d) { const oc = ocol(d); if (oc) col = oc; } }
+      const j = i * 4; D[j] = col[0] * k; D[j + 1] = col[1] * k; D[j + 2] = col[2] * k; D[j + 3] = 255;
     }
     c.putImageData(im, 0, 0); return mmBase;
   };

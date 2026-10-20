@@ -3,7 +3,7 @@
 // les villages sont stockés chiffrés, et il n'existe aucune liste. Sans le code ami, on ne trouve rien.
 // Sur ton PC :  node serve.js [dossier] [port]   puis ouvrir http://localhost:5180 (ou http://IP-du-PC:5180 pour les amis)
 // Sur Render :  « node serve.js » — Render fournit le port (PORT). Les villages sont gardés en mémoire (ou dans /data si un disque est monté).
-const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os');
+const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os'), zlib = require('zlib');
 const VER = '9.1';
 const root = path.resolve(process.argv[2] || __dirname), PORT = +(process.env.PORT || process.argv[3] || 5180), ON_RENDER = !!process.env.RENDER;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
@@ -37,12 +37,20 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p), rel = path.relative(root, f);
   // rien en dehors du dossier du jeu, aucun fichier caché (.git…), ni les données du serveur, ni le code du serveur
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || rel.split(path.sep).some(s => s.startsWith('.')) || path.basename(f).startsWith('douce-vallee-serveur') || rel === 'serve.js' || rel === 'package.json') { res.writeHead(403); return res.end(); }
+  // fichiers du jeu : compressés (gzip, environ 5 fois plus légers) et gardés en mémoire ; le navigateur les garde aussi et ne les retélécharge que s'ils ont changé
+  fs.stat(f, (se, st) => { if (se || !st.isFile()) { res.writeHead(404); return res.end('404'); }
+    const tag = 'W/"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '"', ext = path.extname(f), zip = /^\.(js|html|css|json|svg|txt)$/.test(ext) && /gzip/.test(req.headers['accept-encoding'] || '');
+    if (req.headers['if-none-match'] === tag) { res.writeHead(304, { ETag: tag, 'Cache-Control': 'no-cache' }); return res.end(); }
+    const c = FCACHE.get(f); if (c && c.tag === tag && (!zip || c.gz)) return sendFile(res, req, f, p, c, zip);
   fs.readFile(f, (e, data) => {
     if (e) { res.writeHead(404); return res.end('404'); }
     if (p === '/index.html' && !/^\s*<!doctype/i.test(data.slice(0, 64).toString())) data = Buffer.concat([Buffer.from('<!doctype html><html><head><meta charset="utf-8">'), data]);
-    res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(req.method === 'HEAD' ? undefined : data);
-  });
+    const ent = { tag, data, gz: zip ? zlib.gzipSync(data, { level: 9 }) : null }; if (data.length < 8e6) FCACHE.set(f, ent); sendFile(res, req, f, p, ent, zip);
+  }); });
 });
+const FCACHE = new Map();
+function sendFile(res, req, f, p, ent, zip) { const h = { 'Content-Type': types[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ETag: ent.tag, Vary: 'Accept-Encoding' };
+  const body = zip && ent.gz ? ent.gz : ent.data; if (zip && ent.gz) h['Content-Encoding'] = 'gzip'; h['Content-Length'] = body.length; res.writeHead(200, h); res.end(req.method === 'HEAD' ? undefined : body); }
 
 // ---------- WebSocket minimal (aucune dépendance) ----------
 const clients = new Map(); let N = 0;
