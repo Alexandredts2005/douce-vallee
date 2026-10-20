@@ -38,6 +38,15 @@
     for (const s of [-1, 1]) { put(b, arc(.11, .008, PI * 1.25), GR, base, s * .27, y0 + .42, z, 0, 0, s < 0 ? PI * .375 : -PI * .625, true); put(b, new THREE.SphereGeometry(.018, 8, 6), GOLD, base, s * .27, y0 + .42, z, 0, 0, 0, true); }
     for (const [ok, x] of [[startPost, -.5 + .03], [endPost, .5 - .03]]) if (ok) { put(b, box(.055, 1.0, .055), GR, base, x, y0 + .5, z); put(b, box(.08, .03, .08), GR, base, x, y0 + 1.0, z); put(b, new THREE.SphereGeometry(.034, 12, 10), GOLD, base, x, y0 + 1.055, z, 0, 0, 0, true); }
   }
+  // ---------- style Eiffel : un quart de cercle de fer (de bas en haut, en s'écartant), des anneaux dans l'écoinçon, des boulons dorés ----------
+  // p(t) donne un point du repère ; base : repère tourné (ou null)
+  function curveBars(b, base, p, r, n = 10) { let a = p(0); for (let i = 1; i <= n; i++) { const c = p(i / n); bar(b, base, a, c, r, GR, 6); a = c; } }
+  // console courbe : part de (x0,z0) à la hauteur yb, monte en s'écartant de L dans la direction (dx,dz) jusqu'à yt
+  function eiffelConsole(b, base, x0, z0, dx, dz, yb, yt, L) { const R = yt - yb, P = t => { const a = t * PI / 2; return [x0 + dx * L * (1 - Math.cos(a)), yb + R * Math.sin(a), z0 + dz * L * (1 - Math.cos(a))]; };
+    curveBars(b, base, P, .016, 8); bar(b, base, [x0, yb, z0], [x0, yt, z0], .014, GR, 6); bar(b, base, [x0, yt - .01, z0], [x0 + dx * L, yt - .01, z0 + dz * L], .014, GR, 6);
+    const ry = Math.atan2(dx, dz) + PI / 2; for (const [f, rr] of [[.36, .08], [.7, .05]]) { const q = [x0 + dx * L * f * .55, yt - R * (1 - f) * .45, z0 + dz * L * f * .55]; put(b, arc(rr * Math.min(1.4, L / .45), .007, PI * 2), GR, base, q[0], q[1], q[2], 0, ry, 0, true); }
+    put(b, arc(.05, .007, PI * 1.5), GR, base, x0 + dx * L * .9, yt - .06, z0 + dz * L * .9, 0, ry, PI, true);
+    for (const q of [[x0, yb, z0], [x0 + dx * L, yt - .01, z0 + dz * L]]) put(b, new THREE.SphereGeometry(.024, 6, 4), GOLD, base, q[0], q[1], q[2], 0, 0, 0, true); }
   // ---------- colonne en fonte du sol jusqu'en top : socle, fût cannelé, bagues dorées, chapiteau, consoles en volute ----------
   function column(b, x, z, dirs, top) {
     G.rbox(b, .2, .08, .2, .02, GRD, x, .04, z); b.tor(.062, .016, GOLD, x, .1, z, PI / 2, 0, 0, 0, 16);
@@ -45,8 +54,7 @@
     for (let k = 0; k < 8; k++) { const a = k / 8 * PI * 2; b.box(.008, h - .06, .012, GRL, x + Math.cos(a) * .043, .13 + (h - .06) / 2, z + Math.sin(a) * .043, 0, -a, 0); }
     for (let y = .55; y < top - .4; y += T) b.tor(.047, .011, GOLD, x, y, z, PI / 2, 0, 0, 0, 16); // une bague dorée à chaque étage
     b.cyl(.085, .045, .12, 16, GR, x, top - .14, z, 0, 0, 0, 0, true); b.tor(.07, .012, GOLD, x, top - .2, z, PI / 2, 0, 0, 0, 16); b.box(.19, .04, .19, GRD, x, top - .06, z);
-    for (const [dx, dz] of dirs) { const ry = Math.atan2(-dz, dx); put(b, arc(.17, .012, PI / 2), GR, null, x + dx * .17, top - .21, z + dz * .17, 0, ry, PI / 2, true); // console : du fût jusque sous le plancher
-      put(b, arc(.05, .007, PI * 1.5), GR, null, x + dx * .1, top - .14, z + dz * .1, 0, ry, 0, true); }
+    for (const [dx, dz] of dirs) eiffelConsole(b, null, x + dx * .05, z + dz * .05, dx, dz, top - .8, top - .05, .44); // consoles courbes, du fût jusque sous le plancher
   }
   // ---------- équerre de fixation (plateforme suspendue) : montant, bras, écharpe à volute, boulons dorés ; dir = vers l'extérieur ----------
   function bracket(b, base, y0) {
@@ -59,15 +67,19 @@
   }
   // ---------- ferme sous une case sans appui : une diagonale et une membrure basse vers le pilier le plus proche (dir = N, E, S, O) ----------
   const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-  function truss(b, top, dir) { const [dx, dz] = DIRS[dir], y1 = top - DK - .08, y2 = top - DK - .72;
-    bar(b, null, [-dx * .5, y2, -dz * .5], [dx * .5, y2, dz * .5], .018, GR, 8); // membrure basse
-    bar(b, null, [-dx * .45, y1, -dz * .45], [dx * .45, y2 + .02, dz * .45], .016, GR, 8); // diagonale vers le pilier
-    bar(b, null, [-dx * .45, y1, -dz * .45], [-dx * .45, y2, -dz * .45], .012, GR, 6); // montant
-    const ry = Math.atan2(dx, dz); put(b, arc(.13, .008, PI * 1.5), GR, null, -dx * .1, (y1 + y2) / 2 + .05, -dz * .1, 0, ry + PI / 2, 0, true); put(b, arc(.06, .007, PI * 1.5), GR, null, dx * .2, (y1 + y2) / 2 - .12, dz * .2, 0, ry + PI / 2, PI, true);
-    for (const [px, py, pz] of [[-dx * .45, y1, -dz * .45], [-dx * .45, y2, -dz * .45], [dx * .45, y2 + .02, dz * .45]]) b.sph(.022, GOLD, px, py, pz, 1, 1, 1, 0, 10, 8); }
+  function truss(b, top, dir, k) { const [dx, dz] = DIRS[dir], y1 = top - DK - .07, U = 3.2, H = 1.0, low = u => y1 - .16 - H * Math.pow(Math.max(0, 1 - u / U), 2), P = s => [dx * s, low(k - .14 - s), dz * s];
+    curveBars(b, null, t => P(-.5 + t), .02, 8); bar(b, null, [-dx * .5, y1, -dz * .5], [dx * .5, y1, dz * .5], .016, GR, 6); // membrure basse courbe, membrure haute droite
+    const ry = Math.atan2(dx, dz) + PI / 2;
+    for (const sx of [-.5, 0, .5]) { const q = P(sx); bar(b, null, [q[0], y1, q[2]], q, .011, GR, 6); b.sph(.02, GOLD, q[0], q[1], q[2], 1, 1, 1, 0, 10, 8); }
+    for (const [a0, a1] of [[-.5, 0], [0, .5]]) { const qa = P(a0), qb = P(a1), m = P((a0 + a1) / 2), h = (y1 - m[1]);
+      bar(b, null, [qa[0], y1, qa[2]], qb, .009, GR, 5); bar(b, null, qa, [qb[0], y1, qb[2]], .009, GR, 5); // croix de saint André
+      if (h > .2) put(b, arc(Math.min(.12, h * .3), .007, PI * 2), GR, null, m[0], (y1 + m[1]) / 2, m[2], 0, ry, 0, true); } }
+  // équerre murale (côté nord du repère) : montant contre la paroi, bras sous le plancher, grande courbe et anneaux
+  function wallBracket(b, base, y0) { for (const x of [-.27, .27]) { const z = -.5 + .045; b.add(new THREE.BoxGeometry(.09, .9, .02), GRD, base.clone().multiply(new THREE.Matrix4().makeTranslation(x, y0 - .45, z - .015)), 0);
+    eiffelConsole(b, base, x, z, 0, 1, y0 - .82, y0 - .02, .62); for (const y of [y0 - .12, y0 - .7]) put(b, new THREE.SphereGeometry(.02, 8, 6), GOLD, base, x, y, z - .02, 0, 0, 0, true); } }
   // ---------- plateforme ----------
   function platform(b, v) {
-    const susp = v & 32, k = lvlOf(v) + 1, top = k * T, solid = (v >> 11) & 15, brace = (v >> 15) & 7;
+    const susp = v & 32, k = lvlOf(v) + 1, top = k * T, solid = (v >> 11) & 15, brace = (v >> 15) & 7, dist = (v >> 18) & 7;
     b.box(1, DK, 1, GRD, 0, top - DK / 2, 0);
     for (let q = -2; q <= 2; q++) { b.box(1, .012, .022, GR, 0, top + .004, q * .2); b.box(.022, .012, 1, GR, q * .2, top + .004, 0); } // caillebotis
     b.box(1, .06, .05, GRD, 0, top - DK - .03, 0); b.box(.05, .06, 1, GRD, 0, top - DK - .03, 0); // poutres sous le plancher
@@ -78,8 +90,8 @@
       // suspendue et accrochée à rien : une équerre sous le bord, tous les 5 cases de balustrade (x multiple de 5 au nord et au sud, z à l'est et à l'ouest)
       if (susp && !solid && ((bit & 5) ? (v & 16) : (v & 256))) bracket(b, base, top - DK - .14); }
     // contre une falaise, un mur, un rocher… : l'équerre se fixe toute seule du bon côté (montant contre le solide, bras sous le plancher)
-    SIDES.forEach(([bit, a], i) => { if (solid & (1 << i)) { const base = new THREE.Matrix4().makeRotationY(a); bracket(b, base, top - DK - .02); } });
-    if (!susp && brace) truss(b, top, brace - 1);
+    SIDES.forEach(([bit, a], i) => { if (solid & (1 << i)) wallBracket(b, new THREE.Matrix4().makeRotationY(a), top - DK - .02); });
+    if (!susp && brace) truss(b, top, brace - 1, dist || 1);
     if (susp && (v & 16) && (v & 256)) { // axe de fixation central : tige à boule dorée sous le croisement des poutres
       b.cyl(.022, .022, .55, 10, GR, 0, top - DK - .06 - .275, 0, 0, 0, 0, 0, true); b.tor(.03, .008, GOLD, 0, top - DK - .2, 0, PI / 2, 0, 0, 0, 12); b.sph(.05, GOLD, 0, top - DK - .36, 0, 1, 1.2, 1, 0, 14, 12); b.cone(.02, .07, 10, GOLD, 0, top - DK - .44, 0, PI); }
     if (!susp) { const cols = [], tp = top - DK; if ((v & 16) && (v & 256)) cols.push([0, 0, [[1, 0], [-1, 0], [0, 1], [0, -1]]]);
@@ -89,9 +101,9 @@
   MD.plateforme_fer = v => { const b = G.mb(960 + ((v || 0) & 1023)); platform(b, v || 0); return b.done(); };
   // le jeu réserve les variantes ≥ 100 aux lampes éteintes : étage, suspendue et « z multiple de 5 » vont dans le nom du modèle
   for (let c = 0; c < 64; c++) MD['pf_' + c] = v => { const b = G.mb(1100 + c * 32 + (v & 31)); platform(b, (v & 31) | (c & 2 ? 32 : 0) | (c & 1 ? 256 : 0) | G.lvlBits(c >> 2)); return b.done(); };
-  const pfKey = v => { const c = Math.min(15, lvlOf(v)) * 4 + (v & 32 ? 2 : 0) + (v & 256 ? 1 : 0), ex = ((v >> 11) & 15) | (((v >> 15) & 7) << 4); return (ex ? 'pfx_' + c + '_' + ex : 'pf_' + c) + ':' + (v & 31); };
+  const pfKey = v => { const c = Math.min(15, lvlOf(v)) * 4 + (v & 32 ? 2 : 0) + (v & 256 ? 1 : 0), ex = ((v >> 11) & 15) | (((v >> 15) & 7) << 4) | (((v >> 18) & 7) << 7); return (ex ? 'pfx_' + c + '_' + ex : 'pf_' + c) + ':' + (v & 31); };
   const ogg = G.getGeo; G.getGeo = (name, v = 0) => { if (typeof name === 'string' && name.startsWith('pfx_') && !MD[name]) { const [, c, ex] = name.split('_').map(Number);
-      MD[name] = vv => { const b = G.mb(1100 + c * 32 + (vv & 31)); platform(b, (vv & 31) | (c & 2 ? 32 : 0) | (c & 1 ? 256 : 0) | G.lvlBits(c >> 2) | ((ex & 15) << 11) | ((ex >> 4) << 15)); return b.done(); }; }
+      MD[name] = vv => { const b = G.mb(1100 + c * 32 + (vv & 31)); platform(b, (vv & 31) | (c & 2 ? 32 : 0) | (c & 1 ? 256 : 0) | G.lvlBits(c >> 2) | ((ex & 15) << 11) | (((ex >> 4) & 7) << 15) | ((ex >> 7) << 18)); return b.done(); }; }
     return ogg(name, v); };
   // ---------- escalier en fer forgé ----------
   const NST = D => D === 1 ? 6 : 8;
@@ -113,7 +125,7 @@
     // supports : une colonne sous le milieu de la grande volée ; en hauteur, des colonnes du sol jusqu'aux deux bouts
     // supports : au sol, une colonne sous le milieu de la grande volée ; en hauteur, une paire de colonnes tous les 3 escaliers (J.P)
     if (D === 2 && (!e || J.P)) column(b, 0, 0, [], Y0 + T / 2 - .12);
-    if (e && J.P) for (const s of [-1, 1]) column(b, s * .4, D / 2 - .12, [], Y0 - .04);
+    if (e && J.P) for (const s of [-1, 1]) { column(b, s * .4, D / 2 - .12, [], Y0 - .04); eiffelConsole(b, null, s * .4, D / 2 - .12, 0, -1, Y0 - .75, Y0 + .25, .5); eiffelConsole(b, null, s * .4, D / 2 - .12, 0, 1, Y0 - .75, Y0 - .1, .3); }
   }
   MD.esc_fer = v => { const b = G.mb(980 + ((v || 0) & 3)); ironStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32, P: v & 2 }, lvlOf(v)); return b.done(); };
   for (let e = 0; e < 16; e++) MD['ef_' + e] = v => { const b = G.mb(1700 + e * 4 + (v & 3)); ironStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32, P: v & 2 }, e); return b.done(); };
@@ -153,12 +165,13 @@
       else if (!m.water[m.idx(x, z)] && m.baseH(x, z) > dk - .3) v |= bit; } // du sol au niveau du plancher ou plus haut (falaise, butte) : pas de balustrade, seulement côté vide
     if (o.x % 5 === 0) v |= 16; if (o.z % 5 === 0) v |= 256;
     let solid = 0; NB.forEach(([dx, dz], i) => { if (solidAt(m, o.x + dx, o.z + dz, dk)) solid |= 1 << i; }); v |= solid << 11;
-    if (!d.susp && !solid && !hasCol(v)) { let best = 0, bk = 99; NB.forEach(([dx, dz], i) => { for (let k = 1; k <= 6 && k < bk; k++) { const q = platAt(m, o.x + dx * k, o.z + dz * k, dk); if (!q) break; if (!O[q.t].susp && hasCol(q.v || 0)) { bk = k; best = i + 1; break; } } }); v |= best << 15; }
+    if (!d.susp && !solid && !hasCol(v)) { let best = 0, bk = 99; NB.forEach(([dx, dz], i) => { for (let k = 1; k <= 6 && k < bk; k++) { const x = o.x + dx * k, z = o.z + dz * k, q = platAt(m, x, z, dk);
+        if (!q) { const st = m.inb(x, z) && m.objAt(x, z); if (ironSt(st) && ((st.v || 0) & 2) && lvlOf(st.v || 0) > 0) { bk = k; best = i + 1; } break; } if (!O[q.t].susp && hasCol(q.v || 0)) { bk = k; best = i + 1; break; } } }); v |= best << 15; if (best) v |= Math.min(7, bk) << 18; }
     if (v !== o.v) { o.v = v; if (o._k) m.refresh(o); } }
   // une case a-t-elle sa propre colonne ? (croisement des multiples de 5, ou coin extérieur)
   const hasCol = v => !!(((v & 16) && (v & 256)) || [[1, 2], [2, 4], [4, 8], [8, 1]].some(([a, c]) => !(v & a) && !(v & c)));
   // ce qui est solide à côté : falaise ou butte à la hauteur du plancher, mur de maison, rocher, gros bâtiment
-  const solidAt = (m, x, z, dk) => { if (!m.inb(x, z)) return false; const i = m.idx(x, z); if (!m.water[i] && m.baseH(x, z) > dk - .3) return true;
+  const solidAt = (m, x, z, dk) => { if (!m.inb(x, z)) return false; const i = m.idx(x, z); if (!m.water[i] && m.baseH(x, z) > dk - 1.8) return true;
     const q = m.objAt(x, z), qd = q && O[q.t]; return !!(qd && !qd.plat && !qd.stair && !qd.walk && (q.y || 0) + (qd.h || 0) > dk - .3 && (qd.enter || qd.fixed || qd.mine || qd.h > 2)); };
   // escaliers en fer : on compte depuis le bas de la volée, une paire de colonnes tous les 3 escaliers
   const ironSt = q => !!(q && O[q.t] && O[q.t].stair && O[q.t].model === 'esc_fer');
