@@ -136,7 +136,7 @@
   // ---------- intérieurs ----------
   Object.assign(G.ROOMKINDS, { voyante: { W: 6, H: 6, floor: 'moquette', wall: 'etoiles', trim: 0xd9b84a }, rounard: { W: 7, H: 6, floor: 'parquet_fonce', wall: 'lambris', trim: 0x3f6b3a } });
   Object.assign(G.ROOMFILL, {
-    voyante: (m, P) => { P('boule_cristal', 2, 2); P('lanterne', 0, 0); P('lanterne', 5, 0); P('etagere', 0, 3); P('plante', 5, 4); P('tapis', 2, 3); },
+    voyante: (m, P) => { P('boule_cristal', 2, 2); P('lanterne', 0, 0); P('lanterne', 5, 0); P('etagere', 0, 3); P('plante', 5, 4); P('tapis_rond', 2, 3); },
     rounard: (m, P) => { for (const [x, z, k] of [[0, 0, 1], [2, 0, 3], [4, 0, 4], [6, 0, 5], [0, 3, 0], [6, 3, 6]]) P('tableau_art_' + k, x, z); P('lanterne', 1, 2); P('lanterne', 5, 2); P('tonneau', 6, 5); P('caisse', 0, 5); }
   });
   Object.assign(G.ROOMNPC, { voyante: ['voyante', 2.5, 1.3], rounard: ['rounard', 3.5, 1.7] });

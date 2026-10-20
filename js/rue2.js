@@ -111,7 +111,7 @@
   G.ROOMFILL.galerie = (m, P) => { P('plante', 0, 6); P('plante', 11, 6); P('banc_parc', 5, 6); P('lampe', 0, 0); P('lampe', 11, 0); P('lanterne', 3, 6); P('lanterne', 8, 6); fillGallery(m); };
   function fillGallery(m) { for (const o of [...m.list]) if (o.t === 'cadre_vide' || o.t.startsWith('tableau_art_')) m.removeObj(o); const art = (G.dex && G.dex.art) || {};
     SLOTS.forEach(([x, z], k) => { const id = art[k] ? 'tableau_art_' + k : 'cadre_vide'; if (m.canPlace(id, x, z)) m.addObj(id, x, z); }); }
-  G.ROOMFILL.melimelo = (m, P) => { P('comptoir', 4, 1); for (const [t, x, z] of [['canape', 0, 3], ['table', 3, 4], ['chaise', 4, 4, 3], ['lampe', 0, 0], ['etagere', 9, 0], ['tonneau', 9, 3], ['caisse', 9, 5], ['tv', 2, 0], ['horloge', 7, 0], ['aquarium', 6, 5], ['plante', 0, 6], ['tapis', 2, 5], ['lanterne', 8, 6]]) P(t, x, z); };
+  G.ROOMFILL.melimelo = (m, P) => { P('comptoir', 4, 1); for (const [t, x, z] of [['canape', 0, 3], ['table', 3, 4], ['chaise', 4, 4, 3], ['lampe', 0, 0], ['etagere', 9, 0], ['tonneau', 9, 3], ['caisse', 9, 5], ['tv', 2, 0], ['horloge', 7, 0], ['aquarium', 6, 5], ['plante', 0, 6], ['tapis_rond', 2, 5], ['lanterne', 8, 6]]) P(t, x, z); };
   Object.assign(G.ROOMNPC, { galerie: ['galerie', 6, 6.2], melimelo: ['melimelo', 5.5, .6] });
   Object.assign(G.NPCS, { galerie: { n: 'Céleste', sp: 'hibou', col: 0xf3b6d0, shirt: 0x8d6fd1, neckwear: 0xffd23f, accent: 0xfaf7f0, eyeCol: 0x9270bf, pitch: 1.2, eyes: 'doux' }, melimelo: { n: 'Mélo', sp: 'alpaga', col: 0xf3e6c8, shirt: 0xe8a23a, apron: 0x6b4426, neckwear: 0x4fb35f, accent: 0xfaf7f0, eyeCol: 0x655449, pitch: 1.1 } });
   // la galerie se met à jour à chaque visite

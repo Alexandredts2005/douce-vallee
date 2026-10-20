@@ -103,11 +103,11 @@
   });
   Object.assign(G.ROOMFILL, {
     cafe: (m, P) => { P('comptoir', 3, 1); P('percolateur', 6, 1); P('etagere', 0, 0); P('etagere', 8, 0); for (const x of [3, 4, 5]) P('tabouret', x, 2); P('table', 1, 4); P('chaise', 1, 5, 2); P('chaise', 0, 4, 1); P('table', 7, 4); P('chaise', 7, 5, 2); P('chaise', 8, 4, 3); P('plante', 0, 6); P('plante', 8, 6); P('lampe', 2, 0); P('lampe', 7, 2); P('lanterne', 6, 6); },
-    salon: (m, P) => { P('miroir', 2, 0); P('miroir', 5, 0); P('fauteuil_coif', 2, 1, 2); P('fauteuil_coif', 5, 1, 2); P('canape', 1, 5); P('plante', 0, 0); P('plante', 7, 0); P('pot_fleurs', 7, 5); P('lampe', 0, 3); P('lampe', 7, 3); P('tapis', 3, 3); },
+    salon: (m, P) => { P('miroir', 2, 0); P('miroir', 5, 0); P('fauteuil_coif', 2, 1, 2); P('fauteuil_coif', 5, 1, 2); P('canape', 1, 5); P('plante', 0, 0); P('plante', 7, 0); P('pot_fleurs', 7, 5); P('lampe', 0, 3); P('lampe', 7, 3); P('tapis_rond', 3, 3); },
     chausseur: (m, P) => { P('rayon_chaussures', 0, 0); P('rayon_chaussures', 5, 0); P('comptoir', 2, 1); P('banc', 1, 4); P('miroir', 6, 3); P('plante', 0, 3); P('lampe', 5, 4); P('lampe', 0, 2); },
     jardinerie: (m, P) => { P('comptoir', 3, 1); for (const x of [0, 1, 7, 8]) P('plante', x, 0); for (const x of [1, 2, 6, 7]) P('pot_fleurs', x, 4); P('tonneau', 0, 5); P('tonneau', 8, 5); P('lanterne', 2, 0); P('lanterne', 6, 0); P('lampe', 8, 2); P('arrosoir_deco', 0, 2); },
-    agence: (m, P) => { P('bureau', 3, 1); P('chaise', 3, 3, 2); P('chaise', 4, 3, 2); P('maquette', 0, 0, 0, { v: 0 }); P('maquette', 7, 0, 0, { v: 1 }); P('maquette', 0, 3, 0, { v: 2 }); P('plante', 7, 5); P('tableau', 5, 0); P('lampe', 1, 1); P('lampe', 6, 2); P('tapis', 3, 4); },
-    club: (m, P) => { P('scene_club', 3, 0); P('table', 1, 3); P('chaise', 0, 3, 1); P('table', 7, 3); P('chaise', 8, 3, 3); P('table', 1, 5); P('table', 7, 5); P('lampe', 0, 0); P('lampe', 8, 0); P('lanterne', 2, 2); P('lanterne', 6, 2); P('tapis', 3, 3); }
+    agence: (m, P) => { P('bureau', 3, 1); P('chaise', 3, 3, 2); P('chaise', 4, 3, 2); P('maquette', 0, 0, 0, { v: 0 }); P('maquette', 7, 0, 0, { v: 1 }); P('maquette', 0, 3, 0, { v: 2 }); P('plante', 7, 5); P('tableau', 5, 0); P('lampe', 1, 1); P('lampe', 6, 2); P('tapis_rond', 3, 4); },
+    club: (m, P) => { P('scene_club', 3, 0); P('table', 1, 3); P('chaise', 0, 3, 1); P('table', 7, 3); P('chaise', 8, 3, 3); P('table', 1, 5); P('table', 7, 5); P('lampe', 0, 0); P('lampe', 8, 0); P('lanterne', 2, 2); P('lanterne', 6, 2); P('tapis_rond', 3, 3); }
   });
   Object.assign(G.ROOMNPC, { cafe: ['cafe', 4.5, .6], salon: ['salon', 3.6, 2.4], chausseur: ['chausseur', 3.5, .55], jardinerie: ['jardin', 4.5, .6], agence: ['agence', 4, .6], club: ['club', 4.5, 1.1] });
   Object.assign(G.NPCS, {

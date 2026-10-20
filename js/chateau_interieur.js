@@ -276,7 +276,7 @@
           if (ok && P(t, x, z, r, tall)) return true; } return false; };
       const corners = (t, inset = 0) => { P(t, x0 + inset, z0 + inset); P(t, x1 - inset, z0 + inset); P(t, x0 + inset, z1 - inset); P(t, x1 - inset, z1 - inset); };
       const pairWall = (t, s, tall) => { atWall(t, s, .22, tall); atWall(t, s, .78, tall); };
-      const group = (gx, gz) => { P('tapis_savonnerie', gx - 1, gz - 1) || P('tapis', gx - 1, gz); P('gueridon', gx, gz - 1) || P('table_basse', gx, gz - 1); P('fauteuil_louis', gx - 2, gz - 1, 1); P('fauteuil_louis', gx + 1, gz - 1, 3); P('canape_velours', gx - 1, gz + 1, 2); };
+      const group = (gx, gz) => { P('tapis_savonnerie', gx - 1, gz - 1) || P('tapis_rond', gx - 1, gz); P('gueridon', gx, gz - 1) || P('table_basse', gx, gz - 1); P('fauteuil_louis', gx - 2, gz - 1, 1); P('fauteuil_louis', gx + 1, gz - 1, 3); P('canape_velours', gx - 1, gz + 1, 2); };
       const fire = (s = 'n') => atWall('cheminee_marbre', s, .5, true) || atWall('cheminee_marbre', s === 'n' ? 's' : 'n', .5, true) || atWall('cheminee_marbre', s === 'w' ? 'e' : 'w', .5, true) || atWall('cheminee_marbre', s === 'e' ? 'w' : 'e', .5, true);
       switch (rm.k) {
         case 'vestibule': { const gs = pd.st.find(q => q.up && q.grand && q.ax === 'z' && R[q.z0 * W + q.x0] === rm.id);

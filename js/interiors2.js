@@ -119,16 +119,16 @@
     const P = (t, x, z, r = 0, ex) => m.canPlace(t, x, z, r) && m.addObj(t, x, z, r, ex);
     if (opt.empty) { }
     else if (G.ROOMFILL[kind]) G.ROOMFILL[kind](m, P, opt);
-    else if (kind === 'tente') { P('sac_couchage', 1, 1); P('lanterne', 3, 1); P('coffre', 3, 3); P('tapis', 1, 3); }
+    else if (kind === 'tente') { P('sac_couchage', 1, 1); P('lanterne', 3, 1); P('coffre', 3, 3); P('tapis_rond', 1, 3); }
     else if (kind === 'cabane') { P('lit', 1, 1); P('cheminee', 3, 0); P('table', 5, 3); P('chaise', 5, 4, 2); P('tonneau', 1, 4); P('coffre', 6, 1); }
     else if (kind === 'habitant') { P('lit_fleuri', 0, 0); P('commode_fleurie', 2, 0); P('lampe_arc', 5, 0); P('fauteuil_nuage', 4, 1); P('table_basse', 4, 2); P('bibliotheque', 0, 3); P('plante', 6, 4); }
     else if (kind === 'boutique') { P('comptoir', 4, 2); P('rayon', 0, 0); P('rayon', 8, 0); P('rayon', 0, 4, 1); P('rayon', 9, 4, 1); P('tonneau', 2, 5); P('caisse', 7, 5); P('plante', 1, 6); P('lampe', 2, 0); }
-    else if (kind === 'mairie') { P('bureau', 4, 2); P('plante', 1, 1); P('plante', 8, 1); P('tableau', 1, 4); P('banc_parc', 6, 5); P('horloge', 8, 4); P('tapis', 4, 4); P('lampe', 2, 2); }
+    else if (kind === 'mairie') { P('bureau', 4, 2); P('plante', 1, 1); P('plante', 8, 1); P('tableau', 1, 4); P('banc_parc', 6, 5); P('horloge', 8, 4); P('tapis_rond', 4, 4); P('lampe', 2, 2); }
     else if (kind === 'couturiere') { P('comptoir', 3, 2); for (let i = 0; i < 3; i++) P('mannequin', 1 + i * 3, 0, 0, { v: i }); P('miroir', 8, 3); P('mannequin', 0, 4, 0, { v: 3 }); P('pot_fleurs', 8, 5); }
     else if (kind === 'gare') { P('comptoir', 3, 2); P('casiers', 8, 0); P('banc', 1, 4); P('banc', 6, 4); P('horloge', 0, 0); P('plante', 9, 4); P('lampe', 2, 1); }
     else if (kind === 'hutte') { P('lit', 1, 1); P('table', 4, 3); P('plante', 5, 0); P('coffre_tresor', 1, 4); P('lanterne', 5, 4); }
     else if (kind === 'musee') { P('bureau', 11, 9); museumSlots().forEach(([x, z]) => P('vitrine', x, z)); P('plante', 0, 9); P('plante', 14, 0); }
-    else { P('lit_fleuri', 0, 0); P('commode_fleurie', 2, 0); P('piano_droit', 5, 0); P('canape', 3, 1); P('table_basse', 3, 2); P('fauteuil_nuage', 6, 2); P('bibliotheque', 0, 3); P('tapis', 4, 3); P('lampe_arc', 7, 3); P('miroir', 2, 4); P('coffre', 0, 5); P('meuble_tv', 5, 5); P('plante', 7, 5); }
+    else { P('lit_fleuri', 0, 0); P('commode_fleurie', 2, 0); P('piano_droit', 5, 0); P('canape', 3, 1); P('table_basse', 3, 2); P('fauteuil_nuage', 6, 2); P('bibliotheque', 0, 3); P('tapis_rond', 4, 3); P('lampe_arc', 7, 3); P('miroir', 2, 4); P('coffre', 0, 5); P('meuble_tv', 5, 5); P('plante', 7, 5); }
     const n = G.ROOMNPC[kind] || NPCAT[kind]; if (n) { m.meta.npcs = [{ role: n[0], x: n[1], z: n[2], yaw: 0 }]; G.ents.spawnVillagers(m); }
     G.buildShell(m); m.buildAll(); if (kind === 'musee') G.buildMuseum(m); return m;
   };

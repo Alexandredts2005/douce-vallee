@@ -127,14 +127,14 @@
   G.buildShell = m => { if (!isGrand(m)) { if (m.interior && !m.meta.ceilH) m.meta.ceilH = m.kind === 'mairie' && m.W >= 20 ? 17 : (m.kind === 'maison' && m.W >= 22) ? 5.6 : 3; return ob(m); } grandShell(m); };
   // mobilier d'une nouvelle grande maison : salon, salle à manger, coin nuit
   const odef = G.ROOMFILL.maison;
-  G.ROOMFILL.maison = (m, P, opt) => { if (/_e\d|_a\d/.test(m.id) || m.W < 10) { if (odef) return odef(m, P, opt); for (const [t, x, z] of [['lit_fleuri', 0, 0], ['commode_fleurie', 2, 0], ['piano_droit', 5, 0], ['canape', 3, 1], ['table_basse', 3, 2], ['fauteuil_nuage', 6, 2], ['bibliotheque', 0, 3], ['tapis', 4, 3], ['lampe_arc', 7, 3], ['miroir', 2, 4], ['coffre', 0, 5], ['meuble_tv', 5, 5], ['plante', 7, 5]]) P(t, x, z); return; }
+  G.ROOMFILL.maison = (m, P, opt) => { if (/_e\d|_a\d/.test(m.id) || m.W < 10) { if (odef) return odef(m, P, opt); for (const [t, x, z] of [['lit_fleuri', 0, 0], ['commode_fleurie', 2, 0], ['piano_droit', 5, 0], ['canape', 3, 1], ['table_basse', 3, 2], ['fauteuil_nuage', 6, 2], ['bibliotheque', 0, 3], ['tapis_rond', 4, 3], ['lampe_arc', 7, 3], ['miroir', 2, 4], ['coffre', 0, 5], ['meuble_tv', 5, 5], ['plante', 7, 5]]) P(t, x, z); return; }
     const W = m.W, H = m.H, cx = Math.floor(W / 2), cz = Math.floor(H / 2);
     // coin nuit à gauche, bibliothèque et piano contre le mur du fond
     P('lit', 0, 1); P('lampe', 1, 1); P('armoire', 0, 4, 1); P('bibliotheque', 2, 0); P('piano_droit', W - 3, 0); P('plante', W - 1, 0); P('plante', 0, 0);
     // salle à manger sous le lustre : table en noyer fusionnée, chaises Louis XV
     const tx = cx - 1, tz = cz; for (let i = 0; i < 3; i++) P('table_noyer', tx + i, tz); for (let i = 0; i < 3; i++) { P('chaise_louis', tx + i, tz - 1, 0); P('chaise_louis', tx + i, tz + 1, 2); }
     // salon à droite : canapé Chesterfield, fauteuil club, table basse, lampadaire ; tapis et fauteuil à gauche
-    P('canape_chesterfield', W - 3, H - 2, 2); P('table_basse', W - 3, H - 3); P('chaise_club', W - 1, H - 3, 3); P('lampe_arc', W - 1, H - 2); P('tapis', 1, H - 3); P('chaise_club', 3, H - 2, 3);
+    P('canape_chesterfield', W - 3, H - 2, 2); P('table_basse', W - 3, H - 3); P('chaise_club', W - 1, H - 3, 3); P('lampe_arc', W - 1, H - 2); P('tapis_rond', 1, H - 3); P('chaise_club', 3, H - 2, 3);
     const o = m.objAt(tx, tz); if (o && G.mergeFurniture) { const save = G.ui.toast, sfx = G.sfx; G.ui.toast = () => { }; G.sfx = () => { }; try { G.mergeFurniture(m, o); } finally { G.ui.toast = save; G.sfx = sfx; } }
   };
   // ---------- soleil par les fenêtres : rayons de lumière et poussière dorée ----------

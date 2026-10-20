@@ -323,7 +323,7 @@
       who: ['Madame Lé', { gender: 'f', hair: 'carre', hairCol: 0x2a2630, top: 'cardigan', topCol: 0x8a2f3a, bottom: 'jupe_plissee', botCol: 0x2a2630, shoe: 'ballerines', shoes: 0x2a2630, eyes: 'anime', acc: 'lunettes', lashes: true }],
       hi: ['Bonjour {p} ! Parquets, dallages, tapis de la Savonnerie… on refait ton sol ?', 'Ah, {p} ! Regarde ce tapis : chaque fleur est nouée à la main.'],
       chat: ['La Savonnerie, c’était la manufacture des tapis du roi. Rien que ça !', 'Le parquet en chevrons, c’est le plus chic. Le point de Hongrie aussi.', 'Un beau tapis réchauffe une pièce en hiver et la décore toute l’année.'],
-      q: '« Un beau sol, et toute la pièce change d’allure. »', sells: cat('sols', 'tapis', 'tapis_savonnerie') },
+      q: '« Un beau sol, et toute la pièce change d’allure. »', sells: cat('sols', 'tapis_rond', 'tapis_savonnerie') },
     { k: 'quincaillerie', n: 'Quincaillerie Le Clou d’Or', lab: '🔨 Quincaillerie', w: 4, goods: 'outil', front: 0x4a5a6a, sign: 0x2a3440, awn: [0xd88a2a, 0x2a3440], wall: 0xe8e0d0, shut: 0x4a5a6a, brick: 1,
       R: [10, 7, 'pierre', 'briques', 0xd88a2a], fill: P => { P('rayon', 0, 0); P('rayon', 2, 0); P('rayon', 7, 0); P('etabli', 0, 4, 1); P('rayon', 9, 3, 3); P('tonneau', 9, 0); P('lanterne', 0, 2); P('tonneau', 1, 6); P('caisse', 8, 6); P('caisse', 9, 6); P('lustre_industriel', 5, 4); },
       who: ['Monsieur Boulon', { gender: 'g', hair: 'decoiffe', hairCol: 0x8a5a34, hat: 'casquette', hatCol: 0xd88a2a, top: 'salopette', topCol: 0xf3ead2, botCol: 0x3d5a8a, shoe: 'bottes', shoes: 0x3a3a3a, eyes: 'rond', ex: { beard: 0x8a5a34 } }],

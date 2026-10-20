@@ -318,7 +318,7 @@
   function catalogue() {
     if (catC) return catC; catC = {}; for (const [k] of FAM) catC[k] = [];
     for (const id in G.ITEMS) { const it = G.ITEMS[id], d = it && O[it.obj]; if (!d || it.kind !== 'place' || d.enter || d.ceil || d.onWater || d.up || d.fixed || d.shop || Math.max(...d.fp) > 3) continue;
-      if (!['mobilier', 'assises', 'fleurs', 'construction'].includes(it.cat) || NOT.test(id)) continue; if ((it.cat === 'fleurs' && !/^pl_\d/.test(id)) || (it.cat === 'construction' && id !== 'tapis')) continue;
+      if (!['mobilier', 'assises', 'fleurs', 'construction'].includes(it.cat) || NOT.test(id)) continue; if ((it.cat === 'fleurs' && !/^pl_\d/.test(id)) || (it.cat === 'construction' && id !== 'tapis_rond')) continue;
       for (const [k, , re] of FAM) if (re.test(id)) { catC[k].push(id); break; } }
     return catC;
   }

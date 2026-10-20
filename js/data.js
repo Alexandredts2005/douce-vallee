@@ -80,7 +80,7 @@ F('ponton', 'Ponton', 'pier', { h: .12, walk: 1, onWater: 1, floor: 1 });
 F('planches', 'Terrasse en planches', 'planks', { h: .1, walk: 1, floor: 1 });
 F('lit', 'Lit douillet', 'bed', { h: .55, sleep: 1, fp: [1, 2] });
 F('sac_couchage', 'Sac de couchage', 'sleepbag', { h: .1, walk: 1, sleep: 1, fp: [1, 2] });
-F('tapis', 'Tapis rond', 'rug', { h: .02, walk: 1, fp: [2, 2], floor: 1 });
+F('tapis_rond', 'Tapis rond', 'rug', { h: .02, walk: 1, fp: [2, 2], floor: 1 });
 F('etagere', 'Étagère', 'shelf', { h: 1.8 });
 F('armoire', 'Armoire', 'wardrobe', { h: 2 });
 F('canape', 'Canapé', 'sofa', { h: .55, sit: 1, fp: [2, 1] });
@@ -182,7 +182,7 @@ G.RECIPES = [
   { id: 'maison', need: { bois: 60, pierre: 40, fer: 10 } }, { id: 'statue', need: { pierre: 20, or: 1 } }
 ];
 G.SHOPLIST = ['pousse', 'pommier', 'cerisier', 'tulipe_rouge', 'tulipe_jaune', 'fleur_bleue', 'fleur_rose', 'banc', 'lampadaire', 'lanterne', 'parasol', 'transat', 'cloture_blanche',
-  'pot_fleurs', 'fontaine', 'tapis', 'canape', 'lampe', 'plante', 'tv', 'pioche', 'arrosoir', 'lance_pierre', 'epee', 'sol_dalles', 'sol_briques'];
+  'pot_fleurs', 'fontaine', 'tapis_rond', 'canape', 'lampe', 'plante', 'tv', 'pioche', 'arrosoir', 'lance_pierre', 'epee', 'sol_dalles', 'sol_briques'];
 G.buyPrice = id => { const i = IT[id]; return i.buy || Math.max(100, Math.round((i.sell || 80) * 3.2 / 10) * 10); };
 
 // ---------- Acres (éditeur) ----------

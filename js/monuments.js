@@ -516,7 +516,7 @@
   O.pilier = { id: 'pilier', n: 'Pilier', model: 'pilier', v: 0, fp: [1, 1], h: MHT, fixed: 1 };
   G.ROOMFILL.mairie = (m, P) => { m.meta.bright = 1; m.meta.cam = { pitch: .42, dist: 20, ty: 3.2, fx: .6, fz: .7, dz: 1.8 };
     for (const x of [5, 18]) for (const z of [3, 7, 11, 15]) P('pilier', x, z);
-    P('bureau', 11, 8); P('tapis', 11, 10); P('tapis', 11, 12);
+    P('bureau', 11, 8); P('tapis_rond', 11, 10); P('tapis_rond', 11, 12);
     for (const [x, z] of [[8, 13], [14, 13], [8, 15], [14, 15]]) P('banc_parc', x, z); for (const [x, z] of [[1, 1], [22, 1], [1, 16], [22, 16], [9, 8], [14, 8]]) P('plante', x, z);
     P('horloge', 12, 2); P('tableau', 2, 6, 1); P('statue', 11, 3); P('statue', 13, 3); };
   let marb = null;

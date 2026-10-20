@@ -228,10 +228,10 @@
     m.surf.fill(opt.floor != null ? opt.floor : K.floor); m.meta.shell = { wall: opt.wall || K.wall, trim: K.trim, kind };
     const dx = Math.floor(K.W / 2); m.addObj('paillasson', dx, K.H - 1);
     const P = (t, x, z, r = 0) => m.canPlace(t, x, z, r) && m.addObj(t, x, z, r);
-    if (kind === 'tente') { P('sac_couchage', 1, 1); P('lanterne', 3, 1); P('caisse', 3, 3); P('tapis', 1, 3); }
+    if (kind === 'tente') { P('sac_couchage', 1, 1); P('lanterne', 3, 1); P('caisse', 3, 3); P('tapis_rond', 1, 3); }
     else if (kind === 'cabane') { P('lit', 1, 1); P('cheminee', 3, 0); P('table', 5, 3); P('chaise', 5, 4, 2); P('tonneau', 1, 4); }
     else if (kind === 'habitant') { P('lit', 1, 1); P('canape', 3, 1); P('lampe', 5, 1); P('table', 3, 3); P('plante', 5, 3); P('etagere', 1, 4); }
-    else { P('lit', 1, 1); P('lampe', 2, 1); P('armoire', 6, 0); P('tapis', 3, 2); P('table', 5, 3); P('chaise', 6, 3, 3); P('plante', 6, 5); P('tv', 4, 0); P('etagere', 1, 4); }
+    else { P('lit', 1, 1); P('lampe', 2, 1); P('armoire', 6, 0); P('tapis_rond', 3, 2); P('table', 5, 3); P('chaise', 6, 3, 3); P('plante', 6, 5); P('tv', 4, 0); P('etagere', 1, 4); }
     G.buildShell(m); m.buildAll(); return m;
   };
   G.buildShell = m => {
