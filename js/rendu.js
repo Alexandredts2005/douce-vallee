@@ -15,6 +15,7 @@
     uSkyTop: { value: new THREE.Color(0x4aa3ee) }, uSkyHor: { value: new THREE.Color(0xaee0ff) }, uSkyGnd: { value: new THREE.Color(0x8f9a6a) },
     uSunK: { value: 1.55 }, uAmbK: { value: 1.25 }, uEnvK: { value: .85 }, uSpecK: { value: 1 }, uPointK: { value: 3.2 }, uGlowK: { value: .15 }, uFireK: { value: 2.2 },
     uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }, uVox: { value: 0 },
+    uCine: { value: 0 }, // shader cinéma : gros nuages dorés, côte lointaine, reflets du soleil sur la mer
     uMoonPh: { value: PI }, uMoonK: { value: 1 }, uStarRot: { value: 0 } // phase de la lune (0 nouvelle, π pleine), part éclairée, rotation du ciel étoilé
   };
   // ---------- matières ----------
@@ -287,7 +288,7 @@ void main() {
   vec4 mvPosition = viewMatrix * cwp; gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }`;
-  const WATER_FS = `uniform float uTime, uSunK, uCloudAmt, uNight, opacity, uWet; uniform vec3 uSunDir, uSunCol, uSkyTop, uSkyHor, uSkyGnd; uniform sampler2D uCloudTex, uRipple; uniform vec2 uCloudOff;
+  const WATER_FS = `uniform float uTime, uSunK, uCloudAmt, uNight, opacity, uWet, uCine; uniform vec3 uSunDir, uSunCol, uSkyTop, uSkyHor, uSkyGnd; uniform sampler2D uCloudTex, uRipple; uniform vec2 uCloudOff;
 varying vec3 vWP; varying vec3 vCol; varying vec3 vVD;
 #include <fog_pars_fragment>
 vec3 s2l( vec3 c ) { return pow( max( c, vec3( 0. ) ), vec3( 2.2 ) ); }
@@ -312,6 +313,7 @@ void main() {
   float rip = texture2D( uRipple, p * .3 + vec2( t * .02, t * .013 ) ).r;
   float foam = shore * smoothstep( .45, .8, wn( p * 3.1 + vec2( t * .45, -t * .3 ) ) * .55 + rip * .5 ) + smoothstep( .9, 1., rip ) * .18 * ( 1. - deep );
   col = mix( col, amb * 1.35 + vec3( .02 ), clamp( foam, 0., 1. ) * .75 );
+  if ( uCine > 0. ) { float gl = pow( sd, 18. ) * smoothstep( .5, .95, wn( p * 6. + vec2( t * 1.3, -t ) ) * .55 + wn( p * 17. - t * 2.1 ) * .5 ); col += s2l( uSunCol ) * uSunK * ( gl * 9. + pow( sd, 6. ) * .25 ) * uCine * cl; } // chemin de paillettes du soleil sur la mer
   if ( uWet > 0. ) col += amb * .25 * uWet * smoothstep( .75, .98, wn( p * 9. + t * 5. ) ); // gouttes de pluie
   float a = clamp( mix( .6, .96, fres ) + foam * .35 + shore * .08 + deep * .12, 0., 1. ) * opacity / .8;
   gl_FragColor = vec4( pow( col, vec3( 1. / 2.2 ) ), a );
@@ -339,7 +341,7 @@ void main() {
   };
 
   // ---------- ciel atmosphérique ----------
-  const SKY_FS = `uniform vec3 top, hor, uSunDir, uSunCol; uniform float uNight, uTime, uMoonPh, uMoonK, uStarRot; varying vec3 vP;
+  const SKY_FS = `uniform vec3 top, hor, uSunDir, uSunCol; uniform float uNight, uTime, uMoonPh, uMoonK, uStarRot, uCine; varying vec3 vP;
 float sh( vec2 p ) { vec3 p3 = fract( vec3( p.xyx ) * .1031 ); p3 += dot( p3, p3.yzx + 33.33 ); return fract( ( p3.x + p3.y ) * p3.z ); }
 float sn( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3. - 2. * f ); return mix( mix( sh( i ), sh( i + vec2( 1., 0. ) ), f.x ), mix( sh( i + vec2( 0., 1. ) ), sh( i + vec2( 1., 1. ) ), f.x ), f.y ); }
 float fbm( vec2 p ) { float a = .5, s = 0.; for ( int i = 0; i < 5; i ++ ) { s += sn( p ) * a; p = p * 2.03 + vec2( 1.7, 9.2 ); a *= .5; } return s; }
@@ -366,6 +368,20 @@ vec3 moon( vec3 d, vec3 md ) {
   float mu0 = dot( n, L ), mu = max( n.z, .04 ), lit = smoothstep( -.03, .05, mu0 ), ls = min( 1.2, max( mu0, 0. ) / ( max( mu0, 0. ) + mu ) * 2. ); // réflexion lunaire (Lommel-Seeliger) : pleine lune toute plate
   vec3 col = vec3( 1.04, 1., .9 ) * alb * ls * lit * .78 + vec3( .05, .07, .11 ) * alb * ( 1. - lit ) * ( 1. - uMoonK ) * smoothstep( .004, .04, uMoonK ) * .7; // lumière cendrée
   return col * smoothstep( 1., .965, r );
+}
+// les cumulus du shader cinéma : une couche de nuages vue en perspective (serrés vers l'horizon), éclairés par le soleil
+// (ombre propre estimée vers le soleil, bords dorés et liseré argenté à contre-jour, ventres gris mauve)
+float cumD( vec2 q ) { return smoothstep( .5, .76, fbm( q ) * .78 + fbm( q * 2.6 + 4.3 ) * .32 ); }
+vec4 cumulus( vec3 d, vec3 sunC, float sd, float day ) {
+  float h = d.y; if ( h < .004 ) return vec4( 0. );
+  vec2 uv = d.xz / ( h + .045 ) * .42 + vec2( uTime * .006, uTime * .0022 ); float den = cumD( uv ); if ( den < .003 ) return vec4( 0. );
+  vec2 ls = normalize( uSunDir.xz + 1e-5 ) * .09; float sh = cumD( uv + ls ) + cumD( uv + ls * 2.3 ) * .8 + cumD( uv + ls * 4. ) * .6;
+  float lit = exp( -sh * 1.1 ) * ( 1. - exp( -den * 4. ) ) * 1.6 + .08;
+  vec3 shade = mix( top * vec3( .62, .6, .78 ), hor * vec3( .7, .62, .7 ), .45 ) * mix( .3, 1., day );
+  vec3 col = mix( shade, sunC * vec3( 1.25, 1.05, .82 ) * 1.5 + hor * .25, clamp( lit, 0., 1.2 ) * day );
+  col += sunC * pow( sd, 10. ) * ( 1. - den ) * 2.2 * day; // liseré argenté à contre-jour
+  col = mix( col, hor * 1.04, exp( -h * 9. ) * .55 ); // les plus lointains se fondent dans la brume
+  return vec4( col, den * smoothstep( .004, .06, h ) );
 }
 // la Voie lactée : une bande laiteuse et granuleuse coupée par le grand rift sombre, plus dense vers le centre de la galaxie ; elle tourne avec les étoiles
 vec3 milky( vec3 d ) {
@@ -394,13 +410,21 @@ void main() {
     float n = fbm( uv * 1.6 ), w = fbm( uv * 5. + 3.1 );
     float cl = smoothstep( .52, .82, n * .75 + w * .35 ) * smoothstep( 0., .22, h ) * .55;
     vec3 cc = mix( hor * 1.1, vec3( 1. ), .55 ) * mix( .35, 1., day ) + sunC * pow( sd, 6. ) * .45;
-    c = mix( c, cc, cl );
+    c = mix( c, cc, cl * ( 1. - uCine * .6 ) );
+  }
+  if ( uCine > 0. ) {
+    vec2 hz = normalize( d.xz + 1e-5 ), sz = normalize( uSunDir.xz + 1e-5 ); float az = max( dot( hz, sz ), 0. ), ang = atan( d.z, d.x );
+    float ridge = .006 + .022 * fbm( vec2( ang * 5., 3. ) ) + .012 * fbm( vec2( ang * 19., 8. ) ); // côte et collines lointaines dans la brume
+    if ( h > -.01 && h < ridge ) { vec3 mc = mix( hor * vec3( .66, .66, .74 ), hor, .5 + .4 * smoothstep( ridge - .02, ridge, h ) ) + sunC * pow( az, 6. ) * .12 * day; c = mix( c, mc, smoothstep( ridge, ridge - .002, h ) * uCine * .85 ); }
+    c += sunC * ( pow( sd, 6. ) * .14 + pow( sd, 60. ) * .45 + pow( az, 4. ) * exp( -max( h, 0. ) * 8. ) * .22 ) * day * uCine; // grand halo doré
+    vec4 cu = cumulus( d, sunC, sd, day ); c = mix( c, cu.rgb, cu.a * uCine );
+    c = mix( c, vec3( 1.7, 1.55, 1.25 ) * mix( vec3( 1. ), sunC, .3 ), smoothstep( .9995, .99975, sd ) * day * uCine * ( 1. - cu.a * .7 ) ); // le soleil passe devant les nuages fins
   }
   gl_FragColor = vec4( c, 1. );
 }`;
   function upgradeSky() {
     const s = G.skyMesh; if (!s || s.userData.premium) return; s.userData.premium = true; const m = s.material;
-    Object.assign(m.uniforms, { uSunDir: SU.uSunDir, uSunCol: SU.uSunCol, uNight: SU.uNight, uTime: SU.uTime, uMoonPh: SU.uMoonPh, uMoonK: SU.uMoonK, uStarRot: SU.uStarRot }); m.fragmentShader = SKY_FS; m.needsUpdate = true;
+    Object.assign(m.uniforms, { uSunDir: SU.uSunDir, uSunCol: SU.uSunCol, uNight: SU.uNight, uTime: SU.uTime, uMoonPh: SU.uMoonPh, uMoonK: SU.uMoonK, uStarRot: SU.uStarRot, uCine: SU.uCine }); m.fragmentShader = SKY_FS; m.needsUpdate = true;
     for (const x of [G.sunMesh, G.moonMesh]) if (x) x.material.visible = false;
     upgradeStars();
   }
@@ -435,6 +459,9 @@ void main() {
     st.geometry.dispose(); st.material.dispose(); st.geometry = g; st.material = m;
   }
   // âge de la lune : le vrai si l'heure du jeu suit l'heure réelle, sinon un cycle de 29,5 jours de jeu (on commence près de la pleine lune)
+  // shader : « dore » (lumière de fin de journée toute la journée, par défaut), « cine » (suit l'heure), « aucun »
+  const shaderMode = () => { const s = G.settings || {}; return s.shader || 'dore'; };
+  G.goldK = h => shaderMode() === 'dore' && G.settings.quality !== 'low' && !(G.map && G.map.interior) ? G.smooth(G.clamp((h - 5.6) / 1.2, 0, 1)) * (1 - G.smooth(G.clamp((h - 18.2) / .8, 0, 1))) : 0;
   const SYN = 29.530589;
   G.moonAge = () => { const c = G.clock || {}; return G.settings && G.settings.day === 'real' ? ((Date.now() - Date.UTC(2000, 0, 6, 18, 14)) / 864e5 % SYN + SYN) % SYN : ((c.day || 0) + (c.min || 0) / 1440 + 14) % SYN; };
 
@@ -449,6 +476,7 @@ void main() {
     SU.uTime.value += dt; const L = G.lights, si = G.skyInfo, m = G.map; if (!L || !si) return; const inside = !!(m && m.interior), n = si.n || 0;
     SD.copy(L.sun.position).sub(L.sun.target.position).normalize(); SU.uSunDir.value.copy(SD);
     SU.uSunCol.value.copy(L.sun.color).multiplyScalar(Math.min(1.2, L.sun.intensity * 1.05)); SU.uNight.value = n;
+    const cine = shaderMode() !== 'aucun' && G.settings.quality !== 'low' ? 1 : 0; SU.uCine.value = cine; SU.uSpecK.value = 1 - .7 * (inside ? 0 : G.goldK(si.h)); // soleil rasant de l'heure dorée : pas d'éblouissement sur l'herbe
     const ph = G.moonAge() / SYN * PI * 2; SU.uMoonPh.value = ph; SU.uMoonK.value = .5 - .5 * Math.cos(ph);
     SU.uStarRot.value = si.h / 24 * PI * 2; if (G.stars && G.stars.material.uniforms) { G.stars.quaternion.setFromAxisAngle(POLE, SU.uStarRot.value); G.stars.material.uniforms.uPx.value = G.renderer.getPixelRatio(); }
     if (inside) { // reflets d'une pièce : plafond clair, murs, sol
@@ -456,7 +484,7 @@ void main() {
       if (sh && sh.envTop) { SU.uSkyTop.value.setHex(sh.envTop); SU.uSkyHor.value.setHex(sh.envHor); }
     } else { SU.uSkyTop.value.copy(si.top); SU.uSkyHor.value.copy(si.hor); SU.uSkyGnd.value.copy(L.hemi.groundColor); }
     // calibrage : jour, nuit, intérieur
-    const day = 1 - n; SU.uSunK.value = inside ? 1.35 : 1.5 + .15 * day; SU.uAmbK.value = inside ? (m.meta.sunny ? .85 : 1.3) : 1.15 + .25 * n; SU.uEnvK.value = inside ? .5 : .8;
+    const day = 1 - n; SU.uSunK.value = inside ? 1.35 : 1.5 + .15 * day; SU.uAmbK.value = inside ? (m.meta.sunny ? .85 : 1.3) : 1.15 + .25 * n; SU.uEnvK.value = inside ? .5 : .8 * (1 - .6 * G.goldK(si.h));
     SU.uPointK.value = inside ? 3.4 : 3.4; SU.uGlowK.value = inside ? .9 : G.lerp(.12, 2.6, Math.min(1, n * 1.3)); SU.uWarmK.value = inside ? 0 : Math.min(1, n * 1.5);
     SU.uWet.value += ((G.weather && G.weather.wet ? G.weather.wet : 0) - SU.uWet.value) * Math.min(1, dt * .25); wetT += dt;
     SU.uWind.value = G.weather && G.weather.wind != null ? G.weather.wind : 1;
@@ -512,7 +540,7 @@ void main() { vec2 d = ( uSun - vUv ) / 32.; vec2 uv = vUv; float s = 0., w = 1.
   for ( int i = 0; i < 32; i ++ ) { vec2 q = clamp( uv, vec2( .001 ), vec2( .999 ) ); float sky = step( .99999, texture2D( tDepth, q ).x ); vec3 c = texture2D( tScene, q ).rgb; s += sky * max( dot( c, vec3( .3, .59, .11 ) ) - .5, 0. ) * w; ws += w; w *= .955; uv += d; }
   float fall = 1. - smoothstep( 0., .85, length( ( vUv - uSun ) * vec2( 1.6, 1. ) ) ); gl_FragColor = vec4( vec3( s / ws * fall * 3. ), 1. ); }`;
   const COMP_FS = `#include <packing>
-uniform sampler2D tScene, tDepth, tAO, tBloom, tBlur, tShaft; uniform vec2 uTexel, uTanFov; uniform vec3 uHazeCol, uTint, uSunHaze, uSunDirW, uShaftCol; uniform mat3 uCamRot; uniform float uCamY, uShaftK, uSharp, uSplit;
+uniform sampler2D tScene, tDepth, tAO, tBloom, tBlur, tShaft; uniform vec2 uTexel, uTanFov; uniform vec3 uHazeCol, uTint, uSunHaze, uSunDirW, uShaftCol; uniform mat3 uCamRot; uniform float uCamY, uShaftK, uSharp, uSplit, uCine;
 uniform float uNear, uFar, uAOk, uBloomK, uExposure, uDof, uFocus, uFocusR, uFarBlur, uHaze, uHazeStart, uSat, uVig, uTime, uHasAO, uHasBloom, uHasDof, uContrast; varying vec2 vUv;
 vec3 neutral( vec3 c ) { // tonemapper « PBR Neutral » (Khronos) : couleurs fidèles, hautes lumières adoucies
   float x = min( c.r, min( c.g, c.b ) ), off = x < .08 ? x - 6.25 * x * x : .04; c -= off; float pk = max( c.r, max( c.g, c.b ) ); if ( pk < .76 ) return c;
@@ -526,8 +554,8 @@ void main() {
   if ( uHasAO > .5 && !sky ) { float ao = texture2D( tAO, vUv ).r; lin *= mix( 1., ao, uAOk ); }
   if ( uHaze > 0. && !sky ) { // brume atmosphérique : plus dense en bas, éclairée par le soleil quand on regarde vers lui
     vec3 vd = vec3( ( vUv * 2. - 1. ) * uTanFov, -1. ); float dl = vz * length( vd ); vec3 wd = normalize( uCamRot * vd );
-    float hy = max( 0., uCamY + wd.y * dl ), hf = mix( 1., exp( -hy * .03 ), .65 ), sa = pow( max( dot( wd, uSunDirW ), 0. ), 5. );
-    lin = mix( lin, mix( uHazeCol, uSunHaze, sa * .75 ), ( 1. - exp( -max( 0., dl - uHazeStart ) * uHaze * hf ) ) ); }
+    float hy = max( 0., uCamY + wd.y * dl ), hf = mix( 1., exp( -hy * .03 ), .65 ), sa = pow( max( dot( wd, uSunDirW ), 0. ), mix( 5., 3.5, uCine ) );
+    lin = mix( lin, mix( uHazeCol, uSunHaze, sa * mix( .75, .55, uCine ) ), ( 1. - exp( -max( 0., dl - uHazeStart ) * uHaze * hf ) ) ); }
   if ( uHasBloom > .5 ) lin += texture2D( tBloom, vUv ).rgb * uBloomK;
   if ( uShaftK > 0. ) lin += texture2D( tShaft, vUv ).r * uShaftCol * uShaftK;
   vec3 tm = neutral( lin * uExposure * uTint );
@@ -552,7 +580,7 @@ void main() {
       mDofDown = sm(DOFDOWN_FS, { tScene: { value: null }, uTexel: { value: new THREE.Vector2() } });
       mComp = sm(COMP_FS, { tScene: { value: null }, tDepth: { value: null }, tAO: { value: null }, tBloom: { value: null }, tBlur: { value: null }, uTexel: { value: new THREE.Vector2() }, uHazeCol: { value: new THREE.Vector3() }, uTint: { value: new THREE.Vector3(1, 1, 1) },
         uNear: { value: .1 }, uFar: { value: 900 }, uAOk: { value: .7 }, uBloomK: { value: .3 }, uExposure: { value: 1 }, uDof: { value: 1 }, uFocus: { value: 12 }, uFocusR: { value: 6 }, uFarBlur: { value: 90 }, uHaze: { value: 0 }, uHazeStart: { value: 30 },
-        uSat: { value: 1.06 }, uVig: { value: .22 }, tShaft: { value: null }, uTanFov: { value: new THREE.Vector2() }, uSunHaze: { value: new THREE.Vector3() }, uSunDirW: { value: new THREE.Vector3() }, uShaftCol: { value: new THREE.Vector3() }, uCamRot: { value: new THREE.Matrix3() }, uCamY: { value: 0 }, uShaftK: { value: 0 }, uSharp: { value: .22 }, uSplit: { value: 1 }, uTime: { value: 0 }, uHasAO: { value: 1 }, uHasBloom: { value: 1 }, uHasDof: { value: 1 }, uContrast: { value: .1 } });
+        uSat: { value: 1.06 }, uVig: { value: .22 }, tShaft: { value: null }, uTanFov: { value: new THREE.Vector2() }, uSunHaze: { value: new THREE.Vector3() }, uSunDirW: { value: new THREE.Vector3() }, uShaftCol: { value: new THREE.Vector3() }, uCamRot: { value: new THREE.Matrix3() }, uCamY: { value: 0 }, uShaftK: { value: 0 }, uSharp: { value: .22 }, uSplit: { value: 1 }, uCine: { value: 0 }, uTime: { value: 0 }, uHasAO: { value: 1 }, uHasBloom: { value: 1 }, uHasDof: { value: 1 }, uContrast: { value: .1 } });
       PP.ok = true;
     } catch (e) { console.warn('post-traitement indisponible', e); PP.ok = false; }
   }
@@ -576,7 +604,7 @@ void main() {
     const tanY = Math.tan(cam.fov * PI / 360), tanX = tanY * cam.aspect;
     if (useAO) { const u = mAO.uniforms; u.tDepth.value = rtScene.depthTexture; u.uTexel.value.set(1 / w, 1 / h); u.uTanFov.value.set(tanX, tanY); u.uNear.value = cam.near; u.uFar.value = cam.far; u.uProj.value.copy(cam.projectionMatrix); u.uRadius.value = inside ? .42 : .55; u.uPower.value = inside ? 1.8 : 1.5;
       pass(R, mAO, rtAO); mBlur.uniforms.tAO.value = rtAO.texture; mBlur.uniforms.uDir.value.set(1 / rtAO.width, 0); pass(R, mBlur, rtAO2); mBlur.uniforms.tAO.value = rtAO2.texture; mBlur.uniforms.uDir.value.set(0, 1 / rtAO.height); pass(R, mBlur, rtAO); }
-    if (useBloom) { const n = G.night ? G.night() : 0; mPre.uniforms.tScene.value = rtScene.texture; mPre.uniforms.uTexel.value.set(1 / w, 1 / h); mPre.uniforms.uTh.value = inside ? .95 : G.lerp(1.15, .75, n); mPre.uniforms.uKnee.value = .6; pass(R, mPre, rtB[0]);
+    if (useBloom) { const n = G.night ? G.night() : 0; mPre.uniforms.tScene.value = rtScene.texture; mPre.uniforms.uTexel.value.set(1 / w, 1 / h); mPre.uniforms.uTh.value = inside ? .95 : G.lerp(G.lerp(1.15, .88, SU.uCine.value), .75, n); mPre.uniforms.uKnee.value = .6; pass(R, mPre, rtB[0]);
       for (let i = 1; i < rtB.length; i++) { mDown.uniforms.tSrc.value = rtB[i - 1].texture; mDown.uniforms.uTexel.value.set(1 / rtB[i - 1].width, 1 / rtB[i - 1].height); pass(R, mDown, rtB[i]); }
       for (let i = rtB.length - 2; i >= 0; i--) { mUp.uniforms.tSrc.value = rtB[i + 1].texture; mUp.uniforms.uTexel.value.set(1 / rtB[i + 1].width, 1 / rtB[i + 1].height); mUp.uniforms.uK.value = 1; pass(R, mUp, rtB[i], false); } }
     if (useDof) { mDofDown.uniforms.tScene.value = rtScene.texture; mDofDown.uniforms.uTexel.value.set(1 / w, 1 / h); pass(R, mDofDown, rtD0);
@@ -588,17 +616,19 @@ void main() {
     u.uAOk.value = inside ? .85 : .72; u.uBloomK.value = inside ? .2 : G.lerp(.22, .5, n); u.uExposure.value = (inside ? (m.meta.sunny ? .8 : .9) : G.lerp(.82, 1.3, n)) * (PP.expo || 1);
     const vox = S.style === 'cubique'; u.uSat.value = (inside ? 1.05 : 1.07) * (vox ? 1.13 : 1); u.uVig.value = vox ? .27 : .2; u.uTime.value = (u.uTime.value + .618) % 7; u.uContrast.value = vox ? .19 : .1;
     if (vox && !inside) u.uTint.value.set(1.035 - n * .07, 1.0, .955 + n * .1); else u.uTint.value.set(1, 1, 1); // soleil doré le jour, nuits bleutées
+    const ck = inside ? 0 : SU.uCine.value * (1 - n); u.uCine.value = ck; // shader cinéma : plus chaud, plus saturé, plus contrasté, bloom et brume dorée
+    if (ck > 0) { u.uTint.value.multiply(V3.set(G.lerp(1, 1.04, ck), 1, G.lerp(1, .95, ck))); u.uSat.value *= G.lerp(1, 1.22, ck); u.uContrast.value = G.lerp(u.uContrast.value, .27, ck); u.uVig.value = G.lerp(u.uVig.value, .3, ck); u.uBloomK.value *= G.lerp(1, 1.7, ck); }
     // mise au point : sur le personnage (vue du village) ; seulement le lointain en vue souris
     let focus = 12; if (p) { V3.set(p.x, p.y + 1, p.z).applyMatrix4(cam.matrixWorldInverse); focus = Math.max(1, -V3.z); } PP.focus += (focus - PP.focus) * .2;
     u.uFocus.value = PP.focus; u.uFocusR.value = mouse ? 60 : Math.max(5, PP.focus * .55); u.uFarBlur.value = mouse ? 110 : Math.max(40, PP.focus * 3.2); u.uDof.value = mouse ? .55 : (G.state === 'title' ? .8 : .9);
     // rayons de soleil (vers le soleil, au-dessus de l'horizon, de jour) et brume éclairée
     const sd = SU.uSunDir.value, sCol = SU.uSunCol.value; cam.getWorldDirection(V3); const facing = V3.dot(sd); V3.copy(cam.position).addScaledVector(sd, 600).project(cam);
-    const shaftK = (vox ? 1.6 : 1) * (!inside && S.shafts !== false && (S.quality !== 'mid' || vox) && sd.y > -.03 && facing > .05 && Math.abs(V3.x) < 1.8 && Math.abs(V3.y) < 1.8 ? Math.pow(facing, 1.5) * (1 - n) * (.35 + .5 * (1 - Math.min(1, sd.y * 1.6))) : 0);
+    const shaftK = (vox ? 1.6 : 1) * (1 + .2 * SU.uCine.value) * (!inside && S.shafts !== false && (S.quality !== 'mid' || vox || SU.uCine.value > 0) && sd.y > -.03 && facing > .05 && Math.abs(V3.x) < 1.8 && Math.abs(V3.y) < 1.8 ? Math.pow(facing, 1.5) * (1 - n) * (.35 + .5 * (1 - Math.min(1, sd.y * 1.6))) : 0);
     if (shaftK > .01) { mShaft.uniforms.tDepth.value = rtScene.depthTexture; mShaft.uniforms.tScene.value = rtScene.texture; mShaft.uniforms.uSun.value.set((V3.x + 1) / 2, (V3.y + 1) / 2); pass(R, mShaft, rtS); }
     u.tShaft.value = rtS.texture; u.uShaftK.value = shaftK; u.uShaftCol.value.set(Math.pow(sCol.r, 2.2), Math.pow(sCol.g, 2.2), Math.pow(sCol.b, 2.2)).multiplyScalar(1.6);
     u.uTanFov.value.set(tanX, tanY); u.uCamRot.value.setFromMatrix4(cam.matrixWorld); u.uCamY.value = cam.position.y; u.uSunDirW.value.copy(sd); u.uSunHaze.value.set(Math.pow(sCol.r, 2.2), Math.pow(sCol.g, 2.2) * .92, Math.pow(sCol.b, 2.2) * .75).multiplyScalar(1.15 * (1 - n * .8));
     u.uSharp.value = S.quality === 'low' ? 0 : .22; u.uSplit.value = inside ? .5 : 1;
-    const si = G.skyInfo; if (si && !inside) { C1.copy(si.hor); u.uHazeCol.value.set(Math.pow(C1.r, 2.2), Math.pow(C1.g, 2.2), Math.pow(C1.b, 2.2)).multiplyScalar(.9); u.uHaze.value = mouse ? .0045 : .0022; u.uHazeStart.value = mouse ? 35 : 45; } else u.uHaze.value = 0;
+    const si = G.skyInfo; if (si && !inside) { C1.copy(si.hor); u.uHazeCol.value.set(Math.pow(C1.r, 2.2), Math.pow(C1.g, 2.2), Math.pow(C1.b, 2.2)).multiplyScalar(.9); u.uHaze.value = (mouse ? .0045 : .0022) * (1 - .3 * SU.uCine.value); u.uHazeStart.value = (mouse ? 35 : 45) * (1 + .3 * SU.uCine.value); } else u.uHaze.value = 0;
     pass(R, mComp, null);
     R.info.autoReset = true;
   }
@@ -614,6 +644,7 @@ void main() {
     const row = back.parentNode, d = document.createElement('div');
     d.innerHTML = `<div id="o-rendu" style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:6px 0 0;font-family:var(--f-display);color:var(--bark)">✨ Graphismes</h3>
       <div class="opt">Style graphique<select id="o-style"><option value="realiste">Réaliste (textures détaillées)</option><option value="cubique">Cubique (façon Minecraft)</option></select></div>
+      <div class="opt">Shader<select id="o-shader"><option value="dore">Heure dorée (lumière de coucher de soleil, gros nuages)</option><option value="cine">Cinéma (gros nuages, suit l'heure)</option><option value="aucun">Aucun</option></select></div>
       <div class="opt">Effets cinéma (HDR, bloom, étalonnage)<input type="checkbox" id="o-post"></div>
       <div class="opt">Occlusion ambiante (ombres de contact)<input type="checkbox" id="o-ao"></div>
       <div class="opt">Profondeur de champ (effet miniature)<input type="checkbox" id="o-dof"></div>
@@ -621,7 +652,8 @@ void main() {
     form.insertBefore(d.firstChild, row);
     const s = G.settings, $ = G.el;
     $('o-style').onchange = () => { s.style = $('o-style').value; G.ui.saveSettings && G.ui.saveSettings(); };
-    const sync = () => { $('o-style').value = s.style === 'cubique' ? 'cubique' : 'realiste'; $('o-post').checked = s.post !== false; $('o-ao').checked = s.ao !== false; $('o-dof').checked = s.dof !== false; $('o-bloom').checked = s.bloom !== false; };
+    $('o-shader').onchange = () => { s.shader = $('o-shader').value; G.ui.saveSettings && G.ui.saveSettings(); };
+    const sync = () => { $('o-style').value = s.style === 'cubique' ? 'cubique' : 'realiste'; $('o-shader').value = shaderMode(); $('o-post').checked = s.post !== false; $('o-ao').checked = s.ao !== false; $('o-dof').checked = s.dof !== false; $('o-bloom').checked = s.bloom !== false; };
     for (const [id, k] of [['o-post', 'post'], ['o-ao', 'ao'], ['o-dof', 'dof'], ['o-bloom', 'bloom']]) $(id).onchange = () => { s[k] = $(id).checked; if (k === 'post') PP.fail = false; G.ui.saveSettings && G.ui.saveSettings(); };
     sync(); const os = G.ui.show; if (os) G.ui.show = id => { if (id === 'screen-options') sync(); return os(id); };
   }

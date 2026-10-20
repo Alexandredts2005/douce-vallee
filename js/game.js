@@ -146,14 +146,17 @@
     if (s === 'real') { const d = new Date(), mm = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; if (mm < G.clock.min - 600) G.newDay(); G.clock.min = mm; }
     else { G.clock.min += dt * 1440 / (Number(s) * 60); if (G.clock.min >= 1440) { G.clock.min -= 1440; G.newDay(); } }
   }
-  const SD = new THREE.Vector3();
+  const SD = new THREE.Vector3(), GC = [cTop, cHor, cLight, cHs, cHg];
+  // shader « heure dorée » : en journée, ciel et lumière d'un coucher de soleil (mélangés aux vrais selon gk)
+  const GOLD = [0x5b8ad4, 0xffdcae, 0xffd296, 0xf2dccb, 0x8c8a62], GOLDI = [.92, .64]; // haut du ciel bleu, horizon crème doré, soleil doré
+  function golden(r, gk) { if (!(gk > 0)) return r; GC.forEach((c, i) => c.lerp(cA.set(GOLD[i]), gk)); return [G.lerp(r[0], GOLDI[0], gk), G.lerp(r[1], GOLDI[1], gk)]; }
   function updSky() {
-    const h = G.clock.min / 60, [li, hi] = skyAt(h), n = G.night(), m = G.map, inside = m && m.interior;
-    skyMat.uniforms.top.value.copy(cTop); skyMat.uniforms.hor.value.copy(cHor); scene.fog.color.copy(cHor);
+    const h = G.clock.min / 60, gk = G.goldK ? G.goldK(h) : 0, [li, hi] = golden(skyAt(h), gk), n = G.night(), m = G.map, inside = m && m.interior;
+    skyMat.uniforms.top.value.copy(cTop); skyMat.uniforms.hor.value.copy(cHor); scene.fog.color.copy(cHor); if (gk > 0) scene.fog.color.lerp(cB.set(0xb8a978), gk * .35); // brume dorée un peu plus sourde que le ciel
     const dayK = 1 - n; hemi.color.copy(cHs); hemi.groundColor.copy(cHg); const sunny = inside && m.meta.sunny, brt = inside && (m.meta.sunny || m.meta.bright); hemi.intensity = inside ? (brt ? .3 + .3 * dayK : .14 + .2 * dayK) : hi; amb.intensity = inside ? (brt ? .08 + .05 * dayK : .05 + .05 * dayK) : .1 + n * .08;
     G.skyInfo = { h, n, inside, top: cTop, hor: cHor, light: cLight, day: h >= 5.2 && h < 19.6 };
     const day = h >= 5.2 && h < 19.6, a = day ? (h - 5.2) / 14.4 * Math.PI : ((h >= 19.6 ? h - 19.6 : h + 4.4) / 9.6) * Math.PI;
-    SD.set(-Math.cos(a) * .8, Math.max(.18, Math.sin(a)), .45).normalize();
+    const sy = Math.max(.18, Math.sin(a)); SD.set(-Math.cos(a) * .8, G.lerp(sy, Math.min(sy, .15), gk), .45).normalize(); // heure dorée : le soleil reste bas
     sun.color.copy(cLight); sun.intensity = inside && !sunny ? 0 : li * (sunny ? .85 : 1); const c = G.cam;
     sun.position.set(c.cx + SD.x * 60, c.cy + SD.y * 60, c.cz + SD.z * 60); sun.target.position.set(c.cx, c.cy, c.cz);
     const sp = camera.position; sunM.position.set(sp.x - Math.cos(day ? a : a + Math.PI) * 330, sp.y + Math.sin(day ? a : -1) * 260, sp.z - 260); sunM.lookAt(sp); sunM.visible = !inside && day;

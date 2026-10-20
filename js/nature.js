@@ -104,7 +104,7 @@
 void main() { vUv = uv; vDat = iDat; vec3 r = vec3( viewMatrix[ 0 ][ 0 ], viewMatrix[ 1 ][ 0 ], viewMatrix[ 2 ][ 0 ] ), u = vec3( viewMatrix[ 0 ][ 1 ], viewMatrix[ 1 ][ 1 ], viewMatrix[ 2 ][ 1 ] );
   vec3 wp = iPos + ( r * position.x + u * position.y ) * iDat.x; vWP = wp; vec2 cd = wp.xz - uCC.xz; float ca = dot( cd, uCF ), cl = cd.x * uCF.y - cd.y * uCF.x; wp.y -= uCurve * ( ca * ca + .3 * cl * cl ) * .6;
   gl_Position = projectionMatrix * viewMatrix * vec4( wp, 1. ); }`;
-  const CFS = `uniform vec3 uSunDir, uSunCol, uTop, uHor; uniform float uNight, uTime, uFade; varying vec2 vUv; varying vec4 vDat; varying vec3 vWP;
+  const CFS = `uniform vec3 uSunDir, uSunCol, uTop, uHor; uniform float uNight, uTime, uFade, uCine; varying vec2 vUv; varying vec4 vDat; varying vec3 vWP;
 float h( vec2 p ) { vec3 p3 = fract( vec3( p.xyx ) * .1031 ); p3 += dot( p3, p3.yzx + 33.33 ); return fract( ( p3.x + p3.y ) * p3.z ); }
 float n( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3. - 2. * f ); return mix( mix( h( i ), h( i + vec2( 1., 0. ) ), f.x ), mix( h( i + vec2( 0., 1. ) ), h( i + vec2( 1., 1. ) ), f.x ), f.y ); }
 void main() {
@@ -118,7 +118,8 @@ void main() {
   vec3 sun = uSunCol * ( 1. - uNight * .85 ), sky = mix( uHor, uTop, .35 );
   float sh = clamp( up * .65 + lit * .5, 0., 1. );
   vec3 shadowC = mix( sky, vec3( .62, .66, .74 ), .55 ) * .86, litC = vec3( 1.02, 1.0, .98 ) * mix( vec3( 1. ), sun, .45 ) * 1.18;
-  vec3 col = mix( shadowC, litC, smoothstep( .1, .95, sh ) ) + sun * fwd * ( 1. - a ) * 1.4;
+  shadowC = mix( shadowC, mix( uTop * vec3( .72, .68, .88 ), uHor * vec3( .8, .72, .76 ), .5 ), uCine * .65 ); litC = mix( litC, sun * vec3( 1.3, 1.08, .86 ) * 1.4, uCine * .75 ); // shader cinéma : ventres gris mauve, sommets dorés
+  vec3 col = mix( shadowC, litC, smoothstep( .1, .95, sh ) ) + sun * fwd * ( 1. - a ) * ( 1.4 + uCine * .5 );
   col = mix( col, col * vec3( .22, .25, .38 ), uNight * .8 );
   gl_FragColor = vec4( col, a * .92 * uFade );
 }`;
@@ -127,7 +128,7 @@ void main() {
     g.index = base.index; g.attributes.position = base.attributes.position; g.attributes.uv = base.attributes.uv;
     const iPos = new Float32Array(total * 3), iDat = new Float32Array(total * 4); g.setAttribute('iPos', new THREE.InstancedBufferAttribute(iPos, 3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('iDat', new THREE.InstancedBufferAttribute(iDat, 4).setUsage(THREE.DynamicDrawUsage)); g.instanceCount = total;
     const SU = G.SU || {}, mat = new THREE.ShaderMaterial({ vertexShader: CVS, fragmentShader: CFS, transparent: true, depthWrite: false, fog: false,
-      uniforms: { uCurve: G.U.curve, uCC: G.U.cc, uCF: G.U.cf, uSunDir: SU.uSunDir || { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uTop: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uNight: { value: 0 }, uTime: SU.uTime || { value: 0 }, uFade: { value: 1 } } });
+      uniforms: { uCurve: G.U.curve, uCC: G.U.cc, uCF: G.U.cf, uSunDir: SU.uSunDir || { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uTop: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uNight: { value: 0 }, uTime: SU.uTime || { value: 0 }, uFade: { value: 1 }, uCine: SU.uCine || { value: 0 } } });
     const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; mesh.renderOrder = -5; scene.add(mesh);
     const r = G.rng(808); CL.clouds = [];
     for (let c = 0; c < N; c++) { const sx = 16 + r() * 18, sz = 9 + r() * 10, sy = 5 + r() * 5, cl = { x: r(), z: r(), y: 52 + r() * 26, s: .5 + r() * .8, puffs: [] };
