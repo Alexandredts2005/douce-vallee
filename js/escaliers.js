@@ -65,7 +65,7 @@
   const SIDE = [[1, 0], [0, -1], [-1, 0], [0, 1]]; // axe x local (largeur) dans le monde, selon la rotation
   const isSt = o => !!(o && O[o.t] && O[o.t].stair);
   // hauteur réelle du bas d'un escalier (escalier en fer posé en hauteur : bits 64/128 de la variante) et du plancher d'une plateforme
-  G.lvlOf = v => (((v || 0) >> 6) & 3) | ((((v || 0) >> 9) & 1) << 2); G.lvlBits = lv => ((lv & 3) << 6) | ((lv >> 2) << 9); // étage sur 3 bits (64, 128, 512)
+  G.lvlOf = v => (((v || 0) >> 6) & 3) | ((((v || 0) >> 9) & 3) << 2); G.lvlBits = lv => ((lv & 3) << 6) | (((lv >> 2) & 3) << 9); // étage sur 4 bits (64, 128, 512, 1024) : jusqu'au niveau 15
   const vOf = o => o.v != null ? o.v : O[o.t].v, eb = o => o.y + G.lvlOf(vOf(o)) * T, deck = o => o.y + (G.lvlOf(vOf(o)) + 1) * T;
   G.stairBase = eb; G.platDeck = deck;
   // voisins : [gauche, droite, suite en bas (devant, un niveau plus bas), suite en haut (derrière, un niveau plus haut)]
@@ -76,7 +76,7 @@
     // en haut, une plateforme (même sol, plancher au niveau du palier) compte aussi comme une suite
     const plat = (sg, dh) => { const tx = Math.floor(cx + Fv[0] * sg * (d.fp[1] / 2 + .5)), tz = Math.floor(cz + Fv[1] * sg * (d.fp[1] / 2 + .5)), u = m.upAt && m.upAt(tx, tz), q = u && O[u.t].plat ? u : m.objAt(tx, tz); return q && O[q.t].plat && Math.abs(deck(q) - (eb(o) + dh)) < .01 ? q : null; };
     return [side(-1), side(1), line(1, -T) || plat(1, 0), line(-1, T) || plat(-1, T)]; }
-  function relink(m, o) { const nb = around(m, o), d = O[o.t], base = (o.v != null ? o.v : d.v) & 707, v = base | (nb[0] ? 4 : 0) | (nb[1] ? 8 : 0) | (nb[2] ? 16 : 0) | (nb[3] ? 32 : 0);
+  function relink(m, o) { const nb = around(m, o), d = O[o.t], base = (o.v != null ? o.v : d.v) & 1731, v = base | (nb[0] ? 4 : 0) | (nb[1] ? 8 : 0) | (nb[2] ? 16 : 0) | (nb[3] ? 32 : 0);
     if (v !== o.v) { o.v = v; if (o._k) m.refresh(o); } return nb; }
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
   GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && isSt(o)) { if (o.v == null) o.v = O[t].v; for (const q of relink(this, o)) if (isSt(q)) relink(this, q); } return o; };

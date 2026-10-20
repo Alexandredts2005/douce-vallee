@@ -179,7 +179,7 @@
       for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
         if (x < m || z < m || x >= this.W - m || z >= this.H - m) return false;
         const i = z * this.W + x; if (this.occ[i] && !G.replaces(d, this.objs[this.occ[i] - 1])) return false;
-        if (d.onWater) { if (!this.water[i]) return false; } else if (this.water[i] || this.ramp[i]) return false;
+        if (d.onWater) { if (!this.water[i]) return false; } else if ((this.water[i] && !d.plat && !(d.stair && d.model === 'esc_fer')) || this.ramp[i]) return false;
         if (L === null) L = this.lvl[i]; else if (this.lvl[i] !== L) return false;
       }
       return true;
