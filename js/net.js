@@ -274,7 +274,11 @@
       else if (pr.a === 4) { lL = -.6; lR = .3; aL = aR = -2.4; } else if ((pr.a === 5 || pr.a === 8) && !a.stand) { lL = lR = -1.45; bob = -.3; if (pr.a === 8) aL = aR = -1.1; } else if (pr.a === 3) { const s = Math.sin(t * 6); aL = -1.4 + s * .9; aR = -1.4 - s * .9; bob = -.05; lean = .55; }
       else if (pr.a === 7) { const e = pr.em; if (e === 'salut') { aR = -2.6 + Math.sin(t * 14) * .25; } else if (e === 'danse') { const s = Math.sin(t * 9); aL = -2.4 + s * .5; aR = -2.4 - s * .5; bob = Math.abs(s) * .08; } else if (e === 'bravo') { aL = aR = -1.4; } else if (e === 'assis' || e === 'dodo') { lL = lR = -1.5; bob = -.3; } else if (e === 'rire') bob = Math.abs(Math.sin(t * 18)) * .04; }
       else bob = Math.sin(t * 2.2 + a.x) * .012;
-      C.legL.rotation.x = lL; C.legR.rotation.x = lR; C.armL.rotation.x = aL; C.armR.rotation.x = aR; C.body.position.y = bob; C.body.rotation.x = lean;
+      // les autres joueurs ont la même allure réaliste que soi (allure.js) : vitesse et saut déduits de leurs déplacements
+      const ddt = Math.max(dt, 1e-3), sp = a.px == null ? 0 : Math.hypot(a.x - a.px, a.z - a.pz) / ddt, vy = a.py == null ? 0 : (a.y - a.py) / ddt; a.px = a.x; a.pz = a.z; a.py = a.y;
+      a.spd = (a.spd || 0) + (Math.min(sp, 9) - (a.spd || 0)) * Math.min(1, dt * 10); a.vy = (a.vy || 0) + (vy - (a.vy || 0)) * Math.min(1, dt * 10);
+      if (G.gait && C.shinL && !pr.vh && !pr.rd && pr.a !== 7) G.gait.pose(C, { hs: pr.a === 1 || pr.a === 2 ? Math.max(a.spd, 1) : a.spd > .6 ? a.spd : 0, air: pr.a === 4, vy: a.vy, yaw: a.r, sit: pr.a === 5, swim: pr.a === 3 }, dt);
+      else { C.legL.rotation.x = lL; C.legR.rotation.x = lR; C.armL.rotation.x = aL; C.armR.rotation.x = aR; C.body.position.y = bob; C.body.rotation.x = lean; if (C.shinL) C.shinL.userData.k = C.shinR.userData.k = C.faL.userData.k = C.faR.userData.k = null; if (C.chest) C.chest.rotation.set(0, 0, 0); C._gait = false; }
       if (C.setExpr) C.setExpr(pr.a === 7 && ['rire', 'danse', 'bravo', 'salut'].includes(pr.em) ? 'happy' : (t + a.x) % 3.4 < .12 ? 'blink' : 'normal');
       if (C.root._bub && now > C.root._bubT) { C.root.remove(C.root._bub); C.root._bub = null; } }
     const pr = G.player && G.player.root; if (pr && pr._bub && now > pr._bubT) { pr.remove(pr._bub); pr._bub = null; }

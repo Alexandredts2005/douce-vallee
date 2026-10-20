@@ -169,7 +169,7 @@
       if (this.onGround && !this.splashing && (this.blocked(this.x, this.z, this.y, true, true) || (m.isWaterAt(this.x, this.z) && !G.canSwim(m, this.x, this.z) && this.y < m.waterSurf(Math.floor(this.x), Math.floor(this.z)) + .5))) { this.stuckT += dt; if (this.stuckT > .3) this.unstick(false); } else this.stuckT = 0;
       if (len > .5 && !busy) { this.tryT += dt; this.tryD += Math.hypot(this.x - ox, this.z - oz); if (this.tryT > 3) { if (this.tryD < .4 && this.onGround && (this.hintT -= 3) < 0) { this.hintT = 20; G.ui.toast('Coincé·e ? Appuie sur U pour te débloquer.'); } this.tryT = 0; this.tryD = 0; } } else { this.tryT = 0; this.tryD = 0; }
       const hs = Math.hypot(this.vx, this.vz);
-      if (this.onGround && hs > .5) { this.stepT -= dt * hs; if (this.stepT < 0) { this.stepT = 1.15; G.sfx('step'); if (hs > 5) G.fx.puff(this.x, this.y + .03, this.z, 1, 0xf3ead2, .35); } }
+      if (this.onGround && hs > .5 && !this.gaitSteps) { this.stepT -= dt * hs; if (this.stepT < 0) { this.stepT = 1.15; G.sfx('step'); if (hs > 5) G.fx.puff(this.x, this.y + .03, this.z, 1, 0xf3ead2, .35); } }
       if (m.interior && this.z > m.H - .32 && !m.meta.noExit) G.act.exitHouse();
       G.emit('move', this, m);
       this.animate(dt, hs); this.place();

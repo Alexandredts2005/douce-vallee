@@ -16,7 +16,8 @@
     const ax = (vx - s.vx) / dt, az = (vz - s.vz) / dt, ay = (vy - s.vy) / dt; s.vx = vx; s.vy = vy; s.vz = vz; s.p.copy(P);
     const sy = Math.sin(yaw), cy = Math.cos(yaw), vf = vx * sy + vz * cy, vs = vx * cy - vz * sy, af = ax * sy + az * cy, as = ax * cy - az * sy, spd = Math.hypot(vx, vz);
     const yr = wrap(yaw - s.yaw) / dt; s.yaw = yaw; const moving = G.clamp(spd / 3, 0, 1);
-    // bassin et buste
+    // bassin et buste (sauf pour le joueur : son allure réaliste s'en charge, voir allure.js)
+    if (!C._gait) {
     const lL = C.legL.rotation.x, lR = C.legR.rotation.x, swing = (lR - lL) * .5, dL = (lL - s.lL) / dt, dR = (lR - s.lR) / dt; s.lL = lL; s.lR = lR;
     C.body.rotation.y = swing * .14 * moving; C.chest.rotation.y = -swing * .26 * moving;
     const breath = Math.sin(t * 2.1 + s.ph); C.chest.rotation.x = -.014 * breath * (1 - moving * .6) + (spd > 4.5 ? .06 : 0);
@@ -27,6 +28,7 @@
       const run = G.clamp((spd - 4) / 2.5, 0, 1); C.faL.userData.k = elbowBase(C.armL.rotation.x) - moving * .18 - run * .95; C.faR.userData.k = elbowBase(C.armR.rotation.x) - moving * .18 - run * .95;
       s.wk = [C.shinL.userData.k, C.shinR.userData.k, C.faL.userData.k, C.faR.userData.k]; }
     else if (s.wk && spd <= .3) { [C.shinL, C.shinR, C.faL, C.faR].forEach((g, i) => { if (g.userData.k === s.wk[i]) g.userData.k = null; }); s.wk = null; } // à l'arrêt, genoux et coudes reprennent leur pose naturelle
+    }
     // cheveux : ressort amorti (x : avant/arrière, z : côtés) ; ils traînent derrière en avançant, s'envolent dans les virages et en sautant
     if (C.hairB) { const lean = (C.body.rotation.x || 0) + (C.head.rotation.x || 0);
       const tx = G.clamp(-lean * .85 + vf * .055 + Math.sin(t * 1.7 + s.ph) * .025 + Math.max(0, -vy) * .02, -.35, .9), tz = G.clamp(-vs * .05 - (C.head.rotation.z || 0) * .6 + Math.sin(t * 1.3 + s.ph * 2) * .02, -.5, .5);
