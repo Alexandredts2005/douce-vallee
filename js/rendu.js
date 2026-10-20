@@ -14,7 +14,8 @@
     uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3(.3, .8, .4) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uNight: { value: 0 },
     uSkyTop: { value: new THREE.Color(0x4aa3ee) }, uSkyHor: { value: new THREE.Color(0xaee0ff) }, uSkyGnd: { value: new THREE.Color(0x8f9a6a) },
     uSunK: { value: 1.55 }, uAmbK: { value: 1.25 }, uEnvK: { value: .85 }, uSpecK: { value: 1 }, uPointK: { value: 3.2 }, uGlowK: { value: .15 }, uFireK: { value: 2.2 },
-    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }, uVox: { value: 0 }
+    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }, uVox: { value: 0 },
+    uMoonPh: { value: PI }, uMoonK: { value: 1 }, uStarRot: { value: 0 } // phase de la lune (0 nouvelle, π pleine), part éclairée, rotation du ciel étoilé
   };
   // ---------- matières ----------
   const SK = G.SK = { gold: 1, iron: 2, steel: 3, glass: 4, leaf: 5, petal: 6, wood: 7, paint: 8, fabric: 9, skin: 10, hair: 11, stone: 12, ceramic: 13, plastic: 14, velvet: 15, gem: 16, bark: 17 };
@@ -338,10 +339,43 @@ void main() {
   };
 
   // ---------- ciel atmosphérique ----------
-  const SKY_FS = `uniform vec3 top, hor, uSunDir, uSunCol; uniform float uNight, uTime; varying vec3 vP;
+  const SKY_FS = `uniform vec3 top, hor, uSunDir, uSunCol; uniform float uNight, uTime, uMoonPh, uMoonK, uStarRot; varying vec3 vP;
 float sh( vec2 p ) { vec3 p3 = fract( vec3( p.xyx ) * .1031 ); p3 += dot( p3, p3.yzx + 33.33 ); return fract( ( p3.x + p3.y ) * p3.z ); }
 float sn( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3. - 2. * f ); return mix( mix( sh( i ), sh( i + vec2( 1., 0. ) ), f.x ), mix( sh( i + vec2( 0., 1. ) ), sh( i + vec2( 1., 1. ) ), f.x ), f.y ); }
 float fbm( vec2 p ) { float a = .5, s = 0.; for ( int i = 0; i < 5; i ++ ) { s += sn( p ) * a; p = p * 2.03 + vec2( 1.7, 9.2 ); a *= .5; } return s; }
+vec3 rotA( vec3 v, vec3 k, float a ) { float c = cos( a ), s = sin( a ); return v * c + cross( k, v ) * s + k * dot( k, v ) * ( 1. - c ); }
+float mare( vec2 p, vec2 c, vec2 r ) { vec2 q = ( p - c ) / r; return smoothstep( 1., .3, dot( q, q ) ); }
+// la lune vue de la Terre : ses mers aux vraies places (Océan des Tempêtes, mers des Pluies, de la Sérénité, de la Tranquillité, des Crises…),
+// ses cratères rayonnants (Tycho, Copernic, Kepler, Aristarque), sa phase, la lumière cendrée sur la partie sombre
+vec3 moon( vec3 d, vec3 md ) {
+  const float R = .032; if ( dot( d, md ) < .998 ) return vec3( 0. );
+  vec3 rt = normalize( cross( md, vec3( 0., 1., 0. ) ) ), up = cross( rt, md );
+  vec2 p = vec2( dot( d, rt ), dot( d, up ) ) / R; float r = length( p ); if ( r > 1. ) return vec3( 0. );
+  vec3 n = vec3( p, sqrt( max( 0., 1. - r * r ) ) );
+  vec2 q = p + ( vec2( fbm( p * 3. + 11. ), fbm( p * 3. + 27. ) ) - .5 ) * .22;
+  float m = mare( q, vec2( -.58, .1 ), vec2( .3, .52 ) ); m = max( m, mare( q, vec2( -.3, .48 ), vec2( .27, .22 ) ) ); m = max( m, mare( q, vec2( .17, .43 ), vec2( .15, .14 ) ) );
+  m = max( m, mare( q, vec2( .36, .13 ), vec2( .2, .17 ) ) ); m = max( m, mare( q, vec2( .7, .3 ), vec2( .1, .12 ) ) ); m = max( m, mare( q, vec2( .58, -.1 ), vec2( .11, .17 ) ) );
+  m = max( m, mare( q, vec2( .34, -.27 ), vec2( .08, .09 ) ) ); m = max( m, mare( q, vec2( -.17, -.35 ), vec2( .18, .14 ) ) ); m = max( m, mare( q, vec2( -.5, -.4 ), vec2( .09, .09 ) ) );
+  m = max( m, mare( q, vec2( .02, .76 ), vec2( .42, .07 ) ) ); m = max( m, mare( q, vec2( -.1, .17 ), vec2( .12, .1 ) ) );
+  float alb = mix( 1., .5, m * ( .7 + .4 * fbm( p * 7. ) ) ) * ( .84 + .3 * fbm( p * 16. + 3. ) );
+  alb *= .92 + .16 * smoothstep( .4, .75, fbm( p * 30. + 7. ) ); // petits cratères
+  vec2 ty = p - vec2( -.1, -.68 ); float tl = length( ty ), ta = atan( ty.y, ty.x );
+  alb += .5 * exp( -tl * tl * 900. ) + pow( sn( vec2( ta * 7.6, 1.5 ) ), 5. ) * exp( -tl * 2.4 ) * .45 * smoothstep( .03, .1, tl ); // Tycho et ses rayons
+  alb += .35 * exp( -dot( p - vec2( -.31, .19 ), p - vec2( -.31, .19 ) ) * 1300. ) + .25 * exp( -dot( p - vec2( -.6, .14 ), p - vec2( -.6, .14 ) ) * 1600. ) + .45 * exp( -dot( p - vec2( -.72, .38 ), p - vec2( -.72, .38 ) ) * 2500. );
+  vec3 L = vec3( sin( uMoonPh ), 0., -cos( uMoonPh ) );
+  float mu0 = dot( n, L ), mu = max( n.z, .04 ), lit = smoothstep( -.03, .05, mu0 ), ls = min( 1.2, max( mu0, 0. ) / ( max( mu0, 0. ) + mu ) * 2. ); // réflexion lunaire (Lommel-Seeliger) : pleine lune toute plate
+  vec3 col = vec3( 1.04, 1., .9 ) * alb * ls * lit * .78 + vec3( .05, .07, .11 ) * alb * ( 1. - lit ) * ( 1. - uMoonK ) * smoothstep( .004, .04, uMoonK ) * .7; // lumière cendrée
+  return col * smoothstep( 1., .965, r );
+}
+// la Voie lactée : une bande laiteuse et granuleuse coupée par le grand rift sombre, plus dense vers le centre de la galaxie ; elle tourne avec les étoiles
+vec3 milky( vec3 d ) {
+  vec3 dc = rotA( d, vec3( 0., .719, -.695 ), -uStarRot ), gn = normalize( vec3( .45, .35, .82 ) ), gc = normalize( cross( gn, vec3( 0., 1., 0. ) ) ), gb = cross( gn, gc );
+  float v = dot( dc, gn ); vec2 g = vec2( dot( dc, gc ), dot( dc, gb ) );
+  float band = exp( -v * v / .04 ), bulge = exp( -( 1. - g.x ) * 4. ) * exp( -v * v / .025 );
+  vec2 w = g * 7. + vec2( v * 5., -v * 4. );
+  float cl = fbm( w ), grain = fbm( w * 4.3 + 5. ), rift = smoothstep( .48, .7, fbm( w * 1.3 + vec2( 9., 2. ) ) ) * exp( -v * v / .006 );
+  return vec3( .88, .86, .92 ) * ( band * ( .3 + .9 * cl ) * ( .75 + .5 * grain ) + bulge * 1.3 ) * ( 1. - .85 * rift );
+}
 void main() {
   vec3 d = normalize( vP ); float h = d.y;
   vec3 c = h > 0. ? mix( hor, top, pow( min( 1., h * 1.7 ), .75 ) ) : mix( hor, hor * .8, min( 1., -h * 4. ) );
@@ -351,7 +385,10 @@ void main() {
   vec3 sunC = uSunCol;
   c += sunC * ( pow( sd, 5. ) * .16 + pow( sd, 40. ) * .32 + pow( sd, 400. ) * .7 ) * mix( .35, 1., day ); // halo
   c = mix( c, vec3( 1.6, 1.5, 1.3 ) * mix( vec3( 1. ), sunC, .35 ), smoothstep( .99955, .99975, sd ) * day * step( 0., h + .02 ) ); // disque du soleil
-  float md = smoothstep( .99935, .99955, sd ) * uNight; c = mix( c, vec3( 1.2, 1.2, 1.3 ), md * .9 ); // lune
+  if ( uNight > .01 ) { // la nuit, uSunDir est la direction de la lune
+    float nn = uNight * uNight; c += milky( d ) * nn * .16 * ( 1. - .6 * uMoonK ) * smoothstep( .02, .4, h );
+    c += vec3( .75, .8, .95 ) * ( pow( sd, 1200. ) * .12 + pow( sd, 120. ) * .05 ) * uMoonK * uNight; // auréole autour de la lune
+    c += moon( d, uSunDir ) * uNight; }
   if ( h > 0. ) { // voile de cirrus
     vec2 uv = d.xz / ( h + .18 ) * .9 + vec2( uTime * .006, uTime * .0025 );
     float n = fbm( uv * 1.6 ), w = fbm( uv * 5. + 3.1 );
@@ -363,9 +400,43 @@ void main() {
 }`;
   function upgradeSky() {
     const s = G.skyMesh; if (!s || s.userData.premium) return; s.userData.premium = true; const m = s.material;
-    Object.assign(m.uniforms, { uSunDir: SU.uSunDir, uSunCol: SU.uSunCol, uNight: SU.uNight, uTime: SU.uTime }); m.fragmentShader = SKY_FS; m.needsUpdate = true;
+    Object.assign(m.uniforms, { uSunDir: SU.uSunDir, uSunCol: SU.uSunCol, uNight: SU.uNight, uTime: SU.uTime, uMoonPh: SU.uMoonPh, uMoonK: SU.uMoonK, uStarRot: SU.uStarRot }); m.fragmentShader = SKY_FS; m.needsUpdate = true;
     for (const x of [G.sunMesh, G.moonMesh]) if (x) x.material.visible = false;
+    upgradeStars();
   }
+  // ---------- ciel étoilé : 2600 étoiles de toutes grandeurs et couleurs (bleues, blanches, jaunes, orangées, rouges), plus nombreuses
+  // le long de la Voie lactée ; elles scintillent (fort près de l'horizon), s'éteignent dans la brume du bas du ciel, pâlissent
+  // autour de la lune et quand elle est pleine, passent derrière son disque, et tournent lentement autour de l'étoile Polaire ----------
+  const POLE = new THREE.Vector3(0, .719, -.695);
+  const STAR_VS = `attribute float aSize, aBright, aPh; attribute vec3 aCol; uniform float uOp, uTime, uPx, uMoonK; uniform vec3 uSunDir; varying vec3 vC; varying float vA;
+void main() {
+  vec3 wd = normalize( mat3( modelMatrix ) * position ); float el = wd.y, mc = dot( wd, uSunDir );
+  float tw = 1. + ( sin( uTime * ( 2. + aPh * 3. ) + aPh * 40. ) + sin( uTime * ( 5. + aPh * 4. ) + aPh * 17. ) ) * .5 * mix( .5, .14, clamp( el * 2.5, 0., 1. ) );
+  float vis = smoothstep( 0., .25, el ) * ( 1. - smoothstep( .99945, .99955, mc ) ) * ( 1. - .9 * uMoonK * exp( -( 1. - mc ) * 40. ) );
+  vA = uOp * aBright * max( tw, 0. ) * vis * mix( 1., smoothstep( .12, .5, aBright ), uMoonK * .45 );
+  vC = mix( aCol, aCol * vec3( 1., .8, .6 ), 1. - smoothstep( 0., .3, el ) ); // rougies près de l'horizon
+  gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1. ); gl_PointSize = aSize * uPx * ( .8 + .2 * tw ); }`;
+  const STAR_FS = `varying vec3 vC; varying float vA; void main() { vec2 q = gl_PointCoord * 2. - 1.; float r2 = dot( q, q ); if ( r2 > 1. ) discard; gl_FragColor = vec4( vC * 1.8, ( exp( -r2 * 3. ) + exp( -r2 * 12. ) ) * vA ); }`;
+  function upgradeStars() {
+    const st = G.stars; if (!st) return; const r = G.rng(1789), N = 2600, pos = [], col = [], size = [], bri = [], ph = [];
+    const gn = new THREE.Vector3(.45, .35, .82).normalize(), v = new THREE.Vector3(), u1 = new THREE.Vector3(), u2 = new THREE.Vector3(); u1.crossVectors(gn, new THREE.Vector3(0, 1, 0)).normalize(); u2.crossVectors(gn, u1);
+    const COL = [[.68, .78, 1], [.82, .88, 1], [.97, .97, 1], [1, .95, .82], [1, .84, .64], [1, .72, .55]], CW = [.08, .17, .35, .22, .13, .05];
+    for (let i = 0; i < N; i++) {
+      if (i % 3 === 0) { const a = r() * PI * 2, g = (r() + r() + r() - 1.5) * .14; v.copy(u1).multiplyScalar(Math.cos(a)).addScaledVector(u2, Math.sin(a)).addScaledVector(gn, g).normalize(); } // le long de la Voie lactée
+      else { const z = r() * 2 - 1, a = r() * PI * 2, s = Math.sqrt(1 - z * z); v.set(s * Math.cos(a), z, s * Math.sin(a)); }
+      pos.push(v.x * 400, v.y * 400, v.z * 400);
+      const b = Math.pow(r(), 5), big = i < 14; size.push(big ? 5 + r() * 1.5 : 1.8 + b * 3.6); bri.push(big ? 1 : .3 + .7 * Math.pow(b, .4)); ph.push(r());
+      let w = r(), k = 0; while (k < CW.length - 1 && (w -= CW[k]) > 0) k++; col.push(...COL[k]); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aCol', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('aSize', new THREE.Float32BufferAttribute(size, 1)); g.setAttribute('aBright', new THREE.Float32BufferAttribute(bri, 1)); g.setAttribute('aPh', new THREE.Float32BufferAttribute(ph, 1));
+    const m = new THREE.ShaderMaterial({ vertexShader: STAR_VS, fragmentShader: STAR_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      uniforms: { uOp: { value: 0 }, uPx: { value: 1 }, uTime: SU.uTime, uMoonK: SU.uMoonK, uSunDir: SU.uSunDir } });
+    Object.defineProperty(m, 'opacity', { get() { return this.uniforms.uOp.value; }, set(x) { if (this.uniforms) this.uniforms.uOp.value = x; } });
+    st.geometry.dispose(); st.material.dispose(); st.geometry = g; st.material = m;
+  }
+  // âge de la lune : le vrai si l'heure du jeu suit l'heure réelle, sinon un cycle de 29,5 jours de jeu (on commence près de la pleine lune)
+  const SYN = 29.530589;
+  G.moonAge = () => { const c = G.clock || {}; return G.settings && G.settings.day === 'real' ? ((Date.now() - Date.UTC(2000, 0, 6, 18, 14)) / 864e5 % SYN + SYN) % SYN : ((c.day || 0) + (c.min || 0) / 1440 + 14) % SYN; };
 
   // ---------- mise à jour des uniformes ----------
   const SD = new THREE.Vector3(), C1 = new THREE.Color(), C2 = new THREE.Color();
@@ -378,6 +449,8 @@ void main() {
     SU.uTime.value += dt; const L = G.lights, si = G.skyInfo, m = G.map; if (!L || !si) return; const inside = !!(m && m.interior), n = si.n || 0;
     SD.copy(L.sun.position).sub(L.sun.target.position).normalize(); SU.uSunDir.value.copy(SD);
     SU.uSunCol.value.copy(L.sun.color).multiplyScalar(Math.min(1.2, L.sun.intensity * 1.05)); SU.uNight.value = n;
+    const ph = G.moonAge() / SYN * PI * 2; SU.uMoonPh.value = ph; SU.uMoonK.value = .5 - .5 * Math.cos(ph);
+    SU.uStarRot.value = si.h / 24 * PI * 2; if (G.stars && G.stars.material.uniforms) { G.stars.quaternion.setFromAxisAngle(POLE, SU.uStarRot.value); G.stars.material.uniforms.uPx.value = G.renderer.getPixelRatio(); }
     if (inside) { // reflets d'une pièce : plafond clair, murs, sol
       const sh = m.meta && m.meta.shell; SU.uSkyTop.value.setRGB(.82, .78, .72); SU.uSkyHor.value.setRGB(.74, .66, .56); SU.uSkyGnd.value.setRGB(.42, .32, .24);
       if (sh && sh.envTop) { SU.uSkyTop.value.setHex(sh.envTop); SU.uSkyHor.value.setHex(sh.envHor); }
