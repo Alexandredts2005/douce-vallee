@@ -72,6 +72,22 @@
     b.geo(new THREE.BoxGeometry(2, .03, 1.2), C[3], b.M(0, y, 0));
     for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const u = (i + .5) / NU, w = (j + .5) / NV; b.geo(new THREE.PlaneGeometry(2 / NU, 1.2 / NV), C[tapisPat(u, w)], b.M(-1 + u * 2, y + .017, -.6 + w * 1.2, -PI / 2, 0, 0)); }
     frange(b, V, 1, 1); frange(b, V, -1, -1); return b.done(); };
+  // ---------- deltaplane : voile rayée en éventail, bord d'attaque, quille, transversale, mât et haubans, trapèze ----------
+  const DCOLS = [[0xe8434a, 0xffa23a, 0xffd23f, 0x4fb35f, 0x3a8ad8, 0x8a5ad8], [0x2f8f8a, 0xf6f2e8, 0x2f8f8a, 0xf6f2e8, 0x2f8f8a, 0xf6f2e8], [0xff7fa8, 0xffffff, 0xff7fa8, 0xffffff, 0xff7fa8, 0xffffff], [0x1f4ea8, 0xf6f6f6, 0xd8283a, 0x1f4ea8, 0xf6f6f6, 0xd8283a], [0xffc23d, 0x1b1c20, 0xffc23d, 0x1b1c20, 0xffc23d, 0x1b1c20]];
+  const dtube = (b, p, q, r, col) => { const d = new V3(q[0] - p[0], q[1] - p[1], q[2] - p[2]), L = d.length(); d.normalize(); b.add(new THREE.CylinderGeometry(r, r, L, 8, 1), col, new THREE.Matrix4().compose(new V3((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2), new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), d), new V3(1, 1, 1)), 0, true); };
+  MD.deltaplane = v => { const b = G.mb(2580 + (v || 0)), C = DCOLS[(v || 0) % DCOLS.length], AL = 0xc8ccd2, WIRE = 0x2a2a2e, N = [1.45, 1.98, 0], K = [-1.35, 1.86, 0], sk = G.SK || {};
+    for (const sd of [-1, 1]) { const T = [-.95, 1.9, sd * 2.35], TE = []; for (let i = 0; i <= 6; i++) { const u = i / 6, sc = Math.sin(u * PI); TE.push([K[0] + (T[0] - K[0]) * u + sc * .22, K[1] + (T[1] - K[1]) * u - sc * .1, K[2] + (T[2] - K[2]) * u - sd * sc * .12]); }
+      b.S(sk.fabric); for (let i = 0; i < 6; i++) { const a = TE[i], c = TE[i + 1], mid = [(N[0] + a[0] + c[0]) / 3, (N[1] + a[1] + c[1]) / 3 - .08, (N[2] + a[2] + c[2]) / 3], pos = [];
+        for (const [p0, p1, p2] of [[N, a, mid], [N, mid, c], [a, c, mid]]) pos.push(...p0, ...p1, ...p2, ...p0, ...p2, ...p1); // creusée par le vent, visible des deux côtés
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); b.add(g, C[sd > 0 ? i : 5 - i], new THREE.Matrix4(), 0, false); }
+      b.S(sk.steel); dtube(b, N, T, .035, AL); dtube(b, T, [T[0] - .12, T[1], T[2] + sd * .04], .03, WIRE); // bord d'attaque, embout
+      for (let i = 1; i < 6; i++) { const a = TE[i], le = [N[0] + (T[0] - N[0]) * i / 6, N[1] + (T[1] - N[1]) * i / 6 + .02, N[2] + (T[2] - N[2]) * i / 6]; dtube(b, le, a, .008, WIRE); } // lattes
+      dtube(b, [.1, 1.9, 0], [.15, 1.9, sd * 1.25], .025, AL); // transversale
+      dtube(b, [0, 2.5, 0], T, .005, WIRE); dtube(b, [.55, .98, sd * .62], T, .005, WIRE); } // haubans
+    b.S(sk.steel); dtube(b, K, N, .04, AL); dtube(b, [0, 1.92, 0], [0, 2.5, 0], .025, AL); dtube(b, [0, 2.5, 0], N, .005, WIRE); dtube(b, [0, 2.5, 0], K, .005, WIRE); // quille, mât, haubans
+    for (const sd of [-1, 1]) dtube(b, [.05, 1.9, 0], [.55, .98, sd * .62], .022, AL); dtube(b, [.55, .98, -.62], [.55, .98, .62], .028, 0x1b1c20); // trapèze et sa barre
+    dtube(b, [.55, .98, 0], N, .005, WIRE); dtube(b, [.55, .98, 0], K, .005, WIRE); dtube(b, [-.05, 1.9, 0], [-.1, 1.35, 0], .012, 0x3a3a3e); // haubans bas, sangle du harnais
+    b.S(null); return b.done(); };
   MD.tapis_frange = v => { const b = G.mb(2565 + (v || 0)); frange(b, v || 0, 0, 1, 0); return b.done(); };
   // en vol : la même pièce de laine (dessin peint en texture), qui ondule de l'avant vers l'arrière, l'avant un peu relevé
   const tapisTex = {};
@@ -102,6 +118,7 @@
     voiturette: { n: 'Voiturette', ico: '🚗', kind: 'ground', fp: [2, 2], tiers: [['🐢 Tranquille', 6], ['🚗 Normale', 11], ['🏁 Rallye', 16.5]], acc: 3.6, turn: 1.9, hop: 0, space: 'horn', pose: 'auto', sell: 6000, need: { fer: 20, bois: 6, pierre: 6 }, pts: [[1.0, 0], [1.0, .45], [1.0, -.45], [0, .5], [0, -.5], [-1.0, .45], [-1.0, -.45]] },
     helico: { n: 'Hélicoptère', ico: '🚁', kind: 'fly', fp: [3, 3], max: 13, climb: 5, hover: 0, pose: 'auto', sell: 15000, need: { fer: 35, or: 4 } },
     tapis: { n: 'Tapis volant', ico: '🧞', kind: 'fly', fp: [2, 1], max: 9, climb: 4, hover: .45, pose: 'tailleur', sell: 9000, need: { herbe: 20, or: 2 } },
+    deltaplane: { n: 'Deltaplane', ico: '🪂', kind: 'glide', fp: [3, 2], pose: 'delta', sell: 7000, need: { herbe: 10, bois: 8, fer: 6 } },
     jetski: { n: 'Jet-ski', ico: '🌊', kind: 'sea', fp: [2, 1], max: 14.5, acc: 6, turn: 2.2, space: 'horn', pose: 'moto', sell: 5000, need: { fer: 16, pierre: 4 } }
   };
   // sièges (position dans le repère du modèle) : le premier est le conducteur, les suivants sont pour les amis passagers
@@ -113,6 +130,7 @@
     helico: { ry: PI / 2, s: [[.1, .88, -.22, 'auto'], [.1, .88, .22, 'auto']] },
     tapis: { ry: PI / 2, s: [[.35, .08, 0, 'tailleur'], [-.45, .08, 0, 'tailleur']] },
     jetski: { ry: PI / 2, s: [[-.15, .6, 0, 'moto'], [-.55, .6, 0, 'moto']] },
+    deltaplane: { ry: PI / 2, s: [[-.2, .0, 0, 'debout']] },
     moto: { ry: PI / 2, s: [[-.36, .84, 0, 'moto'], [-.64, .86, 0, 'moto']] },
     boat: { ry: PI / 2, s: v => v === 4 ? [[-.05, .18, 0, 'banc'], [.45, .18, 0, 'banc']] : [[-.4, [.36, .34, .34, .46][v] || .36, 0, 'banc'], [.35, [.36, .34, .34, .46][v] || .36, 0, 'banc'], [.05, [.36, .34, .34, .46][v] || .36, .2, 'banc']] },
     montgolfiere: { ry: 0, s: [[0, .3, 0, 'debout'], [.35, .3, .25, 'debout'], [-.35, .3, -.25, 'debout']] },
@@ -154,7 +172,7 @@
 
   // ---------- caméra de poursuite ----------
   function camFn(camera, C, dt, mouse) { const v = G.player.vehicle; if (!v) return false; const k = 1 - Math.exp(-dt * (mouse ? 7 : 3)); if (mouse) C.yaw = G.angLerp(C.yaw, C.tyaw, k); else { C.yaw = G.angLerp(C.yaw, v.h + PI, k); C.tyaw = C.yaw; }
-    const fly = v.S.kind === 'fly', dist = (fly ? 7 : v.S.id === 'voiturette' ? 6.2 : 5) + Math.abs(v.spd) * .16, pitch = mouse ? G.clamp(C.mp, .05, 1.1) : fly ? .5 : .36, tx = v.x, ty = v.y + (fly ? 1.2 : v.S.id === 'cheval' ? 1.7 : 1.05), tz = v.z, kk = Math.min(1, 10 * dt);
+    const fly = v.S.kind === 'fly' || v.S.kind === 'glide', dist = (fly ? 7 : v.S.id === 'voiturette' ? 6.2 : 5) + Math.abs(v.spd) * .16, pitch = mouse ? G.clamp(C.mp, .05, 1.1) : fly ? .5 : .36, tx = v.x, ty = v.y + (fly ? 1.2 : v.S.id === 'cheval' ? 1.7 : 1.05), tz = v.z, kk = Math.min(1, 10 * dt);
     if (!C.cx) { C.cx = tx; C.cy = ty; C.cz = tz; } C.cx += (tx - C.cx) * kk; C.cy += (ty - C.cy) * kk; C.cz += (tz - C.cz) * kk;
     const hd = Math.cos(pitch) * dist; camera.position.set(C.cx + Math.sin(C.yaw) * hd, C.cy + Math.sin(pitch) * dist, C.cz + Math.cos(C.yaw) * hd);
     const gh = G.map.terrainH(camera.position.x, camera.position.z); if (gh < 40 && camera.position.y < gh + .9) camera.position.y = gh + .9; camera.lookAt(C.cx, C.cy, C.cz); return true; }
@@ -179,10 +197,10 @@
     const gy = y != null ? y : S.kind === 'sea' ? m.waterSurf(Math.floor(x), Math.floor(z)) : m.topAt(x, z);
     p.vehicle = { veh2: 1, S, o: { t: S.id, r: 0, v: col }, vg: [S.id, col], v: col, x, z, y: gy, vy: 0, h, spd: 0, gear: Math.min(S.tiers ? S.tiers.length - 1 : 0, 1), mesh: grp, P, t: 0, lean: 0, camFn, anim: pop ? { k: 'in', t: 0 } : null, alt: 0 };
     if (pop) { grp.scale.setScalar(.01); G.sfx('pop'); G.fx.burst(x, gy + .5, z, 18, [0xffffff, 0xf3ead2, 0xffe08a], 2.6, .55, 6); }
-    if (S.id !== 'velo' && S.id !== 'skate' && S.id !== 'cheval' && S.id !== 'tapis') ENG.start(S.id);
+    if (S.id !== 'velo' && S.id !== 'skate' && S.id !== 'cheval' && S.id !== 'tapis' && S.id !== 'deltaplane') ENG.start(S.id);
     if (S.id === 'cheval') HORN.neigh(1); if (S.id === 'tapis') HORN.magic(1);
     hud.hidden = false; G.cam.cx = 0; G.sfx('place', .6);
-    const keys = S.kind === 'fly' ? 'Espace : monter · Maj : descendre · E : atterrir' : S.kind === 'sea' ? 'Espace : klaxon · E : accoster' : (S.tiers.length > 1 ? '1 2 3 : allures · ' : '') + (S.jump ? 'Espace : sauter · ' : S.space ? 'Espace : ' + (S.space === 'bell' ? 'sonnette' : 'klaxon') + ' · ' : '') + 'E : garer';
+    const keys = S.kind === 'glide' ? 'Avance pour courir et décoller, ou élance-toi d\'une falaise · en vol : avant/arrière pour piquer/cabrer, gauche/droite pour virer · E : se poser' : S.kind === 'fly' ? 'Espace : monter · Maj : descendre · E : atterrir' : S.kind === 'sea' ? 'Espace : klaxon · E : accoster' : (S.tiers.length > 1 ? '1 2 3 : allures · ' : '') + (S.jump ? 'Espace : sauter · ' : S.space ? 'Espace : ' + (S.space === 'bell' ? 'sonnette' : 'klaxon') + ' · ' : '') + 'E : garer';
     G.ui.toast(S.ico + ' ' + S.n + ' ! ' + keys + ' · W : ranger dans ta poche', 6000);
   }
   function mountObj(o) { const m = G.map, p = G.player; if (p.vehicle || p.swim || p.sit) return; const S = VEH[o.t], [cx, cz] = m.center(o); m.removeObj(o); ride(S, o.v || 0, cx, cz, (o.r || 0) * PI / 2 + PI / 2, false); if (p.vehicle) p.vehicle.fromObj = 1; }
@@ -190,7 +208,7 @@
   G.vehLeave = () => { const p = G.player; if (p && p.vehicle && p.vehicle.veh2) leave(p, p.vehicle); if (p && p.vehicle && p.vehicle.pass) hopOff(p); };
   function stow(p, v) { if (v.anim) return; if (v.fromObj && G.net && G.net.visit && !v.parking) { v.parking = 1; park(p, v); if (p.vehicle === v) v.parking = 0; return; } /* le véhicule d'un ami : on le regare */ v.spd = 0; v.anim = { k: 'out', t: 0 }; G.sfx('pickup'); ENG.set(.2, .01); }
   function stowDone(p, v) { const m = G.map, gy = v.S.kind === 'sea' ? null : ground(m, v.x, v.z); G.fx.burst(v.x, v.y + .5, v.z, 14, [0xffffff, 0xf3ead2], 2.2, .5, 6); leave(p, v);
-    let x = v.x, z = v.z; if (gy === null || v.S.kind === 'fly' || v.S.kind === 'sea') { const s = landNear(m, v.x, v.z); if (s) { x = s[0]; z = s[1]; } } p.teleport(x, z, v.h); if (p.blocked(p.x, p.z, p.y, true)) p.unstick(true);
+    let x = v.x, z = v.z; if (gy === null || v.S.kind === 'fly' || v.S.kind === 'sea' || v.S.kind === 'glide') { const s = landNear(m, v.x, v.z); if (s) { x = s[0]; z = s[1]; } } p.teleport(x, z, v.h); if (p.blocked(p.x, p.z, p.y, true)) p.unstick(true);
     if (G.mode !== 'creatif') { if (G.inv.add(v.S.id, 1) > 0) G.ui.toast('Inventaire plein !'); else G.ui.toast(v.S.ico + ' ' + v.S.n + ' rangé dans ton inventaire.'); } else G.ui.toast(v.S.ico + ' ' + v.S.n + ' rangé.'); }
   function landNear(m, x, z) { let best = null, bd = 1e9; for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) { const tx = Math.floor(x) + dx, tz = Math.floor(z) + dz; if (!m.inb(tx, tz) || m.isWaterAt(tx + .5, tz + .5)) continue; const o = m.objAt(tx, tz); if (o && !O[o.t].walk) continue; const d = Math.hypot(tx + .5 - x, tz + .5 - z); if (d < bd) { bd = d; best = [tx + .5, tz + .5]; } } return best; }
   // E : on gare le véhicule là (en visite, il retourne dans la poche : on ne laisse rien chez les amis)
@@ -271,6 +289,53 @@
     seatRider(p, v, dt);
     hudSet(v, S.ico + ' <b>' + Math.round(Math.abs(v.spd) * 7) + ' km/h</b> · ' + Math.max(0, Math.round(v.y - gy)) + ' m<br><span style="font-size:12px;opacity:.85">Espace / Maj : monter · descendre · E : atterrir · W : ranger</span>'); }
 
+  // ---------- vol libre : deltaplane ----------
+  // ascendances : des colonnes d'air chaud au-dessus des prés (étincelles dorées qui montent), et l'air qui remonte le long des falaises
+  let TH = null, thMap = null;
+  function thermals(m) { if (thMap === m && TH) return TH; thMap = m; TH = []; const r = G.rng(G.hashStr(String(m.id || 'w')) % 100000 + 7);
+    for (let t = 0; t < 400 && TH.length < 22; t++) { const x = 6 + r() * (m.W - 12), z = 6 + r() * (m.H - 12); if (m.isWaterAt(x, z)) continue; if (TH.some(q => Math.hypot(q.x - x, q.z - z) < 18)) continue; TH.push({ x, z, r: 4.5 + r() * 3, k: 2.4 + r() * 1.6, ph: r() * TAU }); } return TH; }
+  function lift(m, x, z, y, gy, t) { let L = 0; for (const q of thermals(m)) { const d = Math.hypot(x - q.x - Math.sin(t * .1 + q.ph) * 1.5, z - q.z); if (d < q.r * 1.6) L += q.k * Math.max(0, 1 - Math.pow(d / q.r, 2)) * (y - gy < 45 ? 1 : 0); }
+    const h0 = m.terrainH(x, z); let hi = h0; for (const [dx, dz] of [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, -2], [2, -2], [-2, 2]]) hi = Math.max(hi, m.terrainH(x + dx, z + dz)); if (y - hi < 7) L += G.clamp((hi - h0) / 1.5, 0, 3) * .55; return L; }
+  function gGround(m, x, z) { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return 0; return m.isWaterAt(x, z) ? m.waterSurf(tx, tz) : m.topAt(x, z); }
+  function updGlide(p, v, dt) { const S = v.S, I = G.input, m = G.map, free = G.ui.canPlay(); let pit = 0, steer = 0;
+    if (free && !v.anim) { if (I.down('KeyW', 'ArrowUp')) pit += 1; if (I.down('KeyS', 'ArrowDown')) pit -= 1; if (I.down('KeyD', 'ArrowRight')) steer += 1; if (I.down('KeyA', 'ArrowLeft')) steer -= 1;
+      if (I.gp && I.gp.on) { steer += I.gp.lx; pit -= I.gp.ly; } if (I.touch) { steer += I.touch.mx; pit -= I.touch.my; } steer = G.clamp(steer, -1, 1); pit = G.clamp(pit, -1, 1);
+      if (I.hit('KeyZ') || I.chars.veh) { I.chars.veh = false; if (!v.air) return stow(p, v); G.ui.toast('Pose-toi d\'abord ! (E pour atterrir)'); }
+      if (I.hit('KeyE')) { if (!v.air) { park(p, v); if (!p.vehicle) return; } else if (!v.flare) { v.flare = true; G.ui.toast('🪂 Arrondi… on se pose !'); } } }
+    if (anim(p, v, dt)) return;
+    const fx = Math.sin(v.h), fz = Math.cos(v.h); v.bank = v.bank || 0; v.prone = v.prone || 0;
+    if (!v.air) { // au sol : on court, l'aile sur les épaules
+      v.spd += G.clamp((pit > 0 ? 7.4 : 0) - v.spd, -7 * dt, 3.4 * dt); v.h -= steer * 2.2 * dt;
+      const nx = v.x + fx * v.spd * dt, nz = v.z + fz * v.spd * dt, top = obstacle(m, nx + fx * .4, nz + fz * .4);
+      if (top < v.y + .55 && !m.isWaterAt(nx, nz)) { v.x = nx; v.z = nz; } else v.spd *= .3;
+      const g0 = gGround(m, v.x, v.z), ahead = gGround(m, v.x + fx * 1.4, v.z + fz * 1.4); v.y += (g0 - v.y) * Math.min(1, dt * 14);
+      if (v.spd > 6.6 || (v.spd > 2.5 && ahead < v.y - .9)) { v.air = true; v.vy = ahead < v.y - .9 ? .5 : 2.6; v.boost = ahead < v.y - .9 ? 0 : 1.5; v.spd = Math.max(v.spd, 8); G.sfx('jump', .4);
+        if (!G._deltaTip) { G._deltaTip = 1; G.ui.toast('🪂 Tu voles ! Cherche les étincelles dorées : l\'air y monte. Avant : piquer · Arrière : cabrer · E : se poser', 7000); } } }
+    else { // en vol
+      const gy = gGround(m, v.x, v.z), tgt = v.flare ? 5.6 : 9.6 + pit * 4.4; v.spd += (tgt - v.spd) * Math.min(1, dt * .8);
+      const sink = .9 + Math.max(0, v.spd - 9.6) * .24 + (v.spd < 6.6 ? (6.6 - v.spd) * 1.6 : 0) + (v.flare ? .5 : 0);
+      let L = lift(m, v.x, v.z, v.y, gy, v.t); if (v.boost > 0) { L += 3.4; v.boost -= dt; }
+      v.vy += (L - sink - v.vy) * Math.min(1, dt * 1.5);
+      v.bank += (steer * .62 - v.bank) * Math.min(1, dt * 3); v.h -= v.bank * 1.75 * dt * (10 / Math.max(6, v.spd));
+      const nx = G.clamp(v.x + fx * v.spd * dt, 3, m.W - 3), nz = G.clamp(v.z + fz * v.spd * dt, 3, m.H - 3), top = obstacle(m, nx + fx * .9, nz + fz * .9);
+      if (top > v.y + .15 && top - v.y > 1.0) { v.spd = Math.max(3, v.spd * .35); v.h += PI * .7; v.vy = Math.min(v.vy, -.5); G.cam.shake && G.cam.shake(.25); G.sfx('hurt', .4); G.ui.toast('Aïe, un obstacle !'); }
+      else { v.x = nx; v.z = nz; }
+      v.y += v.vy * dt; const g2 = gGround(m, v.x, v.z); if (v.y > g2 + 60) v.y = g2 + 60;
+      if (v.y <= g2 + .02) { v.y = g2; const hard = v.vy < -4.2 || v.spd > 13; v.air = false; v.flare = false; v.vy = 0; v.spd *= .3;
+        if (m.isWaterAt(v.x, v.z)) { G.fx.burst(v.x, g2, v.z, 22, [0xffffff, 0x9fdcff], 3, .7, 6); G.sfx('splash', .7); G.ui.toast('Plouf ! Retour sur la rive.'); return stow(p, v); }
+        if (hard) { G.cam.shake && G.cam.shake(.3); G.sfx('hurt', .4); G.ui.toast('Atterrissage un peu brusque !'); } else { G.sfx('land', .5); G.ui.toast('🪂 Joli atterrissage !'); } G.fx.puff(v.x, g2 + .05, v.z, 8, 0xf3ead2, .6); }
+      if (v.vy > .4 && (v.vario = (v.vario || 0) - dt) < 0) { v.vario = G.clamp(.5 - v.vy * .08, .12, .5); beep(620 + v.vy * 140, .09, 'sine', .035); } } // le vario bipe quand on monte
+    // étincelles dorées des ascendances proches
+    if ((v.spark = (v.spark || 0) - dt) < 0) { v.spark = .06; for (const q of thermals(m)) { const d = Math.hypot(q.x - v.x, q.z - v.z); if (d > 48 || Math.random() > .5) continue; const a = Math.random() * TAU, rr = Math.random() * q.r, gx = q.x + Math.cos(a) * rr, gz = q.z + Math.sin(a) * rr; G.fx.one(gx, gGround(m, gx, gz) + 1 + Math.random() * 14, gz, 0, 2.2, 0, 2.2, -.4, Math.random() < .5 ? 0xffe08a : 0xffffff, .09, .5); } }
+    // l'aile et le pilote (debout au sol, couché dans le harnais en vol)
+    v.prone += ((v.air ? 1 : 0) - v.prone) * Math.min(1, dt * 3);
+    const M = v.mesh, nose = v.air ? G.clamp(-v.vy * .05 + (v.spd - 9.6) * -.02, -.25, .3) : .12; M.position.set(v.x, v.y, v.z); M.rotation.set(-v.bank * .7, v.h - PI / 2, nose);
+    M.updateMatrixWorld(); const st = new V3(-.2 - .55 * v.prone, .95 * v.prone, 0); M.localToWorld(st);
+    p.yaw = v.h; p.vx = p.vz = p.vy = 0; p.onGround = !v.air; p.swim = false; p.animate(dt, v.air ? 0 : v.spd); if (p.toolMesh) p.toolMesh.visible = false; p.blob.visible = !v.air;
+    const C = p.C; if (v.air) { G.clearPose && G.clearPose(C); C.armL.rotation.x = C.armR.rotation.x = -1.25; C.armL.rotation.z = -.25; C.armR.rotation.z = .25; } else { C.armL.rotation.x = C.armR.rotation.x = -2.4; C.armL.rotation.z = -.35; C.armR.rotation.z = .35; }
+    p.x = st.x; p.y = st.y; p.z = st.z; p.root.position.set(p.x, p.y, p.z); p.root.rotation.set(v.prone * PI * .46, v.h, -v.bank * .6, 'YXZ');
+    const gy2 = gGround(m, v.x, v.z); hudSet(v, S.ico + ' <b>' + Math.round(Math.abs(v.spd) * 7) + ' km/h</b> · ' + Math.max(0, Math.round(v.y - gy2)) + ' m' + (v.air ? ' · ' + (v.vy >= 0 ? '↑ +' : '↓ ') + v.vy.toFixed(1) + ' m/s' : '') + '<br><span style="font-size:12px;opacity:.85">' + (v.air ? 'Avant : piquer · Arrière : cabrer · Gauche/Droite : virer · E : se poser' : 'Avance pour courir et décoller · E : poser l\'aile · W : ranger') + '</span>'); }
+
   // ---------- sur l'eau : jet-ski ----------
   const waterOk = (m, x, z) => { const tx = Math.floor(x), tz = Math.floor(z); if (!m.inb(tx, tz)) return false; const i = m.idx(tx, tz); if (!m.water[i]) return false; const o = m.occ[i] ? m.objs[m.occ[i] - 1] : null; return !o || o.t === 'pont' || O[o.t].veh2; };
   function updSea(p, v, dt) { const S = v.S, I = G.input, m = G.map, free = G.ui.canPlay(); let gas = 0, steer = 0;
@@ -312,7 +377,7 @@
   G.rideState = () => { const v = G.player && G.player.vehicle; return v && v.pass ? { i: v.pid, s: v.seat } : null; };
 
   // ---------- garage de poche (W) ----------
-  const LIST = ['moto', 'velo', 'skate', 'cheval', 'voiturette', 'helico', 'tapis', 'jetski'], ICO = { moto: '🏍️' };
+  const LIST = ['moto', 'velo', 'skate', 'cheval', 'voiturette', 'helico', 'tapis', 'deltaplane', 'jetski'], ICO = { moto: '🏍️' };
   const owned = () => LIST.filter(id => G.mode === 'creatif' || G.inv.count(id) > 0);
   const GAR = G.garage = { last: 'velo', el: null };
   const css = document.createElement('style'); css.textContent = `#garage{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:55;background:rgba(255,248,230,.97);border-radius:22px;box-shadow:0 5px 0 #e3cfa3,0 14px 34px rgba(0,0,0,.28);padding:10px 12px 8px;font-family:var(--f-display);max-width:94vw}
@@ -339,7 +404,7 @@
   G.on('init', () => {
     const F = G.feat, ob = F.board; F.board = o => O[o.t] && O[o.t].veh2 ? mountObj(o) : ob(o);
     const ou = F.updVehicle; F.updVehicle = (p, dt) => { const v = p.vehicle; if (v && v.pass) return updPass(p, v, dt); if (!v || !v.veh2) return ou(p, dt); dt = Math.min(dt, .05); v.t += dt;
-      if (v.S.kind === 'fly') return updFly(p, v, dt); if (v.S.kind === 'sea') return updSea(p, v, dt); return updGround(p, v, dt); };
+      if (v.S.kind === 'glide') return updGlide(p, v, dt); if (v.S.kind === 'fly') return updFly(p, v, dt); if (v.S.kind === 'sea') return updSea(p, v, dt); return updGround(p, v, dt); };
     // E à côté du véhicule d'un ami : on monte comme passager
     const oi = G.act.interact; G.act.interact = () => { if (G.player && G.player.vehicle) return; const f = G.nearFriendVehicle(); if (f && !G.ents.villagerInFront(G.player)) return hopOn(f); return oi(); };
     const og = G.toTitle; G.toTitle = () => { G.vehLeave(); return og(); };

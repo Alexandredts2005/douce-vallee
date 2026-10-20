@@ -89,6 +89,7 @@
     if (p.sit) return '<kbd>E</kbd>Se lever';
     if (p.vehicle) { const v = p.vehicle, k = (a, b) => '<kbd>' + a + '</kbd>' + b, J = '&nbsp;&nbsp; ';
       if (v.pass) return k('E', 'Descendre');
+      if (v.veh2 && v.S.kind === 'glide') return (v.air ? [k('↑ ↓', 'Piquer · Cabrer'), k('← →', 'Virer'), k('E', 'Se poser')] : [k('↑', 'Courir et décoller'), k('E', 'Poser l\'aile'), k('W', 'Ranger')]).join(J);
       if (v.veh2) return v.S.kind === 'fly' ? [k('Espace', 'Monter'), k('Maj', 'Descendre'), k('E', 'Atterrir'), k('W', 'Ranger')].join(J) : v.S.kind === 'sea' ? [k('Espace', 'Klaxon'), k('E', 'Accoster'), k('W', 'Ranger')].join(J) : [v.S.jump ? k('Espace', 'Sauter') : v.S.space ? k('Espace', v.S.space === 'bell' ? 'Sonnette' : 'Klaxon') : '', k('E', 'Garer'), k('W', 'Ranger')].filter(Boolean).join(J);
       if (v.moto) return [k('1 2 3', 'Vitesses'), k('E', 'Garer'), k('W', 'Ranger')].join(J);
       if (v.boat2 || v.boat) return k('E', 'Accoster');
