@@ -51,4 +51,11 @@
   let qT = 0;
   G.on('frame', () => { const m = G.map, p = G.player; if (!m || !p || (qT = (qT + 1) % 20)) return; const x0 = Math.floor(p.x) - 12, z0 = Math.floor(p.z) - 12; let n = 0;
     for (let z = z0; z < z0 + 24 && n < 3; z++) for (let x = x0; x < x0 + 24 && n < 3; x++) { const o = m.objAt(x, z); if (!o) continue; const d = G.OBJ[o.t]; if (!(d.h > 0) || d.hAt) continue; const key = o._k || G.objKey(o); if (!cache.has(key)) { build(d, key); n++; } } });
+  // ---------- arbres et buissons : une collision ronde, celle du tronc ou de la touffe ----------
+  // (la carte de hauteurs comptait les racines et les branches basses comme un mur : un sapin bloquait sa case entière, en carré)
+  // on glisse autour du tronc, on passe sous les branches ; un buisson est une boule qu'on contourne
+  G.on('init', () => { for (const id in G.OBJ) { const d = G.OBJ[id]; if (d.hAt || !d.fp || d.fp[0] !== 1 || d.fp[1] !== 1 || !(d.h > 0) || d.enter || d.plat) continue;
+      const tree = d.chop >= 3, bush = !tree && (/^(buisson|bush|arbuste)/.test(id) || d.model === 'bush'); if (!tree && !bush) continue;
+      const R2 = (tree ? .23 : .36) ** 2, H = tree ? Math.max(2, d.h) : G.clamp(d.h, .6, 1.2);
+      d.hAt = (o, x, z) => { const dx = x - o.x - .5, dz = z - o.z - .5; return dx * dx + dz * dz < R2 ? H : -1e3; }; } });
 })();

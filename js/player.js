@@ -93,6 +93,18 @@
       const done = () => { const s = this.safe; if (s && G.map === m && !m.isWaterAt(s.x, s.z)) this.teleport(s.x, s.z); else this.unstick(true); this.splashing = false; };
       if (G.ui.fading) done(); else G.ui.fade(done);
     }
+    // glisser : on dévie un peu la course (du côté qui s'éloigne de l'obstacle d'abord) jusqu'à trouver la place ; de face contre un mur droit, on s'arrête.
+    // Si l'on est déjà un peu dedans (après un saut, un objet posé…), tout pas qui n'enfonce pas davantage est permis : on n'est jamais collé.
+    slideMove(dt) { const m = this.map, v = Math.hypot(this.vx, this.vz); if (v < 1e-5) return;
+      const hit = (x, z) => m.topAt(x, z) > this.y + (m._nf ? .06 : G.STEP), pen = (x, z) => { let n = 0; for (const [ox, oz] of PTS9) if (hit(x + ox, z + oz)) n++; return n; };
+      const nx0 = this.x + this.vx * dt, nz0 = this.z + this.vz * dt; let sx = 0, sz = 0; for (const [ox, oz] of PTS9) { if (!ox && !oz) continue; if (hit(nx0 + ox, nz0 + oz)) { sx += ox; sz += oz; } }
+      const a0 = Math.atan2(this.vx, this.vz), inside = this.blocked(this.x, this.z, this.y), p0 = inside ? pen(this.x, this.z) : 0;
+      for (const da of [.25, .5, .8, 1.05, 1.2]) { const cands = [a0 + da, a0 - da].map(a => [a, Math.sin(a) * sx + Math.cos(a) * sz]).sort((q, r) => q[1] - r[1]);
+        for (const [a] of cands) { const sp = v * Math.max(.4, Math.cos(da)), tx = this.x + Math.sin(a) * sp * dt, tz = this.z + Math.cos(a) * sp * dt;
+          if (!this.blocked(tx, tz, this.y) || (inside && pen(tx, tz) < p0)) { this.x = tx; this.z = tz; this.vx = Math.sin(a) * sp; this.vz = Math.cos(a) * sp; return; } } }
+      if (!this.blocked(nx0, this.z, this.y)) { this.x = nx0; this.vz *= .5; return; } if (!this.blocked(this.x, nz0, this.y)) { this.z = nz0; this.vx *= .5; return; } // le long d'un mur droit
+      if (inside && pen(nx0, nz0) < p0) { this.x = nx0; this.z = nz0; return; }
+      this.vx *= .2; this.vz *= .2; }
     canLeave(x, z, h) { const m = this.map; let ok = 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const t = m.topAt(x + dx, z + dz); if (t < 40 && t <= h + 1.9 && !m.isWaterAt(x + dx, z + dz)) ok++; } return ok >= 1; }
     // G._feetY : hauteur des pieds pendant le déplacement (on passe sous une plateforme sans se cogner au plancher)
     update(dt) { G._feetY = this.y; try { this._upd(dt); } finally { G._feetY = null; } }
@@ -146,11 +158,7 @@
       }
       const ox = this.x, oz = this.z, nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
       if (!this.blocked(nx, nz, this.y)) { this.x = nx; this.z = nz; }
-      else { // contre un obstacle on s'arrête de face ; dès qu'on tourne un peu, on glisse le long
-        let sx = 0, sz = 0; for (const [ox, oz] of PTS9) { if (!ox && !oz) continue; if (m.topAt(nx + ox, nz + oz) > this.y + (m._nf ? .06 : G.STEP)) { sx += ox; sz += oz; } }
-        const sl = Math.hypot(sx, sz), v = Math.hypot(this.vx, this.vz); let moved = false;
-        if (sl > 1e-6 && v > 1e-6) { const kx = -sx / sl, kz = -sz / sl, dn = this.vx * kx + this.vz * kz; if (dn / v > -.985) { const px = this.vx - dn * kx, pz = this.vz - dn * kz, tx = this.x + px * dt, tz = this.z + pz * dt; if (!this.blocked(tx, tz, this.y)) { this.x = tx; this.z = tz; this.vx = px; this.vz = pz; moved = true; } } }
-        if (!moved) { this.vx = 0; this.vz = 0; } }
+      else this.slideMove(dt); // contre un obstacle : on glisse le long, on contourne un tronc
       const g = this.groundAt(this.x, this.z);
       if (this.onGround) { if (g < this.y - .35) { this.onGround = false; this.vy = 0; this.airTop = this.y; } else this.y = g; }
       if (!this.onGround) {
