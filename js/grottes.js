@@ -113,7 +113,7 @@
     // direction : celle de la caméra habituelle si le tunnel le permet, sinon le côté le plus dégagé
     const yaw = G.cam ? G.cam.yaw : 0, d0 = [Math.sin(yaw), Math.cos(yaw)], C = [d0, [0, 1], [1, 0], [0, -1], [-1, 0]];
     let best = null; for (const d of C) { const L = room(m, F, p.x, p.z, d[0], d[1]), sc = L < .5 ? L - 9 : L + (d[0] * d0[0] + d[1] * d0[1]) * .9 + (camDir && d[0] === camDir[0] && d[1] === camDir[1] ? .5 : 0); if (!best || sc > best[0]) best = [sc, d, L]; } // jamais vers une paroi trop proche
-    camDir = best[1]; const L = best[2], tight = L < .5; // coincé de tous les côtés : la caméra se met au-dessus du joueur, sous le plafond let cx = p.x + camDir[0] * L, cz = p.z + camDir[1] * L;
+    camDir = best[1]; const L = best[2], tight = L < .5; let cx = p.x + camDir[0] * L, cz = p.z + camDir[1] * L; // coincé de tous les côtés : la caméra se met au-dessus du joueur, sous le plafond
     if (G.caveAt(m, Math.floor(cx), Math.floor(cz))) { if (camDir[0] === 0) cx += (Math.floor(cx) + .5 - cx) * .6; if (camDir[1] === 0) cz += (Math.floor(cz) + .5 - cz) * .6; } // au milieu du tunnel
     NP.set(cx, F + (tight ? CL - .15 : Math.min(CL - .3, 1.75)), cz);
     if (!CP.lengthSq()) { CP.copy(cam.position); CT.copy(NT); }
