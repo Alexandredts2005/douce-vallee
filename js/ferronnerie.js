@@ -179,20 +179,53 @@
   const ogg2 = G.getGeo; G.getGeo = (name, v = 0) => { if (typeof name === 'string' && name.startsWith('pmx_') && !MD[name]) { const [, c, ex, wg] = name.split('_').map(Number);
       MD[name] = vv => { const b = G.mb(1500 + c * 32 + (vv & 31)); platformMarble(b, (vv & 31) | (c & 2 ? 32 : 0) | (c & 1 ? 256 : 0) | G.lvlBits(c >> 2) | ((ex & 15) << 11) | (((ex >> 4) & 0xffff) << 15), wg || 0); return b.done(); }; }
     return ogg2(name, v); };
-  // escalier de marbre : marches pleines, balustrade sur la pente ; en hauteur, tout le dessous est en pierre de taille
+  // gros pilier en pierre de taille : socle à gradins et tore de marbre, fût à bossages aux angles chanfreinés, pilastres cannelés,
+  // panneaux encadrés de marbre, chapiteau mouluré (astragale, corbeille, tailloir) et consoles qui reçoivent l'arc ; il descend au fond de l'eau
+  function grandPier(b, x, z, top) { const y0 = -1.4, W = .66, sk = G.SK || {}; b.S(sk.stone);
+    for (let y = y0, kk = 0; y < top - .5; kk++) { const h = Math.min(.3, top - .5 - y), w = kk % 2 ? W : W - .05; sbox(b, w, h - .016, w, kk % 3 === 0 ? STD : kk % 3 === 1 ? ST : STL, x, y + h / 2, z); sbox(b, w - .04, .018, w - .04, 0xa89c88, x, y + h - .008, z);
+      for (const [cx, cz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) b.add(new THREE.BoxGeometry(.07, h - .02, .07), STL, b.M(x + cx * w / 2, y + h / 2, z + cz * w / 2, 0, PI / 4, 0), 0, false); y += h; } // assises et angles chanfreinés
+    sbox(b, W + .26, .32, W + .26, STD, x, .16, z); sbox(b, W + .16, .12, W + .16, ST, x, .38, z); b.box(W + .1, .09, W + .1, MW, x, .48, z); // socle et tore
+    const h0 = .53, h1 = top - .52; if (h1 - h0 > .3) {
+      for (const sz of [-1, 1]) { const g = new THREE.CylinderGeometry(.075, .075, h1 - h0, 14, 1, false, 0, PI); b.add(g, MW, b.M(x, (h0 + h1) / 2, z + sz * W / 2, 0, sz > 0 ? -PI / 2 : PI / 2, 0), 0, true); // pilastre cannelé (demi-colonne)
+        for (let f = 0; f < 5; f++) { const a = (f + .5) / 5 * PI, px = Math.cos(a) * .077, pz = Math.sin(a) * .077 * sz; b.add(new THREE.BoxGeometry(.012, h1 - h0 - .06, .012), MG, b.M(x + px, (h0 + h1) / 2, z + sz * W / 2 + pz), 0, false); } // cannelures
+        b.box(.22, .07, .1, MW, x, h0 + .035, z + sz * (W / 2 + .02)); b.box(.24, .08, .12, MW, x, h1 - .04, z + sz * (W / 2 + .025)); } // base et chapiteau du pilastre
+      for (const sx of [-1, 1]) { const ph = Math.min(1.4, h1 - h0 - .3), py = (h0 + h1) / 2; b.add(new THREE.BoxGeometry(.012, ph, W - .26), 0xbcb09a, b.M(x + sx * (W / 2 + .004), py, z), 0, false); // panneau en creux
+        for (const [dy, dz, w2, h2] of [[ph / 2, 0, W - .2, .035], [-ph / 2, 0, W - .2, .035]]) b.add(new THREE.BoxGeometry(.03, h2, w2), MW, b.M(x + sx * (W / 2 + .012), py + dy, z + dz), 0, false);
+        for (const dz of [-(W - .26) / 2 - .015, (W - .26) / 2 + .015]) b.add(new THREE.BoxGeometry(.03, ph + .035, .035), MW, b.M(x + sx * (W / 2 + .012), py, z + dz), 0, false);
+        b.sph(.04, MW, x + sx * (W / 2 + .03), py, z, 1, 1, .6); } } // rosace au milieu du panneau
+    b.box(W + .06, .05, W + .06, MW, x, top - .47, z); b.box(W + .14, .2, W + .14, MG, x, top - .34, z); b.box(W + .26, .09, W + .26, MW, x, top - .195, z); b.box(W + .32, .06, W + .32, MV, x, top - .12, z); // astragale, corbeille, tailloir, imposte
+    for (const sx of [-1, 1]) for (const dz of [-.2, .2]) { sbox(b, .1, .2, .12, ST, x + sx * (W / 2 + .1), top - .45, z + dz); sbox(b, .14, .06, .16, MW, x + sx * (W / 2 + .12), top - .33, z + dz); } // consoles
+    b.S(null); }
+  // escalier de marbre : marches de marbre et balustrade sur la pente. Au ras du sol, sur un massif de pierre de taille ;
+  // en hauteur, la volée est portée par une arche rampante en pierre de taille (voussoirs, clé de voûte, archivolte) qui retombe
+  // sur un gros pilier tous les deux escaliers : on passe dessous.
   function marbleStairs(b, D, J, e) { const n = NST(D), rr = T / n, t = D / n, Y0 = e * T, hr = z => .8 + (D / 2 - z) / D * T, a = Math.atan2(T, D), L = Math.hypot(D, T), sk = G.SK || {};
+    const arch = e > 0, jj = J.P ? 0 : 1, SLAB = .3, CR = .18, HS = .95;
+    const ys = z => Y0 + (D / 2 - z) / D * T - SLAB, dep = z => CR + HS * (1 - Math.sin(PI * (jj + (D / 2 - z) / D) / 2));
     for (let i = 0; i < n; i++) { const zf = D / 2 - i * t, zc = zf - t / 2, topY = Y0 + (i + 1) * rr; b.S(sk.stone);
       b.box(.96, .05, t + .02, MW, 0, topY - .025, zc - .01); b.box(.94, rr, .03, MG, 0, topY - rr / 2, zf - .015); // giron et contremarche
-      const bot = e ? -1.4 : 0; for (let y = bot, kk = 0; y < topY - .06; kk++) { const h = Math.min(.36, topY - .05 - y); sbox(b, .92, h - .014, t - .004, (kk + i) % 3 === 0 ? STD : (kk + i) % 3 === 1 ? ST : STL, 0, y + h / 2, zc); y += h; } b.S(null); }
+      const bot = arch ? ys(zf - t) + .1 : 0; for (let y = bot, kk = 0; y < topY - .06; kk++) { const h = Math.min(.36, topY - .05 - y); sbox(b, .92, h - .014, t - .004, (kk + i) % 3 === 0 ? STD : (kk + i) % 3 === 1 ? ST : STL, 0, y + h / 2, zc); y += h; } b.S(null); }
+    if (arch) { b.S(sk.stone);
+      put(b, box(.93, .34, L + .02), ST, null, 0, Y0 + T / 2 - SLAB + .16, 0, a); // la dalle rampante sous les marches
+      for (const sx of [-1, 1]) { put(b, box(.05, .1, L + .02), MW, null, sx * .485, Y0 + T / 2 - SLAB + .02, 0, a); put(b, box(.04, .05, L + .02), MG, null, sx * .495, Y0 + T / 2 - SLAB + .1, 0, a); } // corniche rampante
+      const N = Math.round(D * 10), P = []; for (let q = 0; q <= N; q++) { const z = D / 2 - D * q / N; P.push([z, ys(z) - dep(z)]); }
+      for (let q = 0; q < N; q++) { const [z0, y0] = P[q], [z1, y1] = P[q + 1], zm = (z0 + z1) / 2, ym = (y0 + y1) / 2, top = ys(zm), len = Math.hypot(z1 - z0, y1 - y0), th = Math.atan2(-(y1 - y0), z1 - z0);
+        if (top - ym - .15 > .02) sbox(b, .9, top - (ym + .15), Math.abs(z1 - z0) + .004, q % 2 ? ST : STL, 0, (top + ym + .15) / 2, zm); // écoinçon en pierre de taille
+        b.add(new THREE.BoxGeometry(.96, .17, len + .006), q % 2 ? STD : STL, b.M(0, ym + .085, zm, th, 0, 0), 0, false); // voussoir
+        b.add(new THREE.BoxGeometry(.97, .012, .012), 0x9c907c, b.M(0, ym + .02, z0, th, 0, 0), 0, false); // joint
+        for (const sx of [-1, 1]) b.add(new THREE.BoxGeometry(.03, .04, len + .006), MW, b.M(sx * .49, ym + .19, zm, th, 0, 0), 0, false); } // archivolte de marbre
+      const zk = jj === 0 ? -D / 2 : D / 2, yk = ys(zk) - dep(zk); if (Math.abs(jj + (D / 2 - zk) / D - 1) < .01) { b.box(.99, .3, .2, MW, 0, yk + .14, zk + (jj === 0 ? .1 : -.1)); for (const sx of [-1, 1]) b.sph(.05, MG, sx * .5, yk + .14, zk + (jj === 0 ? .1 : -.1), .6, 1, 1); } // clé de voûte sculptée
+      if (J.P) { const tp = ys(D / 2) - dep(D / 2); if (tp > .6) grandPier(b, 0, D / 2, tp); }
+      b.S(null); }
     for (const s of [-1, 1]) { if (s < 0 ? J.L : J.R) continue; const x = s * .44;
       lifted(b, Y0, () => { put(b, box(.1, .08, L + .02), MV, null, x, T / 2 + .05, 0, a); // limon
         for (let i = 0; i < n; i++) { const zc = D / 2 - (i + .5) * t, base = (i + 1) * rr; b.add(balGeo.clone(), MW, new THREE.Matrix4().makeTranslation(x, base + .02, zc).multiply(new THREE.Matrix4().makeScale(1, 1.1, 1)), 0, true); }
         put(b, box(.13, .06, L + .05), MW, null, x, (hr(D / 2) + hr(-D / 2)) / 2 - (.8 - .66) , 0, a); put(b, new THREE.CylinderGeometry(.055, .055, L + .05, 10), MW, null, x, (hr(D / 2) + hr(-D / 2)) / 2 - .1, 0, a + PI / 2, 0, 0, true);
         if (!J.F) { b.box(.16, .9, .16, MW, x, .45, D / 2 - .06); b.box(.2, .05, .2, MG, x, .92, D / 2 - .06); b.sph(.07, MW, x, 1.02, D / 2 - .06); }
         if (!J.B) { b.box(.16, .95, .16, MW, x, T + .48, -D / 2 + .06); b.sph(.07, MW, x, T + 1.02, -D / 2 + .06); } }); } }
-  MD.esc_marbre = v => { const b = G.mb(1990 + ((v || 0) & 3)); marbleStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32 }, lvlOf(v)); return b.done(); };
-  for (let e = 0; e < 16; e++) MD['em_' + e] = v => { const b = G.mb(1990 + e * 4 + (v & 3)); marbleStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32 }, e); return b.done(); };
-  const emKey = v => 'em_' + lvlOf(v) + ':' + (v & 61);
+  MD.esc_marbre = v => { const b = G.mb(1990 + ((v || 0) & 3)); marbleStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32, P: v & 2 }, lvlOf(v)); return b.done(); };
+  for (let e = 0; e < 16; e++) MD['em_' + e] = v => { const b = G.mb(1990 + e * 4 + (v & 3)); marbleStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32, P: v & 2 }, e); return b.done(); };
+  const emKey = v => 'em_' + lvlOf(v) + ':' + (v & 63);
   const oko = G.objKey; G.objKey = o => { const d = O[o.t]; return d && d.keyOf ? d.keyOf(o.v != null ? o.v : d.v || 0, o) : oko(o); };
   // ---------- collisions ----------
   const loc = (o, x, z) => { const d = O[o.t], [w, dd] = G.fpDims(d, o.r), dx = x - (o.x + w / 2), dz = z - (o.z + dd / 2), r = o.r & 3;
@@ -220,10 +253,11 @@
   add('escalier_fer', 'Escalier en fer forgé (court)', { model: 'esc_fer', fp: [1, 1], stair: 1, hAt: stairH(1), ghostV: (m, ax, az) => G.lvlBits(placeLvl(m, ax, az, 0)), keyOf: efKey }, 700, 6, 'Monte d\'un niveau. Posé depuis une plateforme, il part de son plancher vers l\'étage suivant.');
   add('escalier_fer_long', 'Escalier en fer forgé (long)', { model: 'esc_fer', v: 1, fp: [1, 2], stair: 1, hAt: stairH(2), ghostV: (m, ax, az) => 1 | G.lvlBits(placeLvl(m, ax, az, 0)), keyOf: efKey }, 1000, 10, 'Monte d\'un niveau en pente douce. Posé depuis une plateforme, il part de son plancher vers l\'étage suivant.');
   // marbre : sous l'escalier, c'est de la pierre pleine (on ne passe pas dessous)
-  const stairHM = D => (o, x, z) => { const [lx, lz] = loc(o, x, z), n = NST(D), f = G.clamp((D / 2 - lz) / D, 0, 1), v = o.v != null ? o.v : O[o.t].v, Y0 = lvlOf(v) * T;
+  const stairHM = D => (o, x, z) => { const [lx, lz] = loc(o, x, z), n = NST(D), f = G.clamp((D / 2 - lz) / D, 0, 1), v = o.v != null ? o.v : O[o.t].v, Y0 = lvlOf(v) * T, fy = G._feetY;
+    if (Y0 && fy != null && fy < o.y + Y0 + f * T - 1.6) { const pier = zz => Math.abs(lx) < .45 && Math.abs(lz - zz) < .45; return (v & 2 ? pier(D / 2) : pier(-D / 2)) ? Y0 + T : 0; } // sous l'arche : seuls les piliers arrêtent
     if ((lx < -.4 && !(v & 4)) || (lx > .4 && !(v & 8))) return Y0 + .85 + f * T; return Y0 + (G.clamp(Math.floor((D / 2 - lz) / (D / n)), 0, n - 1) + 1) * T / n; };
   add('plateforme_marbre', 'Terrasse en marbre blanc', { model: 'pm_0', fp: [1, 1], plat: 1, waterOK: 1, hAt: platH, ghostV: platGhost(false), keyOf: pmKey }, 900, { pierre: 6 }, 'Marbre blanc à damier et balustres : pose plusieurs cases côte à côte, au bord de l\'eau ou au-dessus. Plus elle est haute, plus elle repose sur des piliers et des arcs en pierre de taille. Monte dessus pour construire l\'étage suivant.');
-  add('escalier_marbre', 'Escalier en marbre (court)', { model: 'esc_marbre', fp: [1, 1], stair: 1, waterOK: 1, hAt: stairHM(1), ghostV: (m, ax, az) => G.lvlBits(placeLvl(m, ax, az, 0)), keyOf: emKey }, 1100, { pierre: 8 }, 'Monte d\'un niveau, en marches de marbre sur un massif de pierre de taille, avec sa balustrade.');
+  add('escalier_marbre', 'Escalier en marbre (court)', { model: 'esc_marbre', fp: [1, 1], stair: 1, waterOK: 1, hAt: stairHM(1), ghostV: (m, ax, az) => G.lvlBits(placeLvl(m, ax, az, 0)), keyOf: emKey }, 1100, { pierre: 8 }, 'Monte d\'un niveau en marches de marbre, avec sa balustrade. En hauteur, la volée est portée par une arche en pierre de taille et un gros pilier tous les deux escaliers, jusqu\'au fond de l\'eau.');
   add('escalier_marbre_long', 'Escalier en marbre (long)', { model: 'esc_marbre', v: 1, fp: [1, 2], stair: 1, waterOK: 1, hAt: stairHM(2), ghostV: (m, ax, az) => 1 | G.lvlBits(placeLvl(m, ax, az, 0)), keyOf: emKey }, 1500, { pierre: 12 }, 'Monte d\'un niveau en pente douce, en marbre et pierre de taille.');
   // ---------- raccords : bords des plateformes (voisine au même étage, escalier qui arrive ou qui part, haut de falaise), colonnes ----------
   const NB = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]];
@@ -280,18 +314,18 @@
     catch (e) { g = -1; } RM.geometry = null;
     c.set(ck, g); return g; }
   // escaliers en fer : on compte depuis le bas de la volée, une paire de colonnes tous les 3 escaliers
-  const ironSt = q => !!(q && O[q.t] && O[q.t].stair && O[q.t].model === 'esc_fer');
+  const ironSt = q => !!(q && O[q.t] && O[q.t].stair && O[q.t].model === 'esc_fer'), marbleSt = q => !!(q && O[q.t] && O[q.t].stair && O[q.t].model === 'esc_marbre');
   function stairNext(m, o, sg) { const d = O[o.t], [w, dd] = G.fpDims(d, o.r), Fv = G.FR[o.r & 3], L = d.fp[1], x = Math.floor(o.x + w / 2 + Fv[0] * sg * (L / 2 + .5)), z = Math.floor(o.z + dd / 2 + Fv[1] * sg * (L / 2 + .5)), q = m.objAt(x, z);
-    if (!ironSt(q) || q === o || (q.r & 3) !== (o.r & 3)) return null; return Math.abs(G.stairBase(q) - (G.stairBase(o) - sg * T)) < .05 ? q : null; }
-  function stairChain(m, o) { if (!ironSt(o)) return; let b = o, n = 0; while (n++ < 64) { const q = stairNext(m, b, 1); if (!q) break; b = q; }
-    let i = 0, q = b; while (q && i < 64) { const v0 = q.v != null ? q.v : O[q.t].v, want = i % 3 === 0 ? 2 : 0; if ((v0 & 2) !== want) { q.v = (v0 & ~2) | want; if (q._k) m.refresh(q); relinkNear(m, q.x - 3, q.z - 3, q.x + 4, q.z + 4); } q = stairNext(m, q, -1); i++; } }
+    if (!(ironSt(q) || marbleSt(q)) || O[q.t].model !== O[o.t].model || q === o || (q.r & 3) !== (o.r & 3)) return null; return Math.abs(G.stairBase(q) - (G.stairBase(o) - sg * T)) < .05 ? q : null; }
+  function stairChain(m, o) { if (!ironSt(o) && !marbleSt(o)) return; const per = marbleSt(o) ? 2 : 3; let b = o, n = 0; while (n++ < 64) { const q = stairNext(m, b, 1); if (!q) break; b = q; }
+    let i = 0, q = b; while (q && i < 64) { const v0 = q.v != null ? q.v : O[q.t].v, want = i % per === 0 ? 2 : 0; if ((v0 & 2) !== want) { q.v = (v0 & ~2) | want; if (q._k) m.refresh(q); relinkNear(m, q.x - 3, q.z - 3, q.x + 4, q.z + 4); } q = stairNext(m, q, -1); i++; } }
   // on pose ou on enlève une plateforme ou un escalier : les escaliers voisins se raccordent, les plateformes alentour revoient balustrades, équerres et fermes
   const touch = (m, o) => { const d = O[o.t], [w, dd] = G.fpDims(d, o.r || 0), R = d.plat ? 6 : 4, near = q => q.x >= o.x - 1 && q.x <= o.x + w && q.z >= o.z - 1 && q.z <= o.z + dd;
     for (let z = o.z - 1; z <= o.z + dd; z++) for (let x = o.x - 1; x <= o.x + w; x++) { if (!m.inb(x, z)) continue; const q = m.objAt(x, z); if (q && q !== o && O[q.t].stair && near(q)) { if (G.stairRelink) G.stairRelink(m, q); stairChain(m, q); } }
     relinkNear(m, o.x - R, o.z - R, o.x + w - 1 + R, o.z + dd - 1 + R); };
   // au chargement d'une carte, les maisons peuvent arriver après les plateformes : on revoit toutes les plateformes une fois tout posé
   const ods = G.GMap.deserialize; G.GMap.deserialize = function (d) { const m = ods.call(this, d), L = []; for (const o of m.list) if (O[o.t] && O[o.t].plat) L.push(o);
-    for (let n = 0; n < 2; n++) for (const o of L) relinkPlat(m, o); return m; };
+    for (let n = 0; n < 2; n++) for (const o of L) relinkPlat(m, o); for (const o of m.list) if (marbleSt(o)) stairChain(m, o); return m; }; // (les anciens escaliers de marbre reçoivent leurs piliers)
   // pose par le joueur : la plateforme ou l'escalier en fer prend la hauteur où il se tient
   let placing = false; const opl = G.act.placeObj; G.act.placeObj = (it, tx, tz) => { placing = true; try { return opl(it, tx, tz); } finally { placing = false; } };
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
