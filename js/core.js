@@ -1,7 +1,7 @@
 'use strict';
 // ===== Douce Vallée — noyau : constantes, maths, bruit, matériaux courbés, textures, entrées =====
 const G = window.G = {};
-G.ACRE = 16; G.TIER = 1.5; G.STEP = 0.42; G.BORDER = 4; G.SEA = 10; G.AC = 7; G.AR = 6;
+G.ACRE = 16; G.TIER = 1.5; G.STEP = 0.42; G.BORDER = 4; G.SEA = 30; G.AC = 7; G.AR = 6;
 G.FR = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 G.el = id => document.getElementById(id);
 // ---------- crochets pour les modules (init, frame, update, enterMap, newDay, save, load, newGame, move) ----------

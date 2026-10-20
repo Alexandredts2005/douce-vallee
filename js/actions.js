@@ -149,12 +149,12 @@
     if (o && !(op === 'fill' && G.OBJ[o.t].onWater)) { G.ui.toast("Enlève d'abord ce qui est posé ici (X)."); G.sfx('error'); return; }
     if (o) m.removeObj(o);
     const [dx, dz] = dom(); let ok = true;
-    if (op === 'up') { if (m.lvl[i] >= 4) ok = false; else { m.lvl[i]++; m.ramp[i] = 0; } }
+    if (op === 'up') { if (m.lvl[i] >= 10) ok = false; else { m.lvl[i]++; m.ramp[i] = 0; } }
     else if (op === 'down') { if (m.lvl[i] <= 0) ok = false; else { m.lvl[i]--; m.ramp[i] = 0; } }
     else if (op === 'water') { if (m.water[i]) ok = false; else { m.water[i] = 1; m.ramp[i] = 0; } }
     else if (op === 'fill') { if (!m.water[i]) ok = false; else { m.water[i] = 0; m.surf[i] = 0; } }
     else if (op === 'flat') { if (!m.ramp[i]) ok = false; else m.ramp[i] = 0; }
-    else if (op === 'cascade') { if (m.lvl[i] >= 4) ok = false; else { m.lvl[i]++; m.water[i] = 1; m.ramp[i] = 0; G.ui.toast('Cascade ! L\'eau tombe vers l\'eau plus basse à côté.'); } }
+    else if (op === 'cascade') { if (m.lvl[i] >= 10) ok = false; else { m.lvl[i]++; m.water[i] = 1; m.ramp[i] = 0; G.ui.toast('Cascade ! L\'eau tombe vers l\'eau plus basse à côté.'); } }
     else if (op === 'ramp') {
       const ux = tx + dx, uz = tz + dz; if (!m.inb(ux, uz) || m.water[i]) ok = false;
       else { const u = m.idx(ux, uz); if (m.lvl[u] !== m.lvl[i] + 1) { G.ui.toast('Il faut une falaise d\'un niveau juste devant la case.'); ok = false; }

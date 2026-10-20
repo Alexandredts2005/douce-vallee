@@ -101,7 +101,7 @@
     const m = G.map, [tx, tz] = p.target(); G._deckPick = p.y; const o = m.objAt(tx, tz); G._deckPick = null; const d = o && G.OBJ[o.t], it = G.inv.held();
     if (!v && d) {
       let e = null; if (d.shop) e = 'Entrer dans la boutique'; else if (d.enter) e = G.act.front(o) ? 'Entrer' : null; else if (d.storage) e = 'Rangement'; else if (d.wardrobe) e = 'Changer de tenue'; else if (d.balloon) e = d.veh2 ? d.ico + ' Monter : ' + d.n : d.moto ? '🏍️ Monter sur la moto (W)' : d.vessel ? '⛵ Prendre le bateau' : d.plane ? '✈️ Monter dans l\'avion' : 'Monter dans la montgolfière'; else if (d.games) e = 'Jouer';
-      else if (d.light && !d.fire && (m.interior || d.toggle)) e = o.off ? 'Allumer' : 'Éteindre'; else if (d.sit) e = "S'asseoir"; else if (d.sleep) e = 'Dormir'; else if (d.craft) e = 'Fabriquer'; else if (d.cook) e = 'Cuisiner'; else if (d.read) e = 'Lire'; else if (d.mail) e = 'Courrier'; else if (d.fruit || d.shake) e = 'Secouer'; else if (d.pickFruit) e = 'Cueillir'; else if (d.pick) e = 'Ramasser'; else if (d.fountain) e = 'Faire un vœu';
+      else if (d.light && !d.fire && (m.interior || d.toggle)) e = o.off ? 'Allumer' : 'Éteindre'; else if (d.sit) e = "S'asseoir"; else if (d.sleep) e = 'Dormir'; else if (d.craft) e = 'Fabriquer'; else if (d.cook) e = 'Cuisiner'; else if (d.read) e = 'Lire'; else if (d.mail) e = 'Courrier'; else if (d.fruit || d.shake) e = 'Secouer'; else if (d.pickFruit) e = 'Cueillir'; else if (d.pick) e = 'Ramasser'; else if (d.fountain) e = 'Faire un vœu'; else if (d.events) e = '📅 Les fêtes de la place';
       if (e) out.push(`<kbd>E</kbd>${e}`);
     } else if (!v) { const h = m.objAt(Math.floor(p.x), Math.floor(p.z)); if (h && G.OBJ[h.t].pick) out.push('<kbd>E</kbd>Ramasser'); }
     if (it) { let f = null;
