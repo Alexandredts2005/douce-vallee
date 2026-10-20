@@ -110,6 +110,7 @@
     return { v: 2, idle: null, pid: NET.ses, n: clean(G.playerName, 16), vil: clean(G.villageName, 24), home: NET.me(), vis: NET.visit ? 1 : null, at: NET.nroom ? null : NET.curRoom, m: mapKey(m), x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100, y: Math.round(p.y * 100) / 100, r: Math.round(p.yaw * 100) / 100, a, lk: NET.lk || (NET.lk = packLook(p.look)),
       em: p.emote ? p.emote.id : null, say: NET.said && Date.now() - NET.said.t < 15000 ? NET.said : null, g: NET.game || null, ops: NET.ops.length ? { ses: NET.ses, l: NET.ops } : null, rd: G.rideState ? G.rideState() : null, hk: G.hornT || null, adm: !NET.visit && admins().size ? [...admins()].slice(0, 20) : null, ed: !NET.visit && NET.editOpen() ? 1 : null,
       vh: vehState(p), pq: p.vehicle ? [r3(p.root.quaternion.x), r3(p.root.quaternion.y), r3(p.root.quaternion.z), r3(p.root.quaternion.w)] : null,
+      ev: NET.visit || !G.events ? null : ((G.events.balloons ? 1 : 0) | (G.events.fw ? 2 : 0)) || null, // la fête du village (montgolfières, feu d'artifice) : les visiteurs la voient aussi
       ck: NET.visit ? null : Math.floor(G.clock.min), dy: NET.visit ? null : G.clock.day, vg: NET.visit ? null : villagersState() };
   }
   // ---------- ce qui est partagé en plus : le véhicule (avion, moto, bateau, montgolfière), l'heure de l'hôte, ses habitants ----------
@@ -139,12 +140,18 @@
     NET.pubBusy = true; NET.pubRev = pubRevNow(); NET.pubClosed = NET.closed();
     try {
       if (NET.pubClosed) { await unpublish(s.code, s.sid); return; }
-      // tous les intérieurs sont partagés (maisons, mairie, boutiques, musée…) : le visiteur voit exactement les mêmes pièces
-      const homes = {}, mine = {}; for (const r of s.residents || []) { const h = r && r.home && G.interiors[r.home]; if (h) homes[r.home] = mine[r.home] = h.serialize(); }
-      for (const id in G.interiors) if (!homes[id] && G.interiors[id].meta.fromId !== 'rue') try { homes[id] = G.interiors[id].serialize(); } catch (e) { }
-      const snap = { v: 2, vil: clean(G.villageName, 24), who: (s.residents || []).filter(Boolean).map(r => clean(r.name, 16)), ses: NET.ses, seq: NET.seq, at: Date.now(), day: G.clock.day, world: G.world.serialize(), homes };
+      // tous les intérieurs sont partagés (maisons et leurs étages, mairie, boutiques, musée…) : le visiteur voit exactement les mêmes pièces.
+      // Si tout ne tient pas, on garde d'abord les maisons des habitants avec toutes leurs pièces et leurs étages, puis les autres pièces, des plus petites aux plus grandes.
       const LIM = NET.mode === 'server' ? 2800000 : 240000; // le serveur accepte les grands villages (jusqu'à 3 millions de caractères)
-      let rec = await seal(s.code, snap); if (rec.d.length > LIM) { snap.homes = mine; rec = await seal(s.code, snap); } if (rec.d.length > LIM) { snap.homes = {}; rec = await seal(s.code, snap); }
+      const res = (s.residents || []).map(r => r && r.home).filter(Boolean), mineOf = id => res.some(h => id === h || id.startsWith(h + '_')), ser = {}, len = {};
+      for (const id in G.interiors) if (G.interiors[id].meta.fromId !== 'rue') try { ser[id] = G.interiors[id].serialize(); len[id] = JSON.stringify(ser[id]).length + id.length + 6; } catch (e) { }
+      const snap = { v: 2, vil: clean(G.villageName, 24), who: (s.residents || []).filter(Boolean).map(r => clean(r.name, 16)), ses: NET.ses, seq: NET.seq, at: Date.now(), day: G.clock.day, world: G.world.serialize(), homes: {} };
+      const r0 = await seal(s.code, snap), ratio = r0.d.length / Math.max(1, JSON.stringify(snap).length); let budget = (LIM - r0.d.length) / ratio * .96;
+      const order = Object.keys(ser).sort((a, b) => (mineOf(a) ? 0 : 1) - (mineOf(b) ? 0 : 1) || len[a] - len[b]);
+      for (const id of order) if (len[id] <= budget || (mineOf(id) && budget > 0)) { snap.homes[id] = ser[id]; budget -= len[id]; }
+      let rec = await seal(s.code, snap);
+      if (rec.d.length > LIM) { const h = {}; for (const id in snap.homes) if (mineOf(id)) h[id] = snap.homes[id]; snap.homes = h; rec = await seal(s.code, snap); }
+      if (rec.d.length > LIM) { snap.homes = {}; rec = r0; }
       if (rec.d.length > LIM) { if (!NET.bigWarn) { NET.bigWarn = 1; G.ui.toast('Ton village est trop grand pour être publié en ligne.'); } return; }
       if (NET.mode === 'claude' && NET.db && NET.uid) {
         const idx = NET.db.doc('towns/' + NET.uid), cur = await idx.get(), d = cur.exists ? cur.data() : {};
@@ -250,6 +257,7 @@
     const P = a.veh.position, d = Math.hypot(vh.p[0] - P.x, vh.p[2] - P.z), k = d > 8 ? 1 : Math.min(1, dt * 12); P.x += (vh.p[0] - P.x) * k; P.y += (vh.p[1] - P.y) * k; P.z += (vh.p[2] - P.z) * k;
     a.veh.quaternion.slerp(VQ.set(vh.q[0], vh.q[1], vh.q[2], vh.q[3]).normalize(), Math.min(1, dt * 12)); a.veh.scale.setScalar(vh.s || 1); a.veh.visible = true; }
   const isHost = pr => !!(NET.visit && pr && pr.home === ids(NET.visit.code).id && !pr.vis);
+  NET.hostPres = () => { if (!NET.visit) return null; for (const p of NET.peers.values()) if (isHost(p.pr) && p.pr.v === 2 && !p.pr.idle) return p.pr; return null; };
   function onPeers() {
     for (const id of [...NET.av.keys()]) if (!NET.peers.has(id)) dropAvatar(id);
     if (NET.forceRoom) { updBadge(); return; } // dans la ville commune, les constructions passent par le serveur

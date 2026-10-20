@@ -339,8 +339,15 @@
         x = bx; z = bz; if (yaw == null) yaw = PI; } }
     return oem(map, x, z, yaw); }; });
   // avant d'entrer dans un château classique : son intérieur suit le plan actuel du château (créé ou refait, les meubles sont gardés)
+  // les pièces : les nôtres, ou pendant une visite celles du village visité (publiées par l'hôte, sinon refaites ici d'après le plan)
+  const visitOn = () => G.net && G.net.visit;
+  const getI = id => { const v = visitOn(); if (!v) return G.interiors[id] || null; return v.interiors[id] || (G.net.room && G.net.room(id)) || null; };
+  const putI = (id, im) => { const v = visitOn(); if (v) { im.isVisit = true; v.interiors[id] = im; } else G.interiors[id] = im; };
   function prepare(o) {
-    if (!o || (G.net && G.net.visit) || !G.chateauInfo) return; const info = G.chateauInfo(o); if (!info || info.st !== 0) return;
+    if (!o || !G.chateauInfo) return;
+    if (visitOn()) { const info = G.chateauInfo(o); if (!info || info.st !== 0) return; const q = info.main || o, key = q.iid || ('b' + q.t + '_' + q.x + '_' + q.z); let im = getI(key);
+      if (!(im && im.meta.plan && im.meta.plan.door)) { if (im) G.scene.remove(im.group); im = makePlanInterior(key, info, null); putI(key, im); G.scene.add(im.group); im.group.visible = false; }
+      ensureFloors(im); return; } const info = G.chateauInfo(o); if (!info || info.st !== 0) return;
     const q = info.main || o; if (!q.iid) q.iid = 'b' + q.t + '_' + q.x + '_' + q.z; const iid = q.iid, im = G.interiors[iid], sig = planSig(info);
     if (im && im.meta.plan && im.meta.plan.sig === sig && im.meta.plan.v === VER && im.meta.plan.door) { ensureFloors(im); return; } // (un plan sans porte, d'une ancienne version, est refait)
     const nm = makePlanInterior(iid, info, im); if (im) G.scene.remove(im.group); G.interiors[iid] = nm; G.scene.add(nm.group); nm.group.visible = false; ensureFloors(nm);
@@ -348,16 +355,15 @@
   // les étages : une carte par étage, créée la première fois qu'on y monte (refaite si le château a changé, les meubles gardés)
   const FLN = ['Rez-de-chaussée', '1er étage', '2e étage', '3e étage', '4e étage'];
   function floorMap(base, fl) {
-    if (!fl) return base; const id = base.id + '_f' + fl, pl0 = base.meta.plan; let im = G.interiors[id];
-    if (im && im.meta.plan && im.meta.plan.sig === pl0.sig && im.meta.plan.v === VER) return im;
-    if (G.net && G.net.visit) return null;
+    if (!fl) return base; const id = base.id + '_f' + fl, pl0 = base.meta.plan; let im = getI(id);
+    if (im && im.meta.plan && im.meta.plan.sig === pl0.sig && (im.meta.plan.v === VER || visitOn())) return im; // en visite : l'étage publié par l'hôte, sinon refait d'après le plan
     const sg = pl0.sig.split('|'), nm = makePlanInterior(id, pl0.gen ? { gen: pl0.gen, fl } : { cols: +sg[1], rows: +sg[2], fl }, im);
     nm.meta.base = base.id; nm.meta.title = (base.meta.title || 'Château') + ' — ' + (FLN[fl] || fl + 'e étage');
-    if (im) G.scene.remove(im.group); G.interiors[id] = nm; G.scene.add(nm.group); nm.group.visible = false; return nm;
+    if (im) G.scene.remove(im.group); putI(id, nm); G.scene.add(nm.group); nm.group.visible = false; return nm;
   }
   // monter (dir = 1) ou descendre (dir = -1) le grand escalier : on arrive sur le palier, dos à la volée
   function goFloor(m, q, dir) {
-    const fl = (m.meta.plan.fl || 0) + dir, base = m.meta.base ? G.interiors[m.meta.base] : m; if (!base || fl < 0) return;
+    const fl = (m.meta.plan.fl || 0) + dir, base = m.meta.base ? getI(m.meta.base) : m; if (!base || fl < 0) return;
     const to = fl === 0 ? base : floorMap(base, fl); if (!to) { G.ui.toast('Cet étage n’est pas ouvert aux visiteurs.'); return; }
     const vx = q.ax === 'x' ? q.s : 0, vz = q.ax === 'z' ? q.s : 0, [x, z] = dir > 0 ? q.hi : q.lo, yaw = dir > 0 ? Math.atan2(vx, vz) : Math.atan2(-vx, -vz);
     G.sfx('step', .6); G.ui.fade(() => G.enterMap(to, x, z, yaw), .12);
@@ -919,13 +925,13 @@
   // se dévoile (en coupe, comme une maison de poupée) à mesure qu'on monte l'escalier, et on passe de l'un à l'autre en marchant, sans fondu.
   let stackL = [];
   G.on('init', () => { if (G.renderer) G.renderer.clippingPlanes = [CLIP]; });
-  const floorsOf = m => { const base = m.meta.base ? G.interiors[m.meta.base] : m; if (!base || !base.meta || !base.meta.plan) return [m]; const n = base.meta.plan.nfl || 1, out = [base]; for (let f = 1; f < n; f++) out.push(G.interiors[base.id + '_f' + f] || null); return out; };
+  const floorsOf = m => { const base = m.meta.base ? getI(m.meta.base) : m; if (!base || !base.meta || !base.meta.plan) return [m]; const n = base.meta.plan.nfl || 1, out = [base]; for (let f = 1; f < n; f++) out.push(getI(base.id + '_f' + f)); return out; };
   // tous les étages sont préparés en entrant (sinon le premier pas sur l'escalier ferait attendre)
   function ensureFloors(base) { if (!base || !base.meta || !base.meta.plan || base.meta.base) return; const n = base.meta.plan.nfl || 1;
     for (let f = 1; f < n; f++) { const fm = floorMap(base, f); if (fm && !fm._pv) { G.buildShell(fm); fm.buildAll(); } } }
   // passer à l'étage du dessus (dir = 1) ou du dessous (dir = −1) : le joueur, la caméra et les étages glissent ensemble d'un étage, rien ne bouge à l'écran
   function swapFloor(m, q, dir) {
-    const fl = (m.meta.plan.fl || 0) + dir, base = m.meta.base ? G.interiors[m.meta.base] : m; if (!base || fl < 0) return false;
+    const fl = (m.meta.plan.fl || 0) + dir, base = m.meta.base ? getI(m.meta.base) : m; if (!base || fl < 0) return false;
     const to = fl === 0 ? base : floorMap(base, fl); if (!to) { if (!m._noUp) { m._noUp = 1; G.ui.toast('Cet étage n’est pas ouvert aux visiteurs.'); } return false; }
     if (!to._pv) { G.buildShell(to); to.buildAll(); }
     const p = G.player, CH = planData(m).CH, dy = dir * (CH + GAP), C = G.cam;
@@ -958,5 +964,5 @@
   });
   // ranger les meubles d'une pièce (dans les casiers en mode Survie)
   const clearRoom = (m, id) => { const pd = planData(m); let n = 0; for (const o of [...m.list]) { const d = O[o.t]; if (d.ceil || o.t === 'paillasson' || pd.R[o.z * pd.W + o.x] !== id) continue; m.removeObj(o); if (G.mode === 'survie') stash(o.t); n++; } return n; };
-  G.chateauInterior = { planData, clearRoom, stash, renumber, lustres, furnish, relocate, genPlan, makePlanInterior, prepare, ensureFloors, rebuild: m => { m._pd = null; G.buildShell(m); }, VOID, WALL, FLOOR, OPEN, DOOR };
+  G.chateauInterior = { planData, clearRoom, stash, renumber, lustres, furnish, relocate, genPlan, makePlanInterior, prepare, ensureFloors, rebuild: m => { m._pd = null; G.buildShell(m); }, getI, putI, VOID, WALL, FLOOR, OPEN, DOOR };
 })();

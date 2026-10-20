@@ -276,7 +276,10 @@
   // =====================================================================
   const CI = () => G.chateauInterior;
   function prep(o) {
-    const d = o && O[o.t]; if (!d || d.enter !== 'mairie' || (G.net && G.net.visit) || !CI()) return;
+    const d = o && O[o.t]; if (!d || d.enter !== 'mairie' || !CI()) return;
+    if (G.net && G.net.visit) { const key = o.iid || ('b' + o.t + '_' + o.x + '_' + o.z); let im = CI().getI(key); // en visite : l'Hôtel de Ville de l'hôte, sinon refait ici, avec ses cinq niveaux
+      if (!(im && im.meta.plan && im.meta.plan.sig === SIG)) { if (im) G.scene.remove(im.group); im = CI().makePlanInterior(key, { gen: 'mairie' }, null); im.meta.title = 'Hôtel de Ville'; CI().putI(key, im); G.scene.add(im.group); im.group.visible = false; }
+      CI().ensureFloors(im); return; }
     if (!o.iid) o.iid = 'b' + o.t + '_' + o.x + '_' + o.z; const iid = o.iid, im = G.interiors[iid];
     if (im && im.meta.plan && im.meta.plan.sig === SIG) { CI().ensureFloors(im); return; }
     const drop = q => { if (!q) return; if (G.ents && G.ents.removeNPCs) G.ents.removeNPCs(q); G.scene.remove(q.group); };
@@ -295,8 +298,8 @@
     // en entrant : d'abord tout l'atrium, du sol au toit de verre (les cinq niveaux, le lustre entier), puis la caméra descend vers le joueur
     if (m._intro > 0) { m._intro -= Math.min(dt || 0, .1); const t = G.clamp((INTRO - 1.4 - m._intro) / (INTRO - 1.4), 0, 1), e = t * t * (3 - 2 * t); pitch = G.lerp(.15, pitch, e); dist = G.lerp(46, dist, e); ty = G.lerp(21, ty, e); dz = G.lerp(ZL - 2.5 - (G.player ? G.player.z : 41), dz, e); }
     cm.pitch = pitch; cm.dist = dist; cm.ty = ty; cm.dz = dz;
-    const base = m.meta.base ? G.interiors[m.meta.base] : m; if (base && base._hdvRoof && G.camera) base._hdvRoof.visible = G.camera.position.y < base.group.position.y + ROOF - .4;
-    if (base) for (let f = 0; f < NF; f++) { const F = f ? G.interiors[base.id + '_f' + f] : base; if (!F || !F.group) continue; const want = F === m, nk = F.group.children.length; if (F._hdvSh === want && F._hdvShN === nk) continue; F._hdvSh = want; F._hdvShN = nk;
+    const base = m.meta.base ? CI().getI(m.meta.base) : m; if (base && base._hdvRoof && G.camera) base._hdvRoof.visible = G.camera.position.y < base.group.position.y + ROOF - .4;
+    if (base) for (let f = 0; f < NF; f++) { const F = f ? CI().getI(base.id + '_f' + f) : base; if (!F || !F.group) continue; const want = F === m, nk = F.group.children.length; if (F._hdvSh === want && F._hdvShN === nk) continue; F._hdvSh = want; F._hdvShN = nk;
       F.group.traverse(c => { if (!c.isMesh) return; if (c.userData.hdvCS == null) c.userData.hdvCS = c.castShadow; c.castShadow = want && c.userData.hdvCS; }); }
   });
 })();

@@ -51,7 +51,9 @@
   // ---------- petits outils ----------
   const grp = () => { if (!EV.grp) { EV.grp = new THREE.Group(); G.scene.add(EV.grp); } if (EV.grp.parent !== G.scene) G.scene.add(EV.grp); return EV.grp; };
   const mesh = (name, v) => { const m = new THREE.Mesh(G.getGeo(name, v | 0), G.MATS); m.castShadow = true; m.frustumCulled = false; grp().add(m); return m; };
-  const center = () => { const m = G.world, P = m && (m.meta.matFetes || m.meta.plaza || m.meta.spawn); return P ? { x: P.x, z: P.z } : { x: G.player.x, z: G.player.z }; };
+  // le village où se passe la fête : le nôtre, ou pendant une visite celui de l'hôte (ses montgolfières et son feu d'artifice se voient chez lui)
+  const VW = () => (G.net && G.net.visit ? G.net.visit.map : G.world);
+  const center = () => { const m = VW(), P = m && (m.meta.matFetes || m.meta.plaza || m.meta.spawn); return P ? { x: P.x, z: P.z } : { x: G.player.x, z: G.player.z }; };
   const ground = (m, x, z) => m.inb(Math.floor(x), Math.floor(z)) ? Math.max(m.topAt(x, z), m.isWaterAt(x, z) ? m.waterSurf(Math.floor(x), Math.floor(z)) : -9) : 0;
   const hud = () => { let el = G.el('ev-hud'); if (!el) { el = document.createElement('div'); el.id = 'ev-hud'; el.className = 'card'; el.style.cssText = 'position:absolute;left:50%;top:calc(116px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-family:var(--f-display);font-size:19px;display:flex;gap:14px;align-items:center;padding:7px 18px;z-index:12;white-space:nowrap'; G.el('hud').appendChild(el); } return el; };
   const hideHud = () => { const el = G.el('ev-hud'); if (el) el.hidden = true; };
@@ -90,16 +92,16 @@
 
   // ---------- 🎈 fête des montgolfières ----------
   function startBalloons(auto) {
-    if (EV.balloons) return; const m = G.world, c = center(), list = [], sky = [];
-    for (let k = 0; k < 7; k++) { let best = null; for (let t = 0; t < 60; t++) { const a = k / 7 * TAU + (Math.random() - .5) * .5, d = 7 + Math.random() * 6, x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d * .8, tx = Math.floor(x), tz = Math.floor(z);
+    if (EV.balloons) return; const m = VW(), c = center(), list = [], sky = [], RND = G.rng((G.clock.day || 1) * 7919 + 17); // mêmes places pour l'hôte et ses visiteurs
+    for (let k = 0; k < 7; k++) { let best = null; for (let t = 0; t < 60; t++) { const a = k / 7 * TAU + (RND() - .5) * .5, d = 7 + RND() * 6, x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d * .8, tx = Math.floor(x), tz = Math.floor(z);
         if (!m.inb(tx, tz) || m.isWaterAt(x, z)) continue; const o = m.objAt(tx, tz), dd = o && G.OBJ[o.t]; if (dd && dd.h > 1.4) continue; if (list.some(q => Math.hypot(q.x - x, q.z - z) < 4.2)) continue; best = { x, z }; break; }
-      if (!best) continue; const b = { x: best.x, z: best.z, g: ground(m, best.x, best.z), ph: Math.random() * TAU, mesh: mesh('montgolfiere', k % 4) };
+      if (!best) continue; const b = { x: best.x, z: best.z, g: ground(m, best.x, best.z), ph: RND() * TAU, mesh: mesh('montgolfiere', k % 4) };
       const rope = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, 1, 4), new THREE.MeshLambertMaterial({ color: 0x8a6a48 })); rope.frustumCulled = false; grp().add(rope); b.rope = rope;
       const peg = mesh('crate'); peg.scale.setScalar(.45); peg.position.set(b.x + .9, b.g, b.z + .9); b.peg = peg; list.push(b); }
     // d'autres ballons glissent dans le ciel au-dessus du village
-    for (let k = 0; k < 9; k++) sky.push({ mesh: mesh('montgolfiere', k % 4), a: Math.random() * TAU, r: 30 + Math.random() * 90, h: 28 + Math.random() * 40, w: (.012 + Math.random() * .02) * (Math.random() < .5 ? -1 : 1), s: 1 + Math.random() * .6 });
+    for (let k = 0; k < 9; k++) sky.push({ mesh: mesh('montgolfiere', k % 4), a: RND() * TAU, r: 30 + RND() * 90, h: 28 + RND() * 40, w: (.012 + RND() * .02) * (RND() < .5 ? -1 : 1), s: 1 + RND() * .6 });
     for (const s of sky) s.mesh.scale.setScalar(s.s);
-    EV.balloons = { list, sky, auto: !!auto, day: G.clock.day }; G.sfx('fanfare');
+    EV.balloons = { list, sky, auto: !!auto, day: G.clock.day, map: m }; G.sfx('fanfare');
     G.ui.toast('🎈 C\'est la fête des montgolfières sur la place ! Approche-toi d\'un ballon et appuie sur E pour un grand vol au-dessus du village.', 7000);
   }
   function stopBalloons() { const B = EV.balloons; if (!B) return; for (const b of B.list) { grp().remove(b.mesh); grp().remove(b.rope); grp().remove(b.peg); b.rope.geometry.dispose(); } for (const s of B.sky) grp().remove(s.mesh); EV.balloons = null; }
@@ -111,11 +113,11 @@
       if (Math.random() < dt * 1.5) G.fx.one(b.x, y + 1.7, b.z, (Math.random() - .5) * .2, 1, (Math.random() - .5) * .2, .4, -.4, Math.random() < .5 ? 0xffb347 : 0xffe14a, .18, 1); }
     const c = center(); for (const s of B.sky) { s.a += s.w * dt; const x = c.x + Math.cos(s.a) * s.r, z = c.z + Math.sin(s.a) * s.r * .8; s.mesh.position.set(x, s.h + Math.sin(t * .3 + s.r) * 2, z); s.mesh.rotation.y = t * .03 + s.r; }
   }
-  const nearBalloon = () => { const B = EV.balloons, p = G.player; if (!B || G.map !== G.world || p.vehicle) return null; let best = null; for (const b of B.list) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < 2.6 && (!best || d < best[0])) best = [d, b]; } return best && best[1]; };
+  const nearBalloon = () => { const B = EV.balloons, p = G.player; if (!B || G.map !== VW() || p.vehicle) return null; let best = null; for (const b of B.list) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < 2.6 && (!best || d < best[0])) best = [d, b]; } return best && best[1]; };
 
   // le grand vol : on survole les lieux du village, puis le ballon revient se poser à sa place
   function fly(b) {
-    const p = G.player, m = G.world, c = { x: b.x, z: b.z }, M = m.meta, spots = [];
+    const p = G.player, m = VW(), c = { x: b.x, z: b.z }, M = m.meta, spots = [];
     for (const k of ['mairie', 'gare', 'port', 'parc', 'aerodrome', 'ferme', 'fountain', 'home', 'kiosque']) { const q = M[k]; if (q && q.x != null && Math.hypot(q.x - c.x, q.z - c.z) < 170 && Math.hypot(q.x - c.x, q.z - c.z) > 14) spots.push({ x: q.x, z: q.z }); }
     for (const o of m.list) if ((o.t === 'phare' || /^chateau/.test(o.t)) && spots.length < 12) { const [x, z] = m.center(o); if (Math.hypot(x - c.x, z - c.z) < 170) spots.push({ x, z }); }
     while (spots.length < 5) { const a = spots.length / 5 * TAU + .4; spots.push({ x: c.x + Math.cos(a) * 60, z: c.z + Math.sin(a) * 50 }); }
@@ -142,7 +144,7 @@
     if (Math.random() < dt * 8) { G.fx.one(v.x, v.y + 1.6, v.z, (Math.random() - .5) * .3, 1.4, (Math.random() - .5) * .3, .5, -.5, Math.random() < .5 ? 0xffb347 : 0xffe14a, .22, 1); if (Math.random() < .04) G.sfx('swing', .3); }
     p.animate(dt, 0); p.C.armL.rotation.x = p.C.armR.rotation.x = -.7; p.place(); p.blob.visible = false;
   }
-  function endFlight(p) { const v = p.vehicle; grp().remove(v.mesh); grp().remove(v.sh); p.vehicle = null; EV.flight = null; const h = v.home; p.teleport(h.x + 1.6, h.z + 1.6, 0); G.sfx('land'); G.fx.puff(h.x, ground(G.world, h.x, h.z) + .1, h.z, 12, 0xf3ead2, .9);
+  function endFlight(p) { const v = p.vehicle; grp().remove(v.mesh); grp().remove(v.sh); p.vehicle = null; EV.flight = null; const h = v.home; p.teleport(h.x + 1.6, h.z + 1.6, 0); G.sfx('land'); G.fx.puff(h.x, ground(VW(), h.x, h.z) + .1, h.z, 12, 0xf3ead2, .9);
     G.ui.toast(G.pick(['Quel vol ! Le village est magnifique vu d\'en haut. 🎈', 'Atterrissage en douceur. Encore un tour ?', 'Bienvenue sur la terre ferme ! 🎈'])); }
 
   // ---------- 🎆 feu d'artifice ----------
@@ -150,7 +152,7 @@
   function boom(vol) { const A = G.audio; if (!A || !A.ok || !A.ctx) return; try { const C = A.ctx, t = C.currentTime, n = C.sampleRate * .6, buf = C.createBuffer(1, n, C.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3); const s = C.createBufferSource(), f = C.createBiquadFilter(), g = C.createGain(); s.buffer = buf; f.type = 'lowpass'; f.frequency.value = 600 + Math.random() * 500; g.gain.value = vol || .25; s.connect(f); f.connect(g); g.connect(A.sfxG); s.start(t); } catch (e) { } }
   function whistle() { const A = G.audio; if (!A || !A.ok || !A.ctx) return; try { const C = A.ctx, t = C.currentTime, o = C.createOscillator(), g = C.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(1800, t); o.frequency.exponentialRampToValueAtTime(700, t + 1.1); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.025, t + .1); g.gain.exponentialRampToValueAtTime(.0001, t + 1.2); o.connect(g); g.connect(A.sfxG); o.start(t); o.stop(t + 1.3); } catch (e) { } }
-  function rocket(c, big) { const m = G.world, a = Math.random() * TAU, r = Math.random() * 6, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r, g = ground(m, c.x, c.z);
+  function rocket(c, big) { const m = VW(), a = Math.random() * TAU, r = Math.random() * 6, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r, g = ground(m, c.x, c.z);
     EV.fw.rk.push({ x, z, y: g + .5, vy: 22 + Math.random() * 6, top: g + 24 + Math.random() * 16, col: FWC[Math.floor(Math.random() * FWC.length)], kind: big ? 'big' : G.pick(['pivoine', 'pivoine', 'saule', 'anneau', 'etoile', 'palmier']) }); whistle(); }
   function explode(k) { const n = k.kind === 'big' ? 140 : k.kind === 'saule' ? 90 : 70, [c1, c2] = k.col, sp = k.kind === 'big' ? 14 : 10;
     for (let i = 0; i < n; i++) { let vx, vy, vz; if (k.kind === 'anneau') { const a = i / n * TAU; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp * .3; vz = Math.sin(a) * sp; }
@@ -190,10 +192,15 @@
 
   // ---------- le calendrier et la vie des fêtes ----------
   G.on('update', dt => {
-    const m = G.world, p = G.player; if (!m || !p || G.state !== 'play' && G.state !== 'pause') return; dt = Math.min(dt || 0, .1);
+    const m = VW(), p = G.player; if (!m || !p || G.state !== 'play' && G.state !== 'pause') return; dt = Math.min(dt || 0, .1);
+    if (EV.balloons && EV.balloons.map && EV.balloons.map !== m && !EV.flight) stopBalloons(); // on a changé de village
     if (EV.grp) EV.grp.visible = G.map === m;
     const d = G.clock.day, h = G.clock.min / 60;
-    if (G.state === 'play') {
+    const vis = G.net && G.net.visit, hp = vis && G.net.hostPres ? G.net.hostPres() : null, ev = hp ? (hp.ev | 0) : 0;
+    if (vis && G.state === 'play') { // en visite : la fête de l'hôte, quand il l'a
+      if ((ev & 1) && !EV.balloons && G.map === m) startBalloons(true); if (!(ev & 1) && EV.balloons && EV.balloons.auto && !EV.flight) stopBalloons();
+      if ((ev & 2) && !EV.fw && G.map === m) startFireworks(true); }
+    else if (G.state === 'play') {
       // les montgolfières arrivent toutes seules un jour sur trois, et repartent le soir
       if (prog(d) === 'balloons' && h >= 9 && h < 18 && !EV.balloons && EV.told['b' + d] == null && G.map === m) { EV.told['b' + d] = 1; startBalloons(true); }
       if (EV.balloons && EV.balloons.auto && (h >= 18 || h < 9 || EV.balloons.day !== d) && !EV.flight) stopBalloons();
