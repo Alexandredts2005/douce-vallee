@@ -14,7 +14,7 @@
     uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3(.3, .8, .4) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uNight: { value: 0 },
     uSkyTop: { value: new THREE.Color(0x4aa3ee) }, uSkyHor: { value: new THREE.Color(0xaee0ff) }, uSkyGnd: { value: new THREE.Color(0x8f9a6a) },
     uSunK: { value: 1.55 }, uAmbK: { value: 1.25 }, uEnvK: { value: .85 }, uSpecK: { value: 1 }, uPointK: { value: 3.2 }, uGlowK: { value: .15 }, uFireK: { value: 2.2 },
-    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }
+    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }, uVox: { value: 1 }
   };
   // ---------- matières ----------
   const SK = G.SK = { gold: 1, iron: 2, steel: 3, glass: 4, leaf: 5, petal: 6, wood: 7, paint: 8, fabric: 9, skin: 10, hair: 11, stone: 12, ceramic: 13, plastic: 14, velvet: 15, gem: 16, bark: 17 };
@@ -38,7 +38,7 @@
   };
   // ---------- morceaux de shader communs ----------
   const FRAG_DECL = `
-uniform vec3 uSkyTop, uSkyHor, uSkyGnd, uSunDir, uSunCol; uniform float uSunK, uAmbK, uEnvK, uSpecK, uPointK, uWet, uTime, uGlowK, uBumpK, uWarmK;
+uniform vec3 uSkyTop, uSkyHor, uSkyGnd, uSunDir, uSunCol; uniform float uSunK, uAmbK, uEnvK, uSpecK, uPointK, uWet, uTime, uGlowK, uBumpK, uWarmK, uVox;
 uniform sampler2D uCloudTex; uniform vec2 uCloudOff; uniform float uCloudAmt;
 uniform sampler2D uBio; uniform vec4 uBioSz;
 varying vec3 vWP; varying float vSk;
@@ -189,7 +189,7 @@ IncidentLight directLight;
   function premium(p = {}, o = { cloud: true }) {
     p = Object.assign({}, p); delete p.gradientMap; if (p.shininess != null) delete p.shininess; if (p.specular != null) delete p.specular;
     const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: o.rough != null ? o.rough : .82, metalness: o.metal || 0 }, p));
-    const flags = (o.bump ? 'b' : '') + (o.ground ? 'g' : '') + (o.pat ? 'p' : '') + (o.glow ? 'w' : '') + (o.outline ? 'o' + o.outline : '') + (o.rough != null ? 'r' + o.rough : '') + (o.floor ? 'f' + o.floor : '');
+    const flags = (o.bump ? 'b' : '') + (o.ground ? 'g' : '') + (o.pat ? 'p' : '') + (o.glow ? 'w' : '') + (o.outline ? 'o' + o.outline : '') + (o.rough != null ? 'r' + o.rough : '') + (o.floor ? 'f' + o.floor : '') + (o.vox ? 'v' + o.vox : '');
     m.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, { uCurve: U.curve, uCC: U.cc, uCF: U.cf, uCloudTex: U.cloudTex, uCloudOff: U.cloudOff, uCloudAmt: U.cloudAmt }, SU);
       if (o.outline) sh.uniforms.uOut = { value: o.outline };
@@ -244,6 +244,14 @@ ${o.ground ? `{ vec2 ce = floor( vUv * 4. ); float cell = ce.x + ( 3. - ce.y ) *
       fs = fs.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 ${o.bump ? 'normal = prBump( -vViewPosition, normal, vec2( dFdx( gLum ), dFdy( gLum ) ) * .018 * uBumpK );' : ''}
 { vec3 nW = inverseTransformDirection( normal, viewMatrix ); gUp = saturate( nW.y );
+  if ( uVox > 0. ) { // style cubique : chaque face reçoit une texture de pixels de 1/16 de bloc, variée bloc par bloc
+    vec3 an = abs( nW ); bool tp = an.y > max( an.x, an.z ); vec2 fuv = tp ? vWP.xz : ( an.x > an.z ? vWP.zy : vWP.xy );
+    ${o.vox === 2 ? 'if ( !tp ) fuv.y /= .75;' : ''}
+    float fw = max( fwidth( fuv.x ), fwidth( fuv.y ) ) * 16., near = 1. - smoothstep( .5, 1.6, fw ), mid = 1. - smoothstep( 1., 3.2, fw );
+    float leaf = step( 4.5, vSk ) * step( vSk, 6.5 ), px = prH( floor( fuv * 16. + .002 ) ), px2 = prH( floor( fuv * 8. + .002 ) + 7.31 ), bk = prH( floor( fuv + .002 ) + 19.7 );
+    float tx = ( px - .5 ) * ( .26 + leaf * .3 ) * near + ( px2 - .5 ) * .15 * mid + ( bk - .5 ) * .1;
+    ${o.vox ? 'vec2 fe = fract( fuv + .002 ); float ed = min( min( fe.x, 1. - fe.x ), min( fe.y, 1. - fe.y ) ); tx -= ( 1. - smoothstep( .0, .035 + fw * .02, ed ) ) * .32 * mid;' : ''}
+    diffuseColor.rgb *= max( 0., 1. + tx * uVox ); }
   if ( uWet > 0. ) { float w = uWet * smoothstep( .45, .9, gUp ) * ( 1. - step( 3.5, vSk ) * step( vSk, 4.5 ) ); diffuseColor.rgb *= 1. - .32 * w; gRough = mix( gRough, gRough * .3 + .04, w ); roughnessFactor = gRough; } }`);
       fs = fs.replace('#include <lights_fragment_begin>', LIGHTS_BEGIN);
       fs = fs.replace('#include <lights_fragment_maps>', `#if defined( RE_IndirectSpecular )
@@ -320,8 +328,8 @@ void main() {
   const omm = G.makeMaterials;
   G.makeMaterials = () => {
     omm(); const M = G.M;
-    M.ground = premium({ map: G.TEX.atlas, vertexColors: true }, { cloud: true, ground: true, bump: 1 });
-    M.cliff = premium({ map: G.TEX.cliff, vertexColors: true }, { cloud: true, bump: 1, rough: .9 });
+    M.ground = premium({ map: G.TEX.atlas, vertexColors: true }, { cloud: true, ground: true, bump: 1, vox: 1 });
+    M.cliff = premium({ map: G.TEX.cliff, vertexColors: true }, { cloud: true, bump: 1, rough: .9, vox: 2 });
     M.glow = premium({ vertexColors: true }, { cloud: true, glow: true, rough: .1 }); G.MATS[1] = M.glow;
     M.water = waterMat();
     const fireMat = M.fire, ofb = fireMat.onBeforeCompile; fireMat.onBeforeCompile = sh => { ofb(sh); sh.uniforms.uFireK = SU.uFireK; sh.fragmentShader = 'uniform float uFireK;\n' + sh.fragmentShader.replace('#include <fog_fragment>', 'gl_FragColor.rgb *= uFireK;\n#include <fog_fragment>'); };
@@ -361,7 +369,7 @@ void main() {
 
   // ---------- mise à jour des uniformes ----------
   const SD = new THREE.Vector3(), C1 = new THREE.Color(), C2 = new THREE.Color();
-  let wetT = 0;
+  let wetT = 0, voxT = -1;
   G.on('init', () => {
     const R = G.renderer; R.toneMapping = THREE.NoToneMapping; R.shadowMap.type = THREE.PCFSoftShadowMap;
     upgradeSky(); setupPost(R); buildOptions();
@@ -379,6 +387,7 @@ void main() {
     SU.uPointK.value = inside ? 3.4 : 3.4; SU.uGlowK.value = inside ? .9 : G.lerp(.12, 2.6, Math.min(1, n * 1.3)); SU.uWarmK.value = inside ? 0 : Math.min(1, n * 1.5);
     SU.uWet.value += ((G.weather && G.weather.wet ? G.weather.wet : 0) - SU.uWet.value) * Math.min(1, dt * .25); wetT += dt;
     SU.uWind.value = G.weather && G.weather.wind != null ? G.weather.wind : 1;
+    const vx = G.settings && G.settings.style === 'realiste' ? 0 : 1; if (voxT !== vx) { voxT = vx; SU.uVox.value = vx; for (const t of [G.TEX.atlas, G.TEX.cliff]) if (t) { t.magFilter = vx ? THREE.NearestFilter : THREE.LinearFilter; t.needsUpdate = true; } }
   });
 
   // =====================================================================
@@ -504,13 +513,14 @@ void main() {
     u.tScene.value = rtScene.texture; u.tDepth.value = rtScene.depthTexture; u.tAO.value = rtAO.texture; u.tBloom.value = rtB[0].texture; u.tBlur.value = rtD0.texture; u.uTexel.value.set(1 / w, 1 / h);
     u.uNear.value = cam.near; u.uFar.value = cam.far; u.uHasAO.value = useAO ? 1 : 0; u.uHasBloom.value = useBloom ? 1 : 0; u.uHasDof.value = useDof ? 1 : 0;
     u.uAOk.value = inside ? .85 : .72; u.uBloomK.value = inside ? .2 : G.lerp(.22, .5, n); u.uExposure.value = (inside ? (m.meta.sunny ? .8 : .9) : G.lerp(.82, 1.3, n)) * (PP.expo || 1);
-    u.uSat.value = inside ? 1.05 : 1.07; u.uVig.value = .2; u.uTime.value = (u.uTime.value + .618) % 7; u.uContrast.value = .1;
+    const vox = S.style !== 'realiste'; u.uSat.value = (inside ? 1.05 : 1.07) * (vox ? 1.13 : 1); u.uVig.value = vox ? .27 : .2; u.uTime.value = (u.uTime.value + .618) % 7; u.uContrast.value = vox ? .19 : .1;
+    if (vox && !inside) u.uTint.value.set(1.035 - n * .07, 1.0, .955 + n * .1); else u.uTint.value.set(1, 1, 1); // soleil doré le jour, nuits bleutées
     // mise au point : sur le personnage (vue du village) ; seulement le lointain en vue souris
     let focus = 12; if (p) { V3.set(p.x, p.y + 1, p.z).applyMatrix4(cam.matrixWorldInverse); focus = Math.max(1, -V3.z); } PP.focus += (focus - PP.focus) * .2;
     u.uFocus.value = PP.focus; u.uFocusR.value = mouse ? 60 : Math.max(5, PP.focus * .55); u.uFarBlur.value = mouse ? 110 : Math.max(40, PP.focus * 3.2); u.uDof.value = mouse ? .55 : (G.state === 'title' ? .8 : .9);
     // rayons de soleil (vers le soleil, au-dessus de l'horizon, de jour) et brume éclairée
     const sd = SU.uSunDir.value, sCol = SU.uSunCol.value; cam.getWorldDirection(V3); const facing = V3.dot(sd); V3.copy(cam.position).addScaledVector(sd, 600).project(cam);
-    const shaftK = !inside && S.shafts !== false && S.quality !== 'mid' && sd.y > -.03 && facing > .05 && Math.abs(V3.x) < 1.8 && Math.abs(V3.y) < 1.8 ? Math.pow(facing, 1.5) * (1 - n) * (.35 + .5 * (1 - Math.min(1, sd.y * 1.6))) : 0;
+    const shaftK = (vox ? 1.6 : 1) * (!inside && S.shafts !== false && (S.quality !== 'mid' || vox) && sd.y > -.03 && facing > .05 && Math.abs(V3.x) < 1.8 && Math.abs(V3.y) < 1.8 ? Math.pow(facing, 1.5) * (1 - n) * (.35 + .5 * (1 - Math.min(1, sd.y * 1.6))) : 0);
     if (shaftK > .01) { mShaft.uniforms.tDepth.value = rtScene.depthTexture; mShaft.uniforms.tScene.value = rtScene.texture; mShaft.uniforms.uSun.value.set((V3.x + 1) / 2, (V3.y + 1) / 2); pass(R, mShaft, rtS); }
     u.tShaft.value = rtS.texture; u.uShaftK.value = shaftK; u.uShaftCol.value.set(Math.pow(sCol.r, 2.2), Math.pow(sCol.g, 2.2), Math.pow(sCol.b, 2.2)).multiplyScalar(1.6);
     u.uTanFov.value.set(tanX, tanY); u.uCamRot.value.setFromMatrix4(cam.matrixWorld); u.uCamY.value = cam.position.y; u.uSunDirW.value.copy(sd); u.uSunHaze.value.set(Math.pow(sCol.r, 2.2), Math.pow(sCol.g, 2.2) * .92, Math.pow(sCol.b, 2.2) * .75).multiplyScalar(1.15 * (1 - n * .8));
@@ -529,14 +539,16 @@ void main() {
   function buildOptions() {
     const scr = G.el('screen-options'), form = scr && scr.querySelector('.form'), back = G.el('o-back'); if (!form || G.el('o-post')) return;
     const row = back.parentNode, d = document.createElement('div');
-    d.innerHTML = `<div id="o-rendu" style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:6px 0 0;font-family:var(--f-display);color:var(--bark)">✨ Rendu ultra réaliste</h3>
+    d.innerHTML = `<div id="o-rendu" style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:6px 0 0;font-family:var(--f-display);color:var(--bark)">✨ Graphismes</h3>
+      <div class="opt">Style graphique<select id="o-style"><option value="cubique">Cubique (façon Minecraft)</option><option value="realiste">Réaliste</option></select></div>
       <div class="opt">Effets cinéma (HDR, bloom, étalonnage)<input type="checkbox" id="o-post"></div>
       <div class="opt">Occlusion ambiante (ombres de contact)<input type="checkbox" id="o-ao"></div>
       <div class="opt">Profondeur de champ (effet miniature)<input type="checkbox" id="o-dof"></div>
       <div class="opt">Halo des lumières (bloom)<input type="checkbox" id="o-bloom"></div></div>`;
     form.insertBefore(d.firstChild, row);
     const s = G.settings, $ = G.el;
-    const sync = () => { $('o-post').checked = s.post !== false; $('o-ao').checked = s.ao !== false; $('o-dof').checked = s.dof !== false; $('o-bloom').checked = s.bloom !== false; };
+    $('o-style').onchange = () => { s.style = $('o-style').value; G.ui.saveSettings && G.ui.saveSettings(); };
+    const sync = () => { $('o-style').value = s.style === 'realiste' ? 'realiste' : 'cubique'; $('o-post').checked = s.post !== false; $('o-ao').checked = s.ao !== false; $('o-dof').checked = s.dof !== false; $('o-bloom').checked = s.bloom !== false; };
     for (const [id, k] of [['o-post', 'post'], ['o-ao', 'ao'], ['o-dof', 'dof'], ['o-bloom', 'bloom']]) $(id).onchange = () => { s[k] = $(id).checked; if (k === 'post') PP.fail = false; G.ui.saveSettings && G.ui.saveSettings(); };
     sync(); const os = G.ui.show; if (os) G.ui.show = id => { if (id === 'screen-options') sync(); return os(id); };
   }
