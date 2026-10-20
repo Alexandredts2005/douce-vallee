@@ -19,7 +19,7 @@
       if (C.sh) { C.sh.l[i] = m.lvl[i]; C.sh.w[i] = m.water[i]; C.sh.p[i] = m.ramp[i]; C.sh.f[i] = m.surf[i]; } m.markDirty(x, z); return; }
     if (!G.OBJ[o.t]) return; const dk = typeof o.dk === 'number' && o.dk > 0 && o.dk < 40 ? o.dk : null, du = o.du ? 1 : 0;
     if (o.k === 'r') { const q = dk != null ? m.deckAt(x, z, du) : m.objAt(x, z); if (q && q.t === o.t && q.x === x && q.z === z) m.removeObj(q); C.owner.delete(key(x, z)); }
-    else if (o.k === 'a' && !(dk != null ? m.deckAt(x, z, du) : m.objAt(x, z))) { const ex = {}; if (typeof o.v === 'number') ex.v = o.v; if (dk != null) { ex.dk = dk; if (du) ex.du = 1; }
+    else if (o.k === 'a' && !(dk != null ? m.deckAt(x, z, du) : m.objAt(x, z))) { const ex = {}; if (typeof o.v === 'number') ex.v = o.v; if (typeof o.cy === 'number' && o.cy > 0 && o.cy < 20) ex.cy = o.cy; if (dk != null) { ex.dk = dk; if (du) ex.du = 1; }
       if (m.addObj(o.t, x, z, (o.r | 0) & 3, ex) && typeof o.by === 'string') C.owner.set(key(x, z), { by: o.by.slice(0, 40), n: String(o.n || 'un joueur').slice(0, 16) }); }
   }
   function apply(list) { const m = C.map; if (!m || !Array.isArray(list)) return; C.applying = true;
@@ -37,7 +37,7 @@
   function flush() { flushT = null; if (!C.q.length) return; if (!okServer()) { flushT = setTimeout(flush, 1500); return; } NET.wsSend({ t: 'cop', ops: C.q.splice(0, 40) }); if (C.q.length) flushT = setTimeout(flush, 250); }
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj, omd = GP.markDirty;
   const live = m => m === C.map && !C.applying && G.state === 'play';
-  GP.addObj = function (t, x, z, r, ex) { const o = oadd.call(this, t, x, z, r, ex); if (o && live(this)) { push({ k: 'a', t, x, z, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, by: myId(), n: String(G.playerName || '').slice(0, 16) }); C.owner.set(key(x, z), { by: myId(), n: G.playerName }); } return o; };
+  GP.addObj = function (t, x, z, r, ex) { const o = oadd.call(this, t, x, z, r, ex); if (o && live(this)) { push({ k: 'a', t, x, z, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, cy: o.cy || undefined, by: myId(), n: String(G.playerName || '').slice(0, 16) }); C.owner.set(key(x, z), { by: myId(), n: G.playerName }); } return o; };
   GP.removeObj = function (o) { orem.call(this, o); if (live(this)) { push({ k: 'r', t: o.t, x: o.x, z: o.z, dk: o.dk, du: o.du }); C.owner.delete(key(o.x, o.z)); } };
   GP.markDirty = function (x, z) { omd.call(this, x, z); if (!live(this) || !this.inb(x, z) || !C.sh) return; const i = this.idx(x, z), S = C.sh;
     if (S.l[i] === this.lvl[i] && S.w[i] === this.water[i] && S.p[i] === this.ramp[i] && S.f[i] === this.surf[i]) return; // rien n'a changé sur cette case

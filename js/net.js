@@ -183,7 +183,7 @@
   const pubObj = t => { const d = G.OBJ[t]; return !!(d && (d.balloon || d.pick || d.veh2 || d.vessel)); };
   const share = (m, t) => { const pub = pubMap(m) && (m === G.island || pubObj(t)); return tracked(m) ? (pub ? 2 : 1) : pub ? 2 : 0; };
   const isl = m => G.island && m === G.island ? G.island.day : undefined;
-  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online()) { const s = share(this, t); if (s) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, m: mk(this), d: isl(this), pub: s === 2 ? 1 : undefined }); } return o; };
+  GP.addObj = function (t, tx, tz, r, extra) { const o = oadd.call(this, t, tx, tz, r, extra); if (o && G.state === 'play' && !NET.applying && NET.online()) { const s = share(this, t); if (s) rec({ k: 'a', t, x: tx, z: tz, r: o.r || 0, v: o.v != null ? o.v : undefined, dk: o.dk, du: o.du, cy: o.cy || undefined, m: mk(this), d: isl(this), pub: s === 2 ? 1 : undefined }); } return o; };
   GP.removeObj = function (o) { orem.call(this, o); if (G.state === 'play' && !NET.applying && NET.online()) { const s = share(this, o.t); if (s) rec({ k: 'r', t: o.t, x: o.x, z: o.z, dk: o.dk, du: o.du, m: mk(this), d: isl(this), pub: s === 2 ? 1 : undefined }); } };
   const omd = GP.markDirty; GP.markDirty = function (tx, tz) { omd.call(this, tx, tz); if (G.state === 'play' && !NET.applying && NET.online() && !this.interior && this.inb(tx, tz) && tracked(this)) { const i = this.idx(tx, tz), op = { k: 't', x: tx, z: tz, l: this.lvl[i], w: this.water[i], p: this.ramp[i], f: this.surf[i] }, last = NET.ops[NET.ops.length - 1];
     if (!(last && last.k === 't' && last.x === tx && last.z === tz && last.l === op.l && last.w === op.w && last.p === op.p && last.f === op.f)) rec(op); } };
@@ -198,7 +198,7 @@
       if (!G.OBJ[op.t]) continue; last = op.s;
       const dk = typeof op.dk === 'number' && op.dk > 0 && op.dk < 40 ? op.dk : null, du = op.du ? 1 : 0; // posé sur un plancher
       if (op.k === 'r') { const o = dk != null ? m.deckAt(op.x, op.z, du) : m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
-      else if (op.k === 'a' && !(dk != null ? m.deckAt(op.x, op.z, du) : m.objAt(op.x, op.z))) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; if (dk != null) { ex.dk = dk; if (du) ex.du = 1; } m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); } } }
+      else if (op.k === 'a' && !(dk != null ? m.deckAt(op.x, op.z, du) : m.objAt(op.x, op.z))) { const ex = {}; if (typeof op.v === 'number') ex.v = op.v; if (typeof op.cy === 'number' && op.cy > 0 && op.cy < 20) ex.cy = op.cy; if (dk != null) { ex.dk = dk; if (du) ex.du = 1; } m.addObj(op.t, op.x, op.z, (op.r | 0) & 3, ex); } } }
     finally { NET.applying = false; seen.set(sk, last); }
   }
   // amis « admin » : visiteurs autorisés par l'hôte à modifier son village (liste propre à chaque session)

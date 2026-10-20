@@ -1,5 +1,5 @@
 'use strict';
-// ===== Ponts d'une rive à l'autre : 2 cases de large, 9 styles (bois, rondins, suspendu, pierre arrondie, briques, zen, zen rouge, moderne, conte de fées) =====
+// ===== Ponts d'un bord à l'autre (au-dessus de l'eau, d'un ravin, d'un creux, à toute hauteur, ou à plat dans un jardin) : 2 cases de large, 9 styles (bois, rondins, suspendu, pierre arrondie, briques, zen, zen rouge, moderne, conte de fées) =====
 (function () {
   const MD = G.MODELS, MAXL = 8, AP = .5; // AP : débord du tablier sur chaque berge
   // profil du tablier (hauteur du dessus) le long du pont : arche sur l'eau, petite rampe sur les berges
@@ -80,7 +80,7 @@
         hAt: a ? (o, x, z, m) => { const [cx, cz] = m.center(o); return pf(G.clamp((o.r & 1) ? x - cx : z - cz, -k / 2, k / 2)); } : null };
     }
     G.ITEMS['pont_' + t] = { id: 'pont_' + t, n: STY[t].n, kind: 'bridge', bridge: t, ico: '🌉', thumb: 'obj:pont_' + t + '_3', cat: 'construction', buy: STY[t].buy, sell: Math.round(STY[t].buy / 4), stack: 9,
-      desc: 'Face à une rivière : pose un pont de 2 cases de large, d\'une rive à l\'autre (jusqu\'à ' + MAXL + ' cases).' };
+      desc: 'Au-dessus d’une rivière, d’un ravin ou d’un creux, à n’importe quelle hauteur (les deux bords au même niveau), ou à plat dans un jardin : pose un pont de 2 cases de large, d’un bord à l’autre (jusqu\'à ' + MAXL + ' cases).' };
   }
   // l'ancien petit pont devient un vrai pont en bois
   if (G.ITEMS.pont) Object.assign(G.ITEMS.pont, G.ITEMS.pont_bois, { id: 'pont', cat: 'ancien' });
@@ -92,48 +92,60 @@
   const dom = p => { const [fx, fz] = p.facing(); return Math.abs(fx) > Math.abs(fz) ? [Math.sign(fx), 0] : [0, Math.sign(fz)]; };
   const BR = G.bridges = {
     types, MAXL,
+    // ce qu'un pont enjambe : de l'eau douce, ou un creux (ravin, vallée, terrain plus bas que la berge), à n'importe quelle hauteur
+    gap(m, L0, x, z) { if (!m.inb(x, z)) return false; const i = m.idx(x, z); return m.water[i] > 0 || m.lvl[i] < L0; },
     measure(m, sx, sz, dx, dz) {
-      if (!m.inb(sx, sz) || m.isWaterT(sx, sz) || !m.isWaterT(sx + dx, sz + dz)) return null;
+      if (!m.inb(sx, sz) || m.isWaterT(sx, sz) || !this.gap(m, m.lvl[m.idx(sx, sz)], sx + dx, sz + dz)) return null;
       const L0 = m.lvl[m.idx(sx, sz)]; let k = 0;
-      while (k <= MAXL && m.isWaterT(sx + dx * (k + 1), sz + dz * (k + 1))) { const i = m.idx(sx + dx * (k + 1), sz + dz * (k + 1)); if (m.water[i] === 2) return { err: 'Pas de pont sur la mer !' }; if (m.lvl[i] !== L0) return { err: 'L\'eau est plus basse que la berge ici.' }; k++; }
+      while (k <= MAXL && this.gap(m, L0, sx + dx * (k + 1), sz + dz * (k + 1))) { const i = m.idx(sx + dx * (k + 1), sz + dz * (k + 1)); if (m.water[i] === 2) return { err: 'Pas de pont sur la mer !' }; k++; }
       if (k > MAXL) return { err: 'Trop large pour un pont (' + MAXL + ' cases maximum) !' };
       const lx = sx + dx * (k + 1), lz = sz + dz * (k + 1);
-      if (!m.inb(lx, lz) || m.lvl[m.idx(lx, lz)] !== L0) return { err: 'L\'autre rive n\'est pas au même niveau.' };
+      if (!m.inb(lx, lz) || m.lvl[m.idx(lx, lz)] !== L0) return { err: 'L\'autre bord n\'est pas à la même hauteur.' };
       return { k };
     },
-    // une voie : depuis (x,z), avance jusqu'à la berge (2 cases max, ou recule d'une si on part de l'eau) puis mesure la traversée
+    // une voie : depuis (x,z), avance jusqu'au bord (2 cases max, ou recule d'une si on part d'un creux) puis mesure la traversée
     lane(m, x, z, dx, dz) {
-      let t = 0; if (m.isWaterT(x, z)) { if (!m.inb(x - dx, z - dz) || m.isWaterT(x - dx, z - dz)) return null; t = -1; }
-      else while (t < 3 && m.inb(x + dx * (t + 1), z + dz * (t + 1)) && !m.isWaterT(x + dx * (t + 1), z + dz * (t + 1))) t++;
+      if (!m.inb(x, z)) return null; let t = 0;
+      if (m.isWaterT(x, z)) { if (!m.inb(x - dx, z - dz) || m.isWaterT(x - dx, z - dz)) return null; t = -1; }
+      else while (t < 3) { const cx = x + dx * t, cz = z + dz * t, nx = cx + dx, nz = cz + dz; if (!m.inb(nx, nz)) return null; if (this.gap(m, m.lvl[m.idx(cx, cz)], nx, nz)) break; t++; }
       if (t >= 3) return null; const bx = x + dx * t, bz = z + dz * t, r = this.measure(m, bx, bz, dx, dz); if (!r || r.err) return r;
       return { t, k: r.k, L: m.lvl[m.idx(bx, bz)] };
     },
-    // le pont tient-il ici ? chaque case : libre, au niveau des berges, en eau douce ou en terre ferme plate
-    fits(m, id, ax, az, rot, L0) {
-      const [w, dd] = G.fpDims(G.OBJ[id], rot); let wet = 0;
+    // le pont tient-il ici ? chaque case libre, pas plus haute que les bords, pas de mer ; au moins un creux dessous (sauf pont de jardin, posé à plat)
+    fits(m, id, ax, az, rot, L0, flat) {
+      const [w, dd] = G.fpDims(G.OBJ[id], rot); let gap = 0;
       for (let z = az; z < az + dd; z++) for (let x = ax; x < ax + w; x++) { if (x < 2 || z < 2 || x >= m.W - 2 || z >= m.H - 2) return false; const i = m.idx(x, z);
-        if (m.occ[i] || m.lvl[i] !== L0 || m.water[i] === 2 || (!m.water[i] && m.ramp[i])) return false; if (m.water[i]) wet++; }
-      return wet > 0;
+        if (m.occ[i] || m.water[i] === 2 || m.lvl[i] > L0) return false;
+        if (flat) { if (m.water[i] || m.ramp[i] || m.lvl[i] !== L0) return false; continue; }
+        if (m.water[i] || m.lvl[i] < L0) gap++; else if (m.ramp[i]) return false; }
+      return flat || gap > 0;
     },
+    // le tablier est à la hauteur des bords, même au-dessus d'un ravin
+    lift(m, ax, az, L0) { const cy = Math.round((L0 * G.TIER - m.baseH(ax, az)) * 1000) / 1000; return cy > .01 ? cy : 0; },
     // pont de 2 voies : la voie A et sa voisine (côté s) ; t compté depuis (sx,sz) dans la direction (dx,dz)
     span(m, sx, sz, dx, dz, A, s, type) {
       const B = this.lane(m, sx + (dz ? s : 0), sz + (dx ? s : 0), dx, dz); if (!B || B.err || B.L !== A.L) return null;
       const t0 = Math.min(A.t, B.t) + 1, t1 = Math.max(A.t + A.k, B.t + B.k), K = t1 - t0 + 1; if (K > MAXL) return null;
       let ax, az; if (dz) { ax = Math.min(sx, sx + s); az = dz > 0 ? sz + t0 : sz - t1; } else { az = Math.min(sz, sz + s); ax = dx > 0 ? sx + t0 : sx - t1; }
-      const id = 'pont_' + type + '_' + K, rot = dz ? 0 : 1; return this.fits(m, id, ax, az, rot, A.L) ? { ok: 1, id, ax, az, rot, k: K } : null;
+      const id = 'pont_' + type + '_' + K, rot = dz ? 0 : 1; return this.fits(m, id, ax, az, rot, A.L) ? { ok: 1, id, ax, az, rot, k: K, cy: this.lift(m, ax, az, A.L) } : null;
+    },
+    // pas de creux devant soi : un pont de jardin de 3 cases, posé à plat
+    flat(m, sx, sz, dx, dz, s, type) {
+      if (!m.inb(sx, sz)) return null; const L0 = m.lvl[m.idx(sx, sz)], K = 3, id = 'pont_' + type + '_' + K, rot = dz ? 0 : 1; let ax, az;
+      if (dz) { ax = Math.min(sx, sx + s); az = dz > 0 ? sz + 1 : sz - K; } else { az = Math.min(sz, sz + s); ax = dx > 0 ? sx + 1 : sx - K; }
+      return this.fits(m, id, ax, az, rot, L0, true) ? { ok: 1, id, ax, az, rot, k: K, cy: 0 } : null;
     },
     plan(it, p, m) {
-      const [dx, dz] = dom(p), sx = Math.floor(p.x), sz = Math.floor(p.z), A = this.lane(m, sx, sz, dx, dz);
-      if (!A) return { err: 'Mets-toi au bord d\'une rivière, face à l\'eau, pour poser le pont.' };
+      const [dx, dz] = dom(p), sx = Math.floor(p.x), sz = Math.floor(p.z), A = this.lane(m, sx, sz, dx, dz), fr = dz ? p.x - sx : p.z - sz, sides = fr >= .5 ? [1, -1] : [-1, 1];
+      if (!A) { for (const s of sides) { const r = this.flat(m, sx, sz, dx, dz, s, it.bridge); if (r) return r; } return { err: 'Il faut 2 cases de large devant toi, libres, à la même hauteur (ou un creux, une rivière, un ravin à enjamber).', tx: sx + dx, tz: sz + dz }; }
       const tx = sx + dx * ((A.t || 0) + 1), tz = sz + dz * ((A.t || 0) + 1); if (A.err) return { err: A.err, tx, tz };
-      const fr = dz ? p.x - sx : p.z - sz;
-      for (const s of fr >= .5 ? [1, -1] : [-1, 1]) { const r = this.span(m, sx, sz, dx, dz, A, s, it.bridge); if (r) return r; }
-      return { err: 'Il faut 2 voies d\'eau côte à côte, sans rien dessus, et la même hauteur de berge en face.', tx, tz };
+      for (const s of sides) { const r = this.span(m, sx, sz, dx, dz, A, s, it.bridge); if (r) return r; }
+      return { err: 'Il faut 2 voies côte à côte, sans rien dessus, et un bord en face à la même hauteur.', tx, tz };
     },
     place(it) {
       const p = G.player, m = G.map; if (m.interior) { G.sfx('error'); return G.ui.toast('Un pont dans la maison ? Essaie plutôt dehors !'); }
       const pl = this.plan(it, p, m); if (!pl.ok) { G.sfx('error'); return G.ui.toast(pl.err); }
-      if (!G.inv.useHeld(1)) return; const o = m.addObj(pl.id, pl.ax, pl.az, pl.rot), [cx, cz] = m.center(o);
+      if (!G.inv.useHeld(1)) return; const o = m.addObj(pl.id, pl.ax, pl.az, pl.rot, pl.cy ? { cy: pl.cy } : null), [cx, cz] = m.center(o);
       G.sfx('place'); G.sfx('craft'); G.cam.shake(.06); for (let i = 0; i <= pl.k; i++) { const t = i / Math.max(1, pl.k) - .5; G.fx.puff(cx + (pl.rot ? t * pl.k : 0), o.y + .25, cz + (pl.rot ? 0 : t * pl.k), 6, 0xf3ead2, .8); }
       p.act = { kind: 'place', t: 0, dur: .3, hitAt: 1, done: true }; G.ui.toast(STY[it.bridge].n + ' posé ! (' + pl.k + ' case' + (pl.k > 1 ? 's' : '') + ' de long)');
     },
@@ -150,7 +162,7 @@
         let ok = false;
         for (const a of l1 > l0 ? [l0] : [l0, l0 - 1]) { // voies a et a+1
           const sx = ns ? a : x0 - 1, sz = ns ? z0 - 1 : a, A = this.lane(map, sx, sz, dx, dz); if (!A || A.err) continue;
-          const pl = this.span(map, sx, sz, dx, dz, A, 1, type); if (pl) { map.addObj(pl.id, pl.ax, pl.az, pl.rot); ok = true; n++; break; }
+          const pl = this.span(map, sx, sz, dx, dz, A, 1, type); if (pl) { map.addObj(pl.id, pl.ax, pl.az, pl.rot, pl.cy ? { cy: pl.cy } : null); ok = true; n++; break; }
         }
         if (!ok) for (const g of grp) map.addObj('pont', g.x, g.z, g.r);
       }
@@ -176,8 +188,8 @@
     const it = G.inv.held(), E = G.ents, p = G.player; if (!it || it.kind !== 'bridge' || !E.ghost || !G.ui.canPlay() || p.sit || G.map.interior) return;
     const m = G.map, pl = BR.plan(it, p, m);
     if (pl.ok) { const d = G.OBJ[pl.id], key = d.model + ':' + d.v, [w, dd] = G.fpDims(d, pl.rot); if (key !== E.ghostKey) { E.ghost.geometry = G.getGeo(d.model, d.v); E.ghostKey = key; }
-      E.ghost.visible = true; E.ghost.position.set(pl.ax + w / 2, m.baseH(pl.ax, pl.az), pl.az + dd / 2); E.ghost.rotation.y = pl.rot * Math.PI / 2; G.M.ghost.color.setHex(0x9cff9c);
-      E.cursor.visible = true; E.cursor.scale.set(w, 1, dd); E.cursor.position.set(pl.ax + w / 2, m.waterSurf(pl.ax, pl.az) + .03, pl.az + dd / 2); G.M.cursor.color.setHex(0xffffff); }
+      E.ghost.visible = true; E.ghost.position.set(pl.ax + w / 2, m.baseH(pl.ax, pl.az) + (pl.cy || 0), pl.az + dd / 2); E.ghost.rotation.y = pl.rot * Math.PI / 2; G.M.ghost.color.setHex(0x9cff9c);
+      E.cursor.visible = true; E.cursor.scale.set(w, 1, dd); E.cursor.position.set(pl.ax + w / 2, (m.isWaterT(pl.ax, pl.az) ? m.waterSurf(pl.ax, pl.az) : m.baseH(pl.ax, pl.az) + (pl.cy || 0)) + .03, pl.az + dd / 2); G.M.cursor.color.setHex(0xffffff); }
     else if (pl.tx != null && m.inb(pl.tx, pl.tz)) { E.cursor.visible = true; E.cursor.scale.set(1, 1, 1); E.cursor.position.set(pl.tx + .5, (m.isWaterT(pl.tx, pl.tz) ? m.waterSurf(pl.tx, pl.tz) : m.topAt(pl.tx + .5, pl.tz + .5)) + .03, pl.tz + .5); G.M.cursor.color.setHex(0xff8080); }
   });
   G.on('worldgen', (map, ctx) => BR.convert(map, ctx.r));
