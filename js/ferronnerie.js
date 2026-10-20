@@ -340,7 +340,13 @@
   const under = d => d && !d.plat && !d.stair && !d.up && !d.ceil && !d.fence;
   const tilesOf = (m, d, tx, tz, r) => { const [w, dd] = G.fpDims(d, r), L = []; for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) L.push([x, z]); return L; };
   const toUp = (m, q) => { const i = q.z * m.W + q.x; if (m.occ[i] === i + 1) m.occ[i] = 0; if (m.objs[i] === q) m.objs[i] = null; (m.up || (m.up = new Map())).set(i, q); q._up = 1; };
-  const ocp = GP.canPlace; GP.canPlace = function (t, tx, tz, r = 0) { if (ocp.call(this, t, tx, tz, r)) return true; const d = O[t]; if (!under(d) || this.interior) return false;
+  // une terrasse posée en hauteur passe par-dessus la voie ferrée, un passage à niveau, un réverbère, un banc… (ils restent dessous, le train passe)
+  const RAIL = { voie: 1, pont: 1, passage_niveau: 1 };
+  const overOK = (m, d, tx, tz) => { if (!d || !d.plat || m.interior || !m.inb(tx, tz) || m.upAt(tx, tz)) return false; const q = m.objAt(tx, tz); if (!q || q.dk != null || !under(O[q.t])) return false;
+    const lv = d.id === 'plateforme_marbre' && placeLvl(m, tx, tz, 0) === 0 ? -1 : placeLvl(m, tx, tz, 1) - 1, c = (lv + 1) * T - .6; return c >= Math.max(O[q.t].h || 1, RAIL[q.t] ? 2.2 : 0); };
+  const ocp = GP.canPlace; GP.canPlace = function (t, tx, tz, r = 0) { if (ocp.call(this, t, tx, tz, r)) return true; const d = O[t];
+    if (overOK(this, d, tx, tz)) { const i = tz * this.W + tx, v = this.occ[i]; this.occ[i] = 0; try { return ocp.call(this, t, tx, tz, r); } finally { this.occ[i] = v; } }
+    if (!under(d) || this.interior) return false;
     const R = tilesOf(this, d, tx, tz, r).map(([x, z]) => this.inb(x, z) && room(this, x, z)); if (!R.length || R.some(k => !k || k.c < (d.h || 1))) return false;
     const S = R.map(k => [k.q.z * this.W + k.q.x, this.occ[k.q.z * this.W + k.q.x]]); for (const [i] of S) this.occ[i] = 0; try { return ocp.call(this, t, tx, tz, r); } finally { for (const [i, v] of S) this.occ[i] = v; } };
   const oadd2 = GP.addObj; GP.addObj = function (t, tx, tz, r, extra) { const d = O[t]; const onDeck = (extra && extra.dk != null) || (G._deckY != null && G.deckOK(d) && this.deckFit(t, tx, tz, r || 0, G._deckY)); // posé SUR la terrasse : elle reste où elle est
