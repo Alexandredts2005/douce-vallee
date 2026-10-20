@@ -296,10 +296,13 @@
   let placing = false; const opl = G.act.placeObj; G.act.placeObj = (it, tx, tz) => { placing = true; try { return opl(it, tx, tz); } finally { placing = false; } };
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
   GP.addObj = function (t, tx, tz, r, extra) { const d = O[t], plat = d && d.plat;
-    if (placing && this === G.map && d && (plat || t.startsWith('escalier_fer') || t.startsWith('escalier_marbre'))) { const lv = plat ? placeLvl(this, tx, tz, 1) - 1 : placeLvl(this, tx, tz, 0); extra = Object.assign({}, extra, { v: ((d.v || 0) & ~1728) | G.lvlBits(lv) }); }
+    if (placing && this === G.map && d && (plat || t.startsWith('escalier_fer') || t.startsWith('escalier_marbre'))) { const r0 = t === 'plateforme_marbre' ? placeLvl(this, tx, tz, 0) : -1, lv = r0 === 0 ? 0 : plat ? placeLvl(this, tx, tz, 1) - 1 : placeLvl(this, tx, tz, 0); extra = Object.assign({}, extra, { v: ((d.v || 0) & ~1728) | G.lvlBits(lv) }); if (r0 === 0) extra.cy = -T; } // marbre posé depuis le sol : dalle au ras de l'eau et de la berge
     const o = oadd.call(this, t, tx, tz, plat ? 0 : r, extra);
     if (o && (plat || d.stair)) { if (plat) relinkPlat(this, o); else if (G.stairRelink) G.stairRelink(this, o); touch(this, o); if (d.stair) stairChain(this, o); } return o; };
   GP.removeObj = function (o) { const d = o && O[o.t], hit = d && (d.plat || d.stair); const res = orem.call(this, o); if (hit) touch(this, o); return res; };
+  // arbres et buissons sur une terrasse en marbre (jardin suspendu)
+  const odk = G.deckOK; G.deckOK = d => { if (odk(d)) return true; if (!d || !(d.chop || d.grow) || d.enter || d.fixed || d.onWater) return false; const p = G.player, m = G.map; if (!p || !m || !m.upAt) return false; const [tx, tz] = p.target();
+    return [m.upAt(tx, tz), m.objAt(tx, tz)].some(q => q && q.t === 'plateforme_marbre' && Math.abs(G.platDeck(q) - p.y) < .6); };
   const otake = G.act.take; G.act.take = () => { const p = G.player, m = G.map; if (p && m && m.upAt && !p.act && !p.sit && !p.dead) { const [tx, tz] = p.target(), u = m.upAt(tx, tz), g = m.objAt(tx, tz);
       if (u && !(g && g.dk != null) && (!g || p.y > G.platDeck(u) - .6)) { const [cx, cz] = m.center(u); if (G.mode === 'survie' && G.inv.add(u.t, 1) > 0) { G.ui.toast('Inventaire plein !'); return; } m.removeObj(u); G.sfx('pickup'); G.fx.puff(cx, G.platDeck(u), cz, 10, 0xffffff, .7); return; } } return otake(); };
 })();
