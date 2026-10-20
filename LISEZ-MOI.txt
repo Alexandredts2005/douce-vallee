@@ -108,7 +108,11 @@ LES FÊTES DE LA PLACE (le mât des fêtes, sur la place du village)
   - 🎆 Feu d'artifice (le samedi à 21 h, ou quand tu veux). Le mât donne aussi le programme de la semaine.
 
 LE PARC DES MERVEILLES (rue commerçante, tout au bout du Boulevard de la Vallée, à l'est)
-  - Grande roue, carrousel, montagnes russes, chaises volantes, tasses folles : approche-toi et appuie sur E pour monter.
+  - Dix attractions : grande roue, carrousel, montagnes russes, chaises volantes, tasses folles, bateau pirate,
+    tour de chute libre (30 m !), autos tamponneuses (tu conduis : Z Q S D), la Pieuvre et la Chenille.
+  - Approche-toi de n'importe quel côté d'un manège et appuie sur E pour monter.
+  - Pour descendre : E. La grande roue te dépose en bas (elle accélère pour que ta nacelle y arrive) ; les montagnes russes,
+    les chaises volantes, le bateau et la tour s'arrêtent d'abord. Une touche = une seule action.
   - Stands : barbe à papa, glaces, chamboule-tout, pêche aux canards, gaufres, ballons. (En Survie : 100 🔔 le tour.)
 
 EN JEU

@@ -190,7 +190,7 @@
     if (d.fruit || d.shake) return A.shakeTree(o);
     if (d.pickFruit) { if (o.f > 0) { give('baies', o.f); o.f = 0; m.refresh(o); G.sfx('pickup'); } else G.ui.toast('Plus de baies pour aujourd\'hui.'); return; }
     if (d.pick) return A.pickUp(o);
-    if (d.fountain) { G.ui.toast('Tu fais un vœu… 🌟'); G.sfx('craft'); }
+    if (d.fountain) { G.ui.toast('Tu fais un vœu…'); G.sfx('craft'); }
   };
   A.useful = o => { const d = G.OBJ[o.t]; return d.shop || d.enter || d.sit || d.sleep || d.craft || d.cook || d.read || d.mail || d.fruit || d.shake || d.pickFruit || d.pick || d.fountain || d.storage || d.wardrobe || d.balloon || d.games || (d.light && !d.fire && (G.map.interior || d.toggle)); };
   A.front = o => { const m = Mp(), p = P(), d = G.OBJ[o.t], [cx, cz] = m.center(o), F = G.FR[o.r], depth = d.fp[1]; return (p.x - cx) * F[0] + (p.z - cz) * F[1] > depth / 2 - .25; };

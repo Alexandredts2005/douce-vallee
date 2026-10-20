@@ -11,7 +11,7 @@
     const cw = Math.ceil(m.W / CELL), ch = Math.ceil(m.H / CELL), Y = new Float32Array(cw * ch * 2);
     for (let cz = 0; cz < ch; cz++) for (let cx = 0; cx < cw; cx++) { let lo = 99, hi = -99;
       for (let z = cz * CELL; z < Math.min(m.H, cz * CELL + CELL); z++) for (let x = cx * CELL; x < Math.min(m.W, cx * CELL + CELL); x++) { const l = m.lvl[z * m.W + x]; if (l < lo) lo = l; if (l > hi) hi = l; }
-      const k = (cz * cw + cx) * 2; Y[k] = lo * T - 2; Y[k + 1] = hi * T + 9.5; }
+      const k = (cz * cw + cx) * 2; Y[k] = lo * T - 2; Y[k + 1] = hi * T + (m.meta && m.meta.parc ? 40 : 9.5); } // au parc : la tour et la grande roue montent très haut
     m._cy = Y; m._cyRev = m.tRev || 0; m._cw = cw; m._ch = ch; return Y;
   }
   // une case est visible si sa boîte (descendue par l'arrondi du monde, élargie vers l'ombre portée) touche le champ de la caméra

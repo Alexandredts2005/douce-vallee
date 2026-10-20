@@ -219,9 +219,9 @@
   const oint = G.act.interact; G.act.interact = () => {
     const p = G.player, m = G.map; if (!p.act && !p.sit && !p.fish && !p.swim && !G.ents.villagerInFront(p)) { const [tx, tz] = p.target(), o = m.objAt(tx, tz);
       if (o && o.t === 'grande_fontaine') { if (surv() && G.coins < 10) return G.ui.toast('Il faut une clochette à lancer dans la fontaine !'); if (surv()) { G.coins -= 10; G.ui.dirtyHud(); }
-        const [cx, cz] = m.center(o); G.sfx('coin'); G.fx.burst(cx, o.y + 1.2, cz, 24, [0xffe27a, 0xffffff, 0xbfe6fa], 3, 1.2, 2); G.feat.emote && G.feat.emote('bravo');
+        const [cx, cz] = m.center(o); G.sfx('coin'); G.fx.puff(cx, o.y + .6, cz, 6, 0xd9f4ff, .5); // le vœu : une clochette dans l'eau, rien d'autre
         if (G.flags.wish !== G.clock.day && Math.random() < .35) { G.flags.wish = G.clock.day; for (const [dx, dz] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) { const x = Math.floor(p.x) + dx, z = Math.floor(p.z) + dz; if (m.canPlace('cadeau', x, z)) { const g = m.addObj('cadeau', x, z); G.anim.drop(m, g); break; } } G.ui.toast('Ton vœu est exaucé ! 🎁'); }
-        else G.ui.toast(G.pick(['Tu lances une clochette et fais un vœu… 🌟', 'Plouf ! La clochette brille au fond de l\'eau…', 'Un vœu pour ' + G.villageName + ' ! ✨'])); return; } }
+        else G.ui.toast(G.pick(['Tu lances une clochette et fais un vœu…', 'Plouf ! La clochette brille au fond de l\'eau…', 'Un vœu pour ' + G.villageName + ' ! ✨'])); return; } }
     return oint();
   };
   // ---------- vie de la place : gerbes d'eau, bruit de l'eau, Dédé seulement le soir ----------
