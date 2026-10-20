@@ -47,14 +47,18 @@
   // ---------- accrocher ----------
   const GS = G.garland = { a: null, s: null };
   function anchorAt(m, tx, tz, p, plant) {
-    const o = m.objAt(tx, tz);
+    // sur une terrasse : on vise ce qui est posé sur le plancher (lampadaire, piquet, parasol…), pas la dalle elle-même
+    let o = null; if (m.dk && m.dk.size && m.inb(tx, tz)) { const i = tz * m.W + tx; for (const k of [i, i + m.W * m.H]) { const q = m.dk.get(k); if (q && (!o || q.y > o.y)) o = q; } }
+    if (!o) o = m.objAt(tx, tz); if (o && O[o.t] && (O[o.t].plat || O[o.t].floor)) o = null;
     if (o) { const d = O[o.t], [w, dd] = G.fpDims(d, o.r || 0);
       if (o.t === 'piquet_guirlande') return { x: o.x + .5, y: o.y + 2.22, z: o.z + .5 };
       if (d.chop >= 3) return { x: o.x + .5, y: o.y + 2.3, z: o.z + .5 };
       if (d.enter || w * dd >= 4) { const cx = p.x < o.x + w / 2 ? o.x + .1 : o.x + w - .1, cz = p.z < o.z + dd / 2 ? o.z + .1 : o.z + dd - .1; return { x: cx, y: o.y + Math.min(d.h || 3, 4.2) * .68, z: cz }; } // coin de maison, sous l'avant-toit
       return { x: o.x + w / 2, y: o.y + Math.max(.9, Math.min(d.h || 1, 4) * .92), z: o.z + dd / 2 }; }
     if (!plant) return { x: tx + .5, y: m.topAt(tx + .5, tz + .5) + 2.22, z: tz + .5 };
-    if (m.canPlace('piquet_guirlande', tx, tz, 0)) { const q = m.addObj('piquet_guirlande', tx, tz, 0); return { x: tx + .5, y: q.y + 2.22, z: tz + .5, planted: q }; }
+    const dy = G._deckY; G._deckY = m.inb(tx, tz) ? m.topAt(tx + .5, tz + .5) : null; let q = null; // piquet planté sur le plancher s'il y en a un
+    try { if (m.canPlace('piquet_guirlande', tx, tz, 0)) q = m.addObj('piquet_guirlande', tx, tz, 0); } finally { G._deckY = dy; }
+    if (q) { return { x: tx + .5, y: q.y + 2.22, z: tz + .5, planted: q }; }
     return null;
   }
   function click(it) {
