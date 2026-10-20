@@ -300,6 +300,18 @@
     const o = oadd.call(this, t, tx, tz, plat ? 0 : r, extra);
     if (o && (plat || d.stair)) { if (plat) relinkPlat(this, o); else if (G.stairRelink) G.stairRelink(this, o); touch(this, o); if (d.stair) stairChain(this, o); } return o; };
   GP.removeObj = function (o) { const d = o && O[o.t], hit = d && (d.plat || d.stair); const res = orem.call(this, o); if (hit) touch(this, o); return res; };
+  // ---------- sous une arche : une terrasse haute sans pilier sur la case laisse passer ce qui tient sous elle ----------
+  const colAt = o => { const v = o.v || 0; if (v & 32) return false; if ((v & 16) && (v & 256)) return true; return CORN.some(([b1, b2]) => !(v & b1) && !(v & b2)); };
+  const room = (m, x, z) => { const q = m.objAt(x, z); if (!q || !O[q.t] || !O[q.t].plat || colAt(q)) return null; const c = G.platDeck(q) - m.baseH(x, z) - .6; return c > 1 ? { q, c } : null; }; // dalle + arc de pierre
+  const under = d => d && !d.plat && !d.stair && !d.up && !d.ceil && !d.fence;
+  const tilesOf = (m, d, tx, tz, r) => { const [w, dd] = G.fpDims(d, r), L = []; for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) L.push([x, z]); return L; };
+  const toUp = (m, q) => { const i = q.z * m.W + q.x; if (m.occ[i] === i + 1) m.occ[i] = 0; if (m.objs[i] === q) m.objs[i] = null; (m.up || (m.up = new Map())).set(i, q); q._up = 1; };
+  const ocp = GP.canPlace; GP.canPlace = function (t, tx, tz, r = 0) { if (ocp.call(this, t, tx, tz, r)) return true; const d = O[t]; if (!under(d) || this.interior) return false;
+    const R = tilesOf(this, d, tx, tz, r).map(([x, z]) => this.inb(x, z) && room(this, x, z)); if (!R.length || R.some(k => !k || k.c < (d.h || 1))) return false;
+    const S = R.map(k => [k.q.z * this.W + k.q.x, this.occ[k.q.z * this.W + k.q.x]]); for (const [i] of S) this.occ[i] = 0; try { return ocp.call(this, t, tx, tz, r); } finally { for (const [i, v] of S) this.occ[i] = v; } };
+  const oadd2 = GP.addObj; GP.addObj = function (t, tx, tz, r, extra) { const d = O[t]; if (under(d) && !(extra && extra.dk != null) && !this.interior) for (const [x, z] of tilesOf(this, d, tx, tz, r || 0)) { const k = this.inb(x, z) && room(this, x, z); if (k && k.c >= (d.h || 1)) toUp(this, k.q); } const i = tz * this.W + tx, g = d && d.plat && this.inb(tx, tz) && this.objAt(tx, tz), sv = g && under(O[g.t]) && g.dk == null ? [this.occ[i], this.objs[i]] : null; const o = oadd2.call(this, t, tx, tz, r, extra);
+    if (o && sv) { [this.occ[i], this.objs[i]] = sv; (this.up || (this.up = new Map())).set(i, o); o._up = 1; } return o; }; // terrasse rechargée par-dessus ce qui est sous l'arche
+  const orem2 = GP.removeObj; GP.removeObj = function (o) { if (!o || !o._up) return orem2.call(this, o); const i = o.z * this.W + o.x, sv = [this.occ[i], this.objs[i]]; if (this.up && this.up.get(i) === o) this.up.delete(i); this.occ[i] = 0; try { return orem2.call(this, o); } finally { [this.occ[i], this.objs[i]] = sv; } };
   // arbres et buissons sur une terrasse en marbre (jardin suspendu)
   const odk = G.deckOK; G.deckOK = d => { if (odk(d)) return true; if (!d || !(d.chop || d.grow) || d.enter || d.fixed || d.onWater) return false; const p = G.player, m = G.map; if (!p || !m || !m.upAt) return false; const [tx, tz] = p.target();
     return [m.upAt(tx, tz), m.objAt(tx, tz)].some(q => q && q.t === 'plateforme_marbre' && Math.abs(G.platDeck(q) - p.y) < .6); };
