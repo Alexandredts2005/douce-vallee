@@ -260,7 +260,7 @@
         }
         uv[0][0] = u0; uv[0][1] = v1; uv[1][0] = u1; uv[1][1] = v1; uv[2][0] = u1; uv[2][1] = v0; uv[3][0] = u0; uv[3][1] = v0;
         const lvlI = this.lvl[i], L0 = lvlI * T, cv = [false, false, false, false], nbi = (dx, dz) => { const x = tx + dx, z = tz + dz; return this.inb(x, z) ? z * W + x : -1; };
-        if (!this.interior && !this.ramp[i]) for (let k = 0; k < 4; k++) { const ok = j => j >= 0 && (wt ? (!this.water[j] && !this.ramp[j] && this.lvl[j] >= lvlI) : (this.water[j] > 0 || (!this.ramp[j] && this.lvl[j] < lvlI))); const [s1, s2] = CS[k];
+        if (!this.interior && !this.ramp[i] && !(this.caves && this.caves.has(i))) for (let k = 0; k < 4; k++) { const ok = j => j >= 0 && (wt ? (!this.water[j] && !this.ramp[j] && this.lvl[j] >= lvlI) : (this.water[j] > 0 || (!this.ramp[j] && this.lvl[j] < lvlI))); const [s1, s2] = CS[k];
           cv[k] = ok(nbi(SIDES[s1][0], SIDES[s1][1])) && ok(nbi(SIDES[s2][0], SIDES[s2][1])) && ok(nbi(DG[k][0], DG[k][1])); }
         const anyCv = !wt && cv.some(x => x), cAvg = [(col[0][0] + col[1][0] + col[2][0] + col[3][0]) / 4, (col[0][1] + col[1][1] + col[2][1] + col[3][1]) / 4, (col[0][2] + col[1][2] + col[2][2] + col[3][2]) / 4], uvAt = (px, pz) => [u0 + px * (u1 - u0), v1 - pz * (v1 - v0)];
         if (!this.interior && !anyCv) tops.quad(pos[0], pos[3], pos[2], pos[1], col[0], col[3], col[2], col[1], uv[0], uv[3], uv[2], uv[1]);
@@ -274,7 +274,8 @@
           if (tA > nA + .001 || tB > nB + .001) {
             const A = [tx + CX[a], 0, tz + CZ[a]], B = [tx + CX[bb], 0, tz + CZ[bb]];
             if (anyCv) { const ax0 = A[0], az0 = A[2]; if (cv[a]) { A[0] += (B[0] - ax0) * RR; A[2] += (B[2] - az0) * RR; } if (cv[bb]) { B[0] += (ax0 - B[0]) * RR; B[2] += (az0 - B[2]) * RR; } }
-            const yA0 = Math.min(nA, tA), yB0 = Math.min(nB, tB);
+            let yA0 = Math.min(nA, tA), yB0 = Math.min(nB, tB);
+            if (this.caves && this.caves.size && inb && G.caveFloor) { const cf = G.caveFloor(this, i); if (cf != null && !this.caves.has(nz * W + nx) && nA <= cf + .06 && nB <= cf + .06) { yA0 = Math.max(yA0, cf + G.CAVE_CL); yB0 = Math.max(yB0, cf + G.CAVE_CL); } } // entrée de grotte : la falaise est ouverte jusqu'au plafond de la galerie
             const uA = (A[0] + A[2]) * .5, uB = (B[0] + B[2]) * .5;
             const sh = wt ? .7 : 1;
             cliffQuad(walls, A, B, yA0, yB0, tA, tB, [.62 * sh, .62 * sh, .62 * sh], [sh, sh, sh], uA, uB);

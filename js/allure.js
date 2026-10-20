@@ -118,10 +118,23 @@
       if (this.act) { const a = this.act, p = clamp(a.t / a.dur, 0, 1); rate = 30;
         if (a.kind === 'eat') { T.armR = -1.7 + Math.sin(p * 14) * .15; T.elbR = -1.8; T.armL = -.9; T.elbL = -1.3; T.headX = .08; expr = 'happy'; }
         else if (a.kind === 'place') { const e = Math.sin(p * PI); T.armR = T.armL = -1.0 * e; T.elbL = T.elbR = -.4; T.lean += .35 * e; T.kneeL += .35 * e; T.kneeR += .35 * e; T.hipL += -.25 * e; T.hipR += -.25 * e; T.headX += .2 * e; if (ground) T.bob = Math.min(0, Math.max(reach(T.hipL, T.kneeL), reach(T.hipR, T.kneeR)) - HIP); }
+        else if (a.kind === 'dig') { // pelle dans le sol : on lève la pelle à deux mains, on l'enfonce d'un coup en pliant les genoux, puis on fait levier et on rejette la terre
+          const up = p < .32 ? G.smooth(p / .32) : p < .5 ? 1 - G.smooth((p - .32) / .18) : 0, plunge = p < .32 ? 0 : p < .55 ? G.smooth((p - .32) / .23) : 1 - G.smooth((p - .55) / .45) * .6, lever = p < .55 ? 0 : Math.sin((p - .55) / .45 * PI);
+          T.armR = -1.55 * up - .55 * plunge - .9 * lever; T.armL = -1.25 * up - .45 * plunge - .7 * lever; T.elbR = -.5 * up - .25 - .4 * lever; T.elbL = -.7 * up - .3 - .3 * lever; T.armRz = .12; T.armLz = -.18;
+          T.lean += -.12 * up + .5 * plunge - .25 * lever; T.chestY += .2 * up - .25 * lever; T.headX += .25 * plunge; T.kneeL += .55 * plunge; T.kneeR += .35 * plunge; T.hipL += -.35 * plunge; T.hipR += -.15 * plunge + .25 * lever;
+          if (ground) T.bob = Math.min(0, Math.max(reach(T.hipL, T.kneeL), reach(T.hipR, T.kneeR)) - HIP); rate = 40;
+          if (this.toolMesh) { const g = G.smooth(clamp(p / .2, 0, 1)) * (1 - G.smooth(clamp((p - .85) / .15, 0, 1))); this.toolMesh.rotation.x = -.35 + g * (1.95 + .35 * plunge - .45 * lever); } } // la pelle pointe vers le sol devant soi
+        else if (a.kind === 'digwall') { // pelle dans la paroi : on recule la pelle contre la hanche, on la plante droit devant en avançant d'un pas, puis on arrache la motte
+          const back = p < .38 ? G.smooth(p / .38) : 1 - G.smooth(Math.min(1, (p - .38) / .16)), thrust = p < .38 ? 0 : p < .58 ? G.smooth((p - .38) / .2) : 1 - G.smooth((p - .58) / .42) * .7, pry = p < .58 ? 0 : Math.sin((p - .58) / .42 * PI);
+          T.armR = -.9 * back - 1.45 * thrust - .5 * pry; T.armL = -.8 * back - 1.35 * thrust - .7 * pry; T.elbR = -1.5 * back - .15 * thrust; T.elbL = -1.3 * back - .2 * thrust; T.armRz = .15 * back; T.armLz = -.2 * back;
+          T.lean += -.2 * back + .38 * thrust - .15 * pry; T.chestY += .45 * back - .2 * thrust; T.kneeL += .5 * thrust; T.hipL += -.55 * thrust; T.hipR += .2 * thrust; T.kneeR += .15 * thrust; T.headX += .1 * thrust - .1 * pry;
+          if (ground) T.bob = Math.min(0, Math.max(reach(T.hipL, T.kneeL), reach(T.hipR, T.kneeR)) - HIP); rate = 40;
+          if (this.toolMesh) { const g = G.smooth(clamp(p / .25, 0, 1)) * (1 - G.smooth(clamp((p - .88) / .12, 0, 1))); this.toolMesh.rotation.x = -.35 + g * (1.65 - .35 * pry); } } // la pelle à l'horizontale, lame en avant, plantée dans la paroi
         else { // coup d'outil : on arme derrière la tête, puis on frappe en se penchant
           const back = p < .42 ? G.smooth(p / .42) : 1 - G.smooth((p - .42) / .2), hit = p < .42 ? 0 : G.smooth((p - .42) / .3);
           T.armR = -2.75 * back + .35 * hit; T.elbR = -.9 * back - .2; T.armL = -1.2 * back - .5 * hit; T.elbL = -.8; T.lean += -.12 * back + .3 * hit; T.chestY += .25 * back - .15 * hit; T.kneeL += .25 * hit; T.kneeR += .25 * hit;
           if (ground) T.bob = Math.min(0, Math.max(reach(T.hipL, T.kneeL), reach(T.hipR, T.kneeR)) - HIP); rate = 40; } }
+      if (this.toolMesh && !(this.act && (this.act.kind === 'dig' || this.act.kind === 'digwall'))) this.toolMesh.rotation.x = -.35; // l'outil reprend sa place dans la main
       if (this.fish) { T.armR = -1.0 + (this.fish.phase === 'bite' ? Math.sin(t * 30) * .12 : 0); T.elbR = -.6; T.armL = -.8; T.elbL = -1.0; if (this.fish.phase === 'bite') expr = 'surprised'; }
       if (this.hurtT > 0) expr = 'sad';
       drive(C, T, dt, rate);
