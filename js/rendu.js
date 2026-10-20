@@ -14,7 +14,7 @@
     uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3(.3, .8, .4) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uNight: { value: 0 },
     uSkyTop: { value: new THREE.Color(0x4aa3ee) }, uSkyHor: { value: new THREE.Color(0xaee0ff) }, uSkyGnd: { value: new THREE.Color(0x8f9a6a) },
     uSunK: { value: 1.55 }, uAmbK: { value: 1.25 }, uEnvK: { value: .85 }, uSpecK: { value: 1 }, uPointK: { value: 3.2 }, uGlowK: { value: .15 }, uFireK: { value: 2.2 },
-    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }, uVox: { value: 1 }
+    uWet: { value: 0 }, uWind: { value: 1 }, uBumpK: { value: 1 }, uWarmK: { value: 0 }, uVox: { value: 0 }
   };
   // ---------- matières ----------
   const SK = G.SK = { gold: 1, iron: 2, steel: 3, glass: 4, leaf: 5, petal: 6, wood: 7, paint: 8, fabric: 9, skin: 10, hair: 11, stone: 12, ceramic: 13, plastic: 14, velvet: 15, gem: 16, bark: 17 };
@@ -387,7 +387,7 @@ void main() {
     SU.uPointK.value = inside ? 3.4 : 3.4; SU.uGlowK.value = inside ? .9 : G.lerp(.12, 2.6, Math.min(1, n * 1.3)); SU.uWarmK.value = inside ? 0 : Math.min(1, n * 1.5);
     SU.uWet.value += ((G.weather && G.weather.wet ? G.weather.wet : 0) - SU.uWet.value) * Math.min(1, dt * .25); wetT += dt;
     SU.uWind.value = G.weather && G.weather.wind != null ? G.weather.wind : 1;
-    const vx = G.settings && G.settings.style === 'realiste' ? 0 : 1; if (voxT !== vx) { voxT = vx; SU.uVox.value = vx; for (const t of [G.TEX.atlas, G.TEX.cliff]) if (t) { t.magFilter = vx ? THREE.NearestFilter : THREE.LinearFilter; t.needsUpdate = true; } }
+    const vx = G.settings && G.settings.style === 'cubique' ? 1 : 0; // réaliste par défaut ; le style cubique est une option if (voxT !== vx) { voxT = vx; SU.uVox.value = vx; for (const t of [G.TEX.atlas, G.TEX.cliff]) if (t) { t.magFilter = vx ? THREE.NearestFilter : THREE.LinearFilter; t.needsUpdate = true; } }
   });
 
   // =====================================================================
@@ -513,7 +513,7 @@ void main() {
     u.tScene.value = rtScene.texture; u.tDepth.value = rtScene.depthTexture; u.tAO.value = rtAO.texture; u.tBloom.value = rtB[0].texture; u.tBlur.value = rtD0.texture; u.uTexel.value.set(1 / w, 1 / h);
     u.uNear.value = cam.near; u.uFar.value = cam.far; u.uHasAO.value = useAO ? 1 : 0; u.uHasBloom.value = useBloom ? 1 : 0; u.uHasDof.value = useDof ? 1 : 0;
     u.uAOk.value = inside ? .85 : .72; u.uBloomK.value = inside ? .2 : G.lerp(.22, .5, n); u.uExposure.value = (inside ? (m.meta.sunny ? .8 : .9) : G.lerp(.82, 1.3, n)) * (PP.expo || 1);
-    const vox = S.style !== 'realiste'; u.uSat.value = (inside ? 1.05 : 1.07) * (vox ? 1.13 : 1); u.uVig.value = vox ? .27 : .2; u.uTime.value = (u.uTime.value + .618) % 7; u.uContrast.value = vox ? .19 : .1;
+    const vox = S.style === 'cubique'; u.uSat.value = (inside ? 1.05 : 1.07) * (vox ? 1.13 : 1); u.uVig.value = vox ? .27 : .2; u.uTime.value = (u.uTime.value + .618) % 7; u.uContrast.value = vox ? .19 : .1;
     if (vox && !inside) u.uTint.value.set(1.035 - n * .07, 1.0, .955 + n * .1); else u.uTint.value.set(1, 1, 1); // soleil doré le jour, nuits bleutées
     // mise au point : sur le personnage (vue du village) ; seulement le lointain en vue souris
     let focus = 12; if (p) { V3.set(p.x, p.y + 1, p.z).applyMatrix4(cam.matrixWorldInverse); focus = Math.max(1, -V3.z); } PP.focus += (focus - PP.focus) * .2;
@@ -540,7 +540,7 @@ void main() {
     const scr = G.el('screen-options'), form = scr && scr.querySelector('.form'), back = G.el('o-back'); if (!form || G.el('o-post')) return;
     const row = back.parentNode, d = document.createElement('div');
     d.innerHTML = `<div id="o-rendu" style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:6px 0 0;font-family:var(--f-display);color:var(--bark)">✨ Graphismes</h3>
-      <div class="opt">Style graphique<select id="o-style"><option value="cubique">Cubique (façon Minecraft)</option><option value="realiste">Réaliste</option></select></div>
+      <div class="opt">Style graphique<select id="o-style"><option value="realiste">Réaliste (textures détaillées)</option><option value="cubique">Cubique (façon Minecraft)</option></select></div>
       <div class="opt">Effets cinéma (HDR, bloom, étalonnage)<input type="checkbox" id="o-post"></div>
       <div class="opt">Occlusion ambiante (ombres de contact)<input type="checkbox" id="o-ao"></div>
       <div class="opt">Profondeur de champ (effet miniature)<input type="checkbox" id="o-dof"></div>
@@ -548,7 +548,7 @@ void main() {
     form.insertBefore(d.firstChild, row);
     const s = G.settings, $ = G.el;
     $('o-style').onchange = () => { s.style = $('o-style').value; G.ui.saveSettings && G.ui.saveSettings(); };
-    const sync = () => { $('o-style').value = s.style === 'realiste' ? 'realiste' : 'cubique'; $('o-post').checked = s.post !== false; $('o-ao').checked = s.ao !== false; $('o-dof').checked = s.dof !== false; $('o-bloom').checked = s.bloom !== false; };
+    const sync = () => { $('o-style').value = s.style === 'cubique' ? 'cubique' : 'realiste'; $('o-post').checked = s.post !== false; $('o-ao').checked = s.ao !== false; $('o-dof').checked = s.dof !== false; $('o-bloom').checked = s.bloom !== false; };
     for (const [id, k] of [['o-post', 'post'], ['o-ao', 'ao'], ['o-dof', 'dof'], ['o-bloom', 'bloom']]) $(id).onchange = () => { s[k] = $(id).checked; if (k === 'post') PP.fail = false; G.ui.saveSettings && G.ui.saveSettings(); };
     sync(); const os = G.ui.show; if (os) G.ui.show = id => { if (id === 'screen-options') sync(); return os(id); };
   }

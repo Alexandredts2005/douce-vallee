@@ -316,7 +316,7 @@
     const tail = new THREE.Group(); tail.position.set(...S.tailAt); tail.add(mesh(S.tail, false)); torso.add(tail);
     const legs = []; if (S.biped) { if (S.legs[0]) for (const s of [-1, 1]) { const h = S.hips[0], pv = new THREE.Group(); pv.position.set(s * h[0], h[1], h[2]); pv.add(mesh(S.legs[0], false)); torso.add(pv); legs.push(pv); } }
     else for (const [i, s] of [[0, 1], [0, -1], [1, 1], [1, -1]]) { if (!S.legs[i]) continue; const h = S.hips[i], pv = new THREE.Group(); pv.position.set(s * h[0], h[1], h[2]); pv.add(mesh(S.legs[i], big)); torso.add(pv); legs.push(pv); }
-    g.rotation.order = 'YXZ'; return { k, D, S, g, torso, head, tail, legs, x: 0, y: 0, z: 0, yaw: R() * TAU, st: 'idle', t: 1 + R() * 3, ph: R() * TAU, act: null, actT: 0, spd: 0, fade: 0, happy: 0, follow: 0, curl: 0, hop: 0, voiceT: 8 + R() * 20, look: 0 }; }
+    g.rotation.order = 'YXZ'; return { k, D, S, g, torso, head, tail, legs, x: 0, y: 0, z: 0, yaw: R() * TAU - PI, st: 'idle', t: 1 + R() * 3, ph: R() * TAU, act: null, actT: 0, spd: 0, fade: 0, happy: 0, follow: 0, curl: 0, hop: 0, voiceT: 8 + R() * 20, look: 0 }; }
 
   // =====================================================================
   // ============================ HABITATS ================================
@@ -372,13 +372,13 @@
       if (SPECIES[k].gait === 'swim' ? water(m, x, z) : landOK(m, x, z)) { add(k, x, z, h); return; } } }
   // nouvelle destination autour de la maison de l'animal
   function wander(a, m) { const D = a.D, r = D.home === 'ferme' ? 7 : D.gait === 'swim' ? 5 : 6;
-    for (let t = 0; t < 8; t++) { const ang = R() * TAU, d = 1 + R() * r, x = a.hx + Math.cos(ang) * d, z = a.hz + Math.sin(ang) * d; if (D.gait === 'swim' ? water(m, x, z) : landOK(m, x, z)) { a.tx = x; a.tz = z; a.st = 'walk'; return; } } a.st = 'idle'; a.t = 1 + R() * 2; }
+    for (let t = 0; t < 8; t++) { const ang = R() * TAU, d = 1 + R() * r, x = a.hx + Math.cos(ang) * d, z = a.hz + Math.sin(ang) * d; if (D.gait === 'swim' ? water(m, x, z) : landOK(m, x, z)) { a.tx = x; a.tz = z; a.st = 'walk'; a.t = Math.hypot(x - a.x, z - a.z) / D.speed * 1.8 + 2; return; } } a.st = 'idle'; a.act = 'look'; a.t = 1 + R() * 2; }
   function flee(a, m, p) { const dx = a.x - p.x, dz = a.z - p.z, L = Math.hypot(dx, dz) || 1, D = a.D;
-    for (let t = 0; t < 8; t++) { const ang = Math.atan2(dx, dz) + (R() - .5) * 1.6, d = 5 + R() * 6, x = a.x + Math.sin(ang) * d, z = a.z + Math.cos(ang) * d; if (D.gait === 'swim' ? water(m, x, z) : landOK(m, x, z)) { a.tx = x; a.tz = z; a.st = 'run'; a.t = 4; return true; } } return false; }
+    for (let t = 0; t < 8; t++) { const ang = Math.atan2(dx, dz) + (R() - .5) * 1.6, d = 5 + R() * 6, x = a.x + Math.sin(ang) * d, z = a.z + Math.cos(ang) * d; if (D.gait === 'swim' ? water(m, x, z) : landOK(m, x, z)) { a.tx = x; a.tz = z; a.st = 'run'; a.t = d / D.run * 1.8 + 1.5; return true; } } return false; }
   const IDLE = { chat: ['sit', 'lie', 'wash', 'look', 'sleep'], chien: ['sit', 'lie', 'sniff', 'look', 'scratch'], vache: ['graze', 'graze', 'lie', 'look'], mouton: ['graze', 'graze', 'look', 'lie'], chevre: ['graze', 'look', 'graze'], cochon: ['sniff', 'graze', 'lie'],
     cheval: ['graze', 'graze', 'look'], ane: ['graze', 'look'], poule: ['peck', 'peck', 'look'], coq: ['peck', 'look', 'crow'], lapin: ['graze', 'look', 'sit'], ecureuil: ['sit', 'look', 'graze'], renard: ['sit', 'sniff', 'look'], cerf: ['graze', 'graze', 'look'],
     herisson: ['sniff', 'sniff'], grenouille: ['look', 'look', 'croak'], tortue: ['look', 'graze'], escargot: ['look'], canard: ['look', 'dabble', 'preen'], caneton: ['look'], cygne: ['look', 'preen'] };
-  const lerp = (a, b, k) => a + (b - a) * k, angDiff = (a, b) => { let d = (a - b) % TAU; if (d > PI) d -= TAU; if (d < -PI) d += TAU; return d; };
+  const lerp = (a, b, k) => a + (b - a) * k, wrapA = y => { y %= TAU; if (y > PI) y -= TAU; if (y < -PI) y += TAU; return y; }, angDiff = (a, b) => wrapA(a - b);
   function nearestWater(m, x, z, r) { let best = null, bd = 1e9; const tx = Math.floor(x), tz = Math.floor(z); for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const X = tx + dx, Z = tz + dz; if (m.inb(X, Z) && m.water[m.idx(X, Z)]) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = [X + .5, Z + .5]; } } } return best; }
 
   G.on('frame', dt => { const m = G.map, p = G.player; dt = Math.min(dt || 0, .1); if (!scene || !m || !p) return;
@@ -396,75 +396,82 @@
       if (a.kid && a.mother && list.includes(a.mother)) { if (a.mother.st === 'run' && a.st !== 'run') { a.st = 'run'; a.t = 3; } }
       else if (spook && d < spook && a.st !== 'run' && a.happy <= 0) { const wt = D.sp === 'grenouille' && nearestWater(m, a.x, a.z, 2); if (wt) { a.dive = 1; a.tx = wt[0]; a.tz = wt[1]; a.st = 'run'; a.t = 3; voice('grenouille', d); } else if (flee(a, m, p)) { if (R() < .5) voice(D.sp, d); } }
       if (D.curl && d < 1.6 && pv > .5 && a.curl <= 0) { a.curl = 4 + R() * 3; a.st = 'idle'; a.t = a.curl; }
-      if (a.follow > 0 && a.st !== 'run') { if (d > 2) { a.tx = p.x - Math.sin(p.yaw) * .9; a.tz = p.z - Math.cos(p.yaw) * .9; a.st = d > 5 ? 'run' : 'walk'; } else if (a.st === 'walk' || a.st === 'run') { a.st = 'idle'; a.act = 'sit'; a.t = 1; } }
+      if (a.follow > 0 && a.st !== 'run' && a.curl <= 0) { if (d > 2.2) { a.tx = p.x - Math.sin(p.yaw) * .9; a.tz = p.z - Math.cos(p.yaw) * .9; a.st = d > 5 ? 'run' : 'walk'; a.t = 2; } else if (a.st === 'walk') { a.st = 'idle'; a.act = 'sit'; a.t = 1.5; } }
       // ----- voix -----
       if ((a.voiceT -= dt) < 0) { a.voiceT = 14 + R() * 30; if (d < 22 && !(sleepy && !D.night)) { if (D.sp === 'coq') { const h = G.clock.min / 60; if (h > 5.5 && h < 9 || R() < .2) voice('coq', d); } else if (D.sp === 'grenouille') { if (night > .3 || R() < .3) voice('grenouille', d); } else if (!D.wild || R() < .3) voice(D.sp, d); } }
-      // ----- décisions -----
-      if (a.kid && a.mother && list.includes(a.mother)) { const mo = a.mother, f = a.rank * .32; a.tx = mo.x - Math.sin(mo.yaw) * f; a.tz = mo.z - Math.cos(mo.yaw) * f; const dd = Math.hypot(a.tx - a.x, a.tz - a.z); a.st = dd > .12 ? (mo.st === 'run' || dd > 1 ? 'run' : 'walk') : 'idle'; }
-      else if (a.t < 0 && a.st !== 'run' && a.follow <= 0 && a.curl <= 0) { const asleep = sleepy && !D.night && D.sp !== 'canard' && D.sp !== 'cygne';
-        if (asleep) { a.st = 'idle'; a.act = D.sp === 'poule' || D.sp === 'coq' || D.gait === 'swim' || D.sp === 'grenouille' ? 'look' : 'sleep'; a.t = 6 + R() * 6; }
-        else if (a.st === 'idle' && R() < .62) wander(a, m);
-        else { a.st = 'idle'; a.act = G.pick(IDLE[D.sp] || ['look']); a.t = 2 + R() * (a.act === 'sleep' || a.act === 'lie' ? 10 : 5); if (a.act === 'crow') voice('coq', d); } }
-      if (a.st === 'run' && a.t < 0 && Math.hypot(a.tx - a.x, a.tz - a.z) < .3) { a.st = 'idle'; a.t = 1; }
-      // ----- déplacement -----
-      let moving = false;
+      // ----- décisions : on ne choisit une nouvelle action qu'à l'arrêt -----
+      if (a.kid && a.mother && list.includes(a.mother)) { const mo = a.mother, f = a.rank * .34, tx = mo.x - Math.sin(mo.yaw) * f, tz = mo.z - Math.cos(mo.yaw) * f, dd = Math.hypot(tx - a.x, tz - a.z);
+        if (dd > .2) { a.tx = tx; a.tz = tz; a.st = dd > 1 || mo.st === 'run' ? 'run' : 'walk'; a.t = 2; } else if (a.st !== 'idle') { a.st = 'idle'; a.act = 'look'; a.t = 1; } }
+      else if (a.st === 'idle' && a.t < 0 && a.follow <= 0 && a.curl <= 0) { const asleep = sleepy && !D.night && D.sp !== 'canard' && D.sp !== 'cygne';
+        if (asleep) { a.act = D.sp === 'poule' || D.sp === 'coq' || D.gait === 'swim' || D.sp === 'grenouille' ? 'look' : 'sleep'; a.t = 6 + R() * 6; }
+        else if (a.act !== null && R() < .6) wander(a, m);
+        else { a.act = G.pick(IDLE[D.sp] || ['look']); a.t = 2.5 + R() * (a.act === 'sleep' || a.act === 'lie' ? 10 : 5); if (a.act === 'crow') voice('coq', d); } }
+      // ----- déplacement : tourner d'abord, avancer ensuite, s'arrêter pile à l'arrivée -----
+      let step = 0;
       if (a.st === 'walk' || a.st === 'run') { const run = a.st === 'run', sp = run ? D.run : D.speed, dx = a.tx - a.x, dz = a.tz - a.z, dd = Math.hypot(dx, dz);
-        if (dd < .12) { if (!a.kid) { a.st = 'idle'; a.act = run ? 'look' : null; a.t = run ? .8 : 1 + R() * 3; if (a.dive) { a.dive = 0; voice('splash', d); G.fx.burst(a.x, a.y, a.z, 8, [0xffffff, 0x9fdcff], 1.2, .4, 6); remove(a); continue; } } }
-        else { a.yaw = G.angLerp(a.yaw, Math.atan2(dx, dz), Math.min(1, dt * (run ? 7 : 4))); const fa = Math.cos(angDiff(a.yaw, Math.atan2(dx, dz))), step = sp * dt * Math.max(.15, fa) * (D.gait === 'hop' || D.gait === 'frog' ? (Math.sin(a.hop * PI) > .05 ? 1.6 : .15) : 1);
-          const nx = a.x + Math.sin(a.yaw) * step, nz = a.z + Math.cos(a.yaw) * step, ok = D.gait === 'swim' ? water(m, nx, nz) : landOK(m, nx, nz, a.y) || (a.dive && waterNear(m, nx, nz, 0));
-          if (ok && Math.hypot(nx - p.x, nz - p.z) > .45) { a.x = nx; a.z = nz; moving = true; } else { a.st = 'idle'; a.t = .4 + R(); if (a.kid) a.t = .1; } } }
+        if (dd < Math.max(.08, sp * dt * 1.2) || a.t < 0) {
+          if (a.dive && water(m, a.x, a.z)) { voice('splash', d); G.fx.burst(a.x, a.y, a.z, 8, [0xffffff, 0x9fdcff], 1.2, .4, 6); remove(a); continue; }
+          a.st = 'idle'; a.act = run || a.kid ? 'look' : null; a.t = a.kid ? .3 : run ? .8 + R() : 1.5 + R() * 3; a.dive = 0; }
+        else { const want = Math.atan2(dx, dz), diff = angDiff(want, a.yaw), tr = (run ? 6.5 : 3.6) * dt * (D.size > 1 ? .7 : 1); a.yaw = wrapA(a.yaw + G.clamp(diff, -tr, tr));
+          const al = Math.cos(angDiff(want, a.yaw)), f = al > .55 ? Math.min(1, (al - .55) / .35) : 0, st = Math.min(dd, sp * dt * f);
+          if (st > 0) { const nx = a.x + Math.sin(a.yaw) * st, nz = a.z + Math.cos(a.yaw) * st, ok = D.gait === 'swim' ? water(m, nx, nz) : landOK(m, nx, nz, a.y) || (a.dive && waterNear(m, nx, nz, 0));
+            if (ok && Math.hypot(nx - p.x, nz - p.z) > .45) { a.x = nx; a.z = nz; step = st; } else { a.st = 'idle'; a.act = 'look'; a.t = a.kid ? .3 : .8 + R() * 1.5; a.dive = 0; } } } }
       // ----- hauteur -----
-      if (D.gait === 'swim') { const ws = m.waterSurf(Math.floor(a.x), Math.floor(a.z)); a.y = ws - .01 + Math.sin(a.ph * 2 + a.x) * .012; }
+      if (D.gait === 'swim') { const ws = m.waterSurf(Math.floor(a.x), Math.floor(a.z)); a.y = ws - .01 + Math.sin(a.ph * 2 + a.x) * .01; }
       else a.y = lerp(a.y, a.dive && water(m, a.x, a.z) ? m.waterSurf(Math.floor(a.x), Math.floor(a.z)) : gy(m, a.x, a.z), Math.min(1, dt * 12));
       // ----- regarder le joueur -----
       const lookP = a.st === 'idle' && d < 5 && (a.act === 'look' || a.happy > 0 || a.follow > 0); let lookY = 0;
-      if (lookP) { lookY = G.clamp(angDiff(Math.atan2(p.x - a.x, p.z - a.z), a.yaw), -.9, .9); if (Math.abs(lookY) > .85 && a.happy > 0) a.yaw = G.angLerp(a.yaw, Math.atan2(p.x - a.x, p.z - a.z), dt * 3); }
+      if (lookP) { const toP = Math.atan2(p.x - a.x, p.z - a.z); lookY = G.clamp(angDiff(toP, a.yaw), -.9, .9); if (a.happy > 0 && Math.abs(angDiff(toP, a.yaw)) > .85) a.yaw = wrapA(a.yaw + G.clamp(angDiff(toP, a.yaw), -dt * 2.5, dt * 2.5)); }
       a.look = lerp(a.look, lookY, Math.min(1, dt * 4));
-      animate(a, dt, moving, d);
+      animate(a, dt, step, d);
     }
     // ----- un poisson saute de temps en temps -----
     if ((fishT -= dt) < 0) { fishT = 6 + R() * 10; for (let t = 0; t < 12; t++) { const ang = R() * TAU, dd = 5 + R() * 18, x = p.x + Math.cos(ang) * dd, z = p.z + Math.sin(ang) * dd; if (water(m, x, z) && water(m, x + 1, z) && water(m, x, z + 1)) { jumpFish(m, x, z); break; } } }
     if (fish && fish.on) updFish(m, dt);
   });
   // ---------- les poses ----------
-  function animate(a, dt, moving, d) { const D = a.D, S = a.S, T = a.torso, H = a.head, L = a.legs, gait = D.gait, run = a.st === 'run';
+  // ---------- les poses : allure réglée sur la distance parcourue, pattes repliées sous le corps au repos ----------
+  function animate(a, dt, step, d) { const D = a.D, S = a.S, T = a.torso, H = a.head, L = a.legs, gait = D.gait, run = a.st === 'run', moving = step > 0;
     a.g.position.set(a.x, a.y, a.z); a.g.rotation.y = a.yaw;
-    let tilt = 0, drop = 0, headX = 0, headY = a.look, legA = 0, roll = 0, bob = 0; const act = a.st === 'idle' ? a.act : null, legsTo = [0, 0, 0, 0];
-    if (moving) { const f = run ? (gait === 'hop' ? 2.2 : 2.6) : 1.6; a.gph = (a.gph || 0) + dt * (D.speed > .3 ? 5.5 : 3) * f * (D.size > 1 ? .7 : 1.2); }
-    if (gait === 'hop' || gait === 'frog') { if (moving) a.hop = (a.hop + dt * (run ? 3.2 : 2.1)) % 1; else a.hop = 0; const u = Math.sin(a.hop * PI); bob = u * (gait === 'frog' ? .09 : D.size * .45) * (run ? 1.2 : .7); tilt = moving ? -Math.cos(a.hop * PI) * .25 : 0;
-      for (let i = 0; i < L.length; i++) legsTo[i] = moving ? (i < 2 ? -.6 : .9) * u : 0; }
-    else if (moving) { const g = a.gph, amp = run ? .75 : .45; if (S.biped) { legsTo[0] = Math.sin(g) * amp; legsTo[1] = -Math.sin(g) * amp; roll = gait === 'waddle' || gait === 'swim' ? Math.sin(g) * .12 : 0; bob = Math.abs(Math.sin(g)) * .01; if (gait === 'waddle') headX = Math.sin(g * 2) * .25; }
-      else { legsTo[0] = Math.sin(g) * amp; legsTo[3] = Math.sin(g) * amp; legsTo[1] = -Math.sin(g) * amp; legsTo[2] = -Math.sin(g) * amp; bob = Math.abs(Math.cos(g)) * S.R * (run ? .25 : .1); headX = Math.sin(g * 2) * .05; } }
-    if (gait === 'slide' && moving) bob = 0;
-    // repos
-    if (act === 'graze') { headX = .9 + Math.sin(a.ph * 6) * .05; if (S.biped) headX = .6; }
-    else if (act === 'peck') { headX = Math.max(0, Math.sin(a.ph * 7)) * 1.1; }
-    else if (act === 'sniff') { headX = .55 + Math.sin(a.ph * 9) * .06; headY += Math.sin(a.ph * 1.3) * .4; }
-    else if (act === 'sit' && !S.biped) { tilt = -.42; drop = S.leg * .25; headX = -.2; legsTo[2] = legsTo[3] = -1.25; legsTo[0] = legsTo[1] = .42; }
-    else if (act === 'lie' || act === 'sleep') { drop = S.leg * .78; headX = act === 'sleep' ? .35 : .05; legsTo[0] = legsTo[1] = -1.35; legsTo[2] = legsTo[3] = 1.35; if (act === 'sleep' && (a.zz = (a.zz || 0) - dt) < 0 && d < 14) { a.zz = 1.4; G.fx.one(a.x, a.y + S.bodyY + S.R * 1.6, a.z, .1, .35, 0, 1.4, -.2, 0xffffff, .09, .6); } }
-    else if (act === 'wash') { tilt = -.42; drop = S.leg * .25; legsTo[2] = legsTo[3] = -1.25; legsTo[0] = .42; legsTo[1] = -.9 + Math.sin(a.ph * 8) * .3; headX = .3 + Math.sin(a.ph * 8) * .1; }
-    else if (act === 'scratch') { legsTo[3] = -.9 + Math.sin(a.ph * 22) * .4; headY = -.5; tilt = -.15; }
-    else if (act === 'crow') { headX = -.7; }
-    else if (act === 'dabble') { tilt = .9 + Math.sin(a.ph * 3) * .1; headX = .8; }
-    else if (act === 'preen') { headY = 1.2 + Math.sin(a.ph * 4) * .2; headX = .4; }
-    else if (act === 'croak') { bob = Math.max(0, Math.sin(a.ph * 10)) * .006; }
-    if (a.happy > 0 && !moving) { if (D.sp === 'chien') { bob = Math.abs(Math.sin(a.ph * 10)) * .08; } }
-    if (a.curl > 0) { drop = S.leg * .9; headX = .6; for (let i = 0; i < 4; i++) legsTo[i] = i < 2 ? -1.4 : 1.4; }
+    let tilt = 0, drop = 0, headX = 0, headY = a.look, roll = 0, bob = 0; const act = a.st === 'idle' ? a.act : null, rot = [0, 0, 0, 0], scl = [1, 1, 1, 1];
+    a.mv = lerp(a.mv || 0, moving ? 1 : 0, Math.min(1, dt * 7)); const mv = a.mv;
+    const stride = Math.max(.07, S.leg * (run ? 2.8 : 1.9)); if (moving) a.gph = ((a.gph || 0) + step / stride * TAU) % TAU; const g = a.gph || 0;
+    if (gait === 'hop' || gait === 'frog') { const hl = Math.max(.12, S.L * (run ? 2.2 : 1.3)); if (moving) a.hop = ((a.hop || 0) + step / hl) % 1; const u = Math.sin((a.hop || 0) * PI) * mv;
+      bob = u * S.R * (gait === 'frog' ? 1.7 : run ? 1.4 : .9); tilt = -Math.cos((a.hop || 0) * PI) * .16 * mv; for (let i = 0; i < L.length; i++) rot[i] = (i < 2 ? -.4 : .55) * u; }
+    else if (gait === 'swim') { roll = Math.sin(a.ph * 2.2) * .035; for (let i = 0; i < L.length; i++) scl[i] = .01; } // les pattes pagaient sous l'eau
+    else if (gait !== 'slide') { const amp = (run ? .55 : .34) * mv;
+      if (S.biped) { rot[0] = Math.sin(g) * amp * 1.3; rot[1] = -Math.sin(g) * amp * 1.3; if (gait === 'waddle') { roll = Math.sin(g) * .09 * mv; headX = Math.sin(g * 2) * .18 * mv; } bob = Math.abs(Math.sin(g)) * .01 * mv; }
+      else { rot[0] = rot[3] = Math.sin(g) * amp; rot[1] = rot[2] = -Math.sin(g) * amp; bob = (Math.abs(Math.cos(g)) - .5) * S.R * (run ? .18 : .07) * mv; headX = Math.sin(g * 2) * .035 * mv; } }
+    // au repos
+    if (act === 'graze') headX = S.biped ? .55 : .85 + Math.sin(a.ph * 4) * .04;
+    else if (act === 'peck') headX = Math.max(0, Math.sin(a.ph * 5.5)) * .95;
+    else if (act === 'sniff') { headX = .45 + Math.sin(a.ph * 6) * .05; headY += Math.sin(a.ph * 1.1) * .3; }
+    else if ((act === 'sit' || act === 'wash') && !S.biped && gait !== 'slide') { tilt = -.36; drop = S.leg * .3; headX = -.12; rot[0] = rot[1] = .36; rot[2] = rot[3] = -.45; scl[2] = scl[3] = .42;
+      if (act === 'wash') { rot[1] = -.95 + Math.sin(a.ph * 5) * .2; scl[1] = .7; headX = .32 + Math.sin(a.ph * 5) * .06; } }
+    else if (act === 'lie' || act === 'sleep') { drop = S.leg * (S.biped ? .55 : .8); headX = act === 'sleep' ? .28 : .04; for (let i = 0; i < L.length; i++) { scl[i] = .2; rot[i] = i < 2 && !S.biped ? -.35 : .35; }
+      if (act === 'sleep' && (a.zz = (a.zz || 0) - dt) < 0 && d < 14) { a.zz = 1.6; G.fx.one(a.x, a.y + S.bodyY + S.R * 1.6, a.z, .08, .3, 0, 1.4, -.2, 0xffffff, .08, .6); } }
+    else if (act === 'scratch' && !S.biped) { rot[3] = -.6 + Math.sin(a.ph * 16) * .2; scl[3] = .65; headY = -.45; }
+    else if (act === 'crow') headX = -.6;
+    else if (act === 'dabble') { tilt = .8 + Math.sin(a.ph * 2.5) * .08; headX = .7; }
+    else if (act === 'preen') { headY = 1.1 + Math.sin(a.ph * 3) * .15; headX = .35; }
+    else if (act === 'croak') bob = Math.max(0, Math.sin(a.ph * 9)) * .005;
+    if (a.happy > 0 && !moving && D.sp === 'chien') bob = Math.abs(Math.sin(a.ph * 8)) * .05;
+    if (a.curl > 0) { const shell = D.sp === 'herisson' || D.sp === 'tortue' || D.sp === 'escargot'; drop = S.leg * .85; headX = .5; for (let i = 0; i < L.length; i++) { scl[i] = shell ? .01 : .2; rot[i] = 0; } }
     // appliquer, en douceur
-    const k = Math.min(1, dt * 8); T.rotation.x = lerp(T.rotation.x, tilt, k); T.rotation.z = lerp(T.rotation.z, roll, k); T.position.y = lerp(T.position.y, bob - drop, Math.min(1, dt * 14));
-    if (act === 'sit' || act === 'wash') { T.position.z = lerp(T.position.z, -S.L * .12, k); } else T.position.z = lerp(T.position.z, 0, k);
+    const k = Math.min(1, dt * 7); T.rotation.x = lerp(T.rotation.x, tilt, k); T.rotation.z = lerp(T.rotation.z, roll, k); T.position.y = lerp(T.position.y, bob - drop, Math.min(1, dt * (moving ? 16 : 6)));
+    T.position.z = lerp(T.position.z, act === 'sit' || act === 'wash' ? -S.L * .1 : 0, k);
     H.rotation.x = lerp(H.rotation.x, headX, k); H.rotation.y = lerp(H.rotation.y, headY, k);
-    const hs = a.curl > 0 && (D.sp === 'herisson' || D.sp === 'tortue' || D.sp === 'escargot') ? .05 : 1; H.scale.setScalar(lerp(H.scale.x, hs, k)); for (const l of L) l.scale.y = lerp(l.scale.y, hs, k);
-    for (let i = 0; i < L.length; i++) L[i].rotation.x = lerp(L[i].rotation.x, legsTo[i], Math.min(1, dt * (moving ? 18 : 6)));
+    const hs = a.curl > 0 && (D.sp === 'herisson' || D.sp === 'tortue' || D.sp === 'escargot') ? .05 : 1; H.scale.setScalar(lerp(H.scale.x, hs, k));
+    for (let i = 0; i < L.length; i++) { L[i].rotation.x = lerp(L[i].rotation.x, rot[i], Math.min(1, dt * (moving ? 16 : 6))); L[i].scale.y = lerp(L[i].scale.y, scl[i], Math.min(1, dt * 6)); }
     // la queue
     const tl = a.tail; let wag = 0, tx = 0;
-    if (D.sp === 'chien') wag = Math.sin(a.ph * (a.happy > 0 || a.follow > 0 ? 18 : 6)) * (a.happy > 0 || a.follow > 0 ? .7 : .25);
-    else if (D.sp === 'chat') { wag = Math.sin(a.ph * 1.6) * .35; tx = moving ? -.2 : .1; }
-    else if (D.sp === 'vache' || D.sp === 'cheval' || D.sp === 'ane') wag = Math.sin(a.ph * 2.2) * .25 + (Math.sin(a.ph * .7) > .8 ? Math.sin(a.ph * 14) * .3 : 0);
-    else if (D.sp === 'cochon') wag = Math.sin(a.ph * 9) * .3; else if (D.sp === 'renard' || D.sp === 'ecureuil') { wag = Math.sin(a.ph * 2) * .2; tx = moving ? (D.sp === 'renard' ? -.3 : .3) : 0; }
+    if (D.sp === 'chien') wag = Math.sin(a.ph * (a.happy > 0 || a.follow > 0 ? 15 : 5)) * (a.happy > 0 || a.follow > 0 ? .6 : .2);
+    else if (D.sp === 'chat') { wag = Math.sin(a.ph * 1.4) * .3; tx = moving ? -.2 : .1; }
+    else if (D.sp === 'vache' || D.sp === 'cheval' || D.sp === 'ane') wag = Math.sin(a.ph * 1.8) * .2 + (Math.sin(a.ph * .6) > .85 ? Math.sin(a.ph * 11) * .25 : 0);
+    else if (D.sp === 'cochon') wag = Math.sin(a.ph * 7) * .25; else if (D.sp === 'renard' || D.sp === 'ecureuil') { wag = Math.sin(a.ph * 1.8) * .18; tx = moving ? (D.sp === 'renard' ? -.3 : .3) : 0; }
     tl.rotation.y = wag; tl.rotation.x = lerp(tl.rotation.x, tx, k);
     // ondes autour des nageurs
-    if (D.gait === 'swim' && moving && (a.wake = (a.wake || 0) - dt) < 0) { a.wake = .35; G.fx.one(a.x - Math.sin(a.yaw) * S.L * .5, a.y + .01, a.z - Math.cos(a.yaw) * S.L * .5, 0, .02, 0, .9, 0, 0xffffff, .05 * (D.size + .3), 3); } }
+    if (D.gait === 'swim' && moving && (a.wake = (a.wake || 0) - dt) < 0) { a.wake = .4; G.fx.one(a.x - Math.sin(a.yaw) * S.L * .5, a.y + .01, a.z - Math.cos(a.yaw) * S.L * .5, 0, .02, 0, .9, 0, 0xffffff, .05 * (D.size + .3), 3); } }
 
   // ---------- le poisson qui saute ----------
   function jumpFish(m, x, z) { if (!fish) { const b = G.mb(495), sk = SK(); b.S(SK().ceramic); ell(b, 0x8a9aa8, 0, 0, 0, .05, .07, .2); ell(b, 0xe8eef2, 0, -.025, .02, .04, .04, .15); b.add(new THREE.ConeGeometry(.08, .12, 4), 0x6a7a88, b.M(0, 0, -.24, -PI / 2, 0, 0, .25, 1, 1), 0, false); b.S(null); eyes(b, [0, .015, .12], .035, 0, 0, .012, 0xe8d8a8, 'round');
