@@ -57,9 +57,17 @@
     for (const [yy, zz] of [[y0 - L + .05, z - .02], [y0 - .06, z - .02], [y0 - .03, z + L - .04]]) put(b, new THREE.SphereGeometry(.02, 10, 8), GOLD, base, 0, yy, zz, 0, 0, 0, true);
     put(b, new THREE.SphereGeometry(.035, 12, 10), GOLD, base, 0, y0 - L - .02, z, 0, 0, 0, true); // boule de pendentif sous le montant
   }
+  // ---------- ferme sous une case sans appui : une diagonale et une membrure basse vers le pilier le plus proche (dir = N, E, S, O) ----------
+  const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  function truss(b, top, dir) { const [dx, dz] = DIRS[dir], y1 = top - DK - .08, y2 = top - DK - .72;
+    bar(b, null, [-dx * .5, y2, -dz * .5], [dx * .5, y2, dz * .5], .018, GR, 8); // membrure basse
+    bar(b, null, [-dx * .45, y1, -dz * .45], [dx * .45, y2 + .02, dz * .45], .016, GR, 8); // diagonale vers le pilier
+    bar(b, null, [-dx * .45, y1, -dz * .45], [-dx * .45, y2, -dz * .45], .012, GR, 6); // montant
+    const ry = Math.atan2(dx, dz); put(b, arc(.13, .008, PI * 1.5), GR, null, -dx * .1, (y1 + y2) / 2 + .05, -dz * .1, 0, ry + PI / 2, 0, true); put(b, arc(.06, .007, PI * 1.5), GR, null, dx * .2, (y1 + y2) / 2 - .12, dz * .2, 0, ry + PI / 2, PI, true);
+    for (const [px, py, pz] of [[-dx * .45, y1, -dz * .45], [-dx * .45, y2, -dz * .45], [dx * .45, y2 + .02, dz * .45]]) b.sph(.022, GOLD, px, py, pz, 1, 1, 1, 0, 10, 8); }
   // ---------- plateforme ----------
   function platform(b, v) {
-    const susp = v & 32, k = lvlOf(v) + 1, top = k * T;
+    const susp = v & 32, k = lvlOf(v) + 1, top = k * T, solid = (v >> 11) & 15, brace = (v >> 15) & 7;
     b.box(1, DK, 1, GRD, 0, top - DK / 2, 0);
     for (let q = -2; q <= 2; q++) { b.box(1, .012, .022, GR, 0, top + .004, q * .2); b.box(.022, .012, 1, GR, q * .2, top + .004, 0); } // caillebotis
     b.box(1, .06, .05, GRD, 0, top - DK - .03, 0); b.box(.05, .06, 1, GRD, 0, top - DK - .03, 0); // poutres sous le plancher
@@ -67,8 +75,11 @@
       put(b, box(1, .14, .035), GR, base, 0, top - DK - .07, -.5 + .0175); put(b, box(1, .012, .006), GOLD, base, 0, top - DK - .07, -.5 - .002); // poutre de rive, filet doré
       for (let q = 0; q < 4; q++) put(b, arc(.11, .007, PI), GR, base, -.375 + q * .25, top - DK - .14, -.5 + .02, 0, 0, PI, true); // festons
       railing(b, base, top, true, !!(v & nxt));
-      // suspendue : une équerre de fixation sous le bord, tous les 5 cases de balustrade (x multiple de 5 au nord et au sud, z à l'est et à l'ouest)
-      if (susp && ((bit & 5) ? (v & 16) : (v & 256))) bracket(b, base, top - DK - .14); }
+      // suspendue et accrochée à rien : une équerre sous le bord, tous les 5 cases de balustrade (x multiple de 5 au nord et au sud, z à l'est et à l'ouest)
+      if (susp && !solid && ((bit & 5) ? (v & 16) : (v & 256))) bracket(b, base, top - DK - .14); }
+    // contre une falaise, un mur, un rocher… : l'équerre se fixe toute seule du bon côté (montant contre le solide, bras sous le plancher)
+    SIDES.forEach(([bit, a], i) => { if (solid & (1 << i)) { const base = new THREE.Matrix4().makeRotationY(a); bracket(b, base, top - DK - .02); } });
+    if (!susp && brace) truss(b, top, brace - 1);
     if (susp && (v & 16) && (v & 256)) { // axe de fixation central : tige à boule dorée sous le croisement des poutres
       b.cyl(.022, .022, .55, 10, GR, 0, top - DK - .06 - .275, 0, 0, 0, 0, 0, true); b.tor(.03, .008, GOLD, 0, top - DK - .2, 0, PI / 2, 0, 0, 0, 12); b.sph(.05, GOLD, 0, top - DK - .36, 0, 1, 1.2, 1, 0, 14, 12); b.cone(.02, .07, 10, GOLD, 0, top - DK - .44, 0, PI); }
     if (!susp) { const cols = [], tp = top - DK; if ((v & 16) && (v & 256)) cols.push([0, 0, [[1, 0], [-1, 0], [0, 1], [0, -1]]]);
@@ -78,7 +89,10 @@
   MD.plateforme_fer = v => { const b = G.mb(960 + ((v || 0) & 1023)); platform(b, v || 0); return b.done(); };
   // le jeu réserve les variantes ≥ 100 aux lampes éteintes : étage, suspendue et « z multiple de 5 » vont dans le nom du modèle
   for (let c = 0; c < 64; c++) MD['pf_' + c] = v => { const b = G.mb(1100 + c * 32 + (v & 31)); platform(b, (v & 31) | (c & 2 ? 32 : 0) | (c & 1 ? 256 : 0) | G.lvlBits(c >> 2)); return b.done(); };
-  const pfKey = v => 'pf_' + (Math.min(15, lvlOf(v)) * 4 + (v & 32 ? 2 : 0) + (v & 256 ? 1 : 0)) + ':' + (v & 31);
+  const pfKey = v => { const c = Math.min(15, lvlOf(v)) * 4 + (v & 32 ? 2 : 0) + (v & 256 ? 1 : 0), ex = ((v >> 11) & 15) | (((v >> 15) & 7) << 4); return (ex ? 'pfx_' + c + '_' + ex : 'pf_' + c) + ':' + (v & 31); };
+  const ogg = G.getGeo; G.getGeo = (name, v = 0) => { if (typeof name === 'string' && name.startsWith('pfx_') && !MD[name]) { const [, c, ex] = name.split('_').map(Number);
+      MD[name] = vv => { const b = G.mb(1100 + c * 32 + (vv & 31)); platform(b, (vv & 31) | (c & 2 ? 32 : 0) | (c & 1 ? 256 : 0) | G.lvlBits(c >> 2) | ((ex & 15) << 11) | ((ex >> 4) << 15)); return b.done(); }; }
+    return ogg(name, v); };
   // ---------- escalier en fer forgé ----------
   const NST = D => D === 1 ? 6 : 8;
   function ironStairs(b, D, J, e) {
@@ -97,11 +111,12 @@
           if (!e) for (const R of [.1, .065, .035]) put(b, arc(R, .009, PI * 1.6), GR, null, x, .3, D / 2 + .02 + R * .3, 0, PI / 2, 0, true); } // volute de départ
         if (!J.B) { b.box(.055, 1.2, .055, GR, x, T + .4, -D / 2 + .03); b.sph(.036, GOLD, x, T + 1.04, -D / 2 + .03, 1, 1, 1, 0, 12, 10); } } });
     // supports : une colonne sous le milieu de la grande volée ; en hauteur, des colonnes du sol jusqu'aux deux bouts
-    if (D === 2) column(b, 0, 0, [], Y0 + T / 2 - .12);
-    if (e) for (const s of [-1, 1]) { column(b, s * .4, D / 2 - .12, [], Y0 - .04); column(b, s * .4, -D / 2 + .12, [], Y0 + T - .22); }
+    // supports : au sol, une colonne sous le milieu de la grande volée ; en hauteur, une paire de colonnes tous les 3 escaliers (J.P)
+    if (D === 2 && (!e || J.P)) column(b, 0, 0, [], Y0 + T / 2 - .12);
+    if (e && J.P) for (const s of [-1, 1]) column(b, s * .4, D / 2 - .12, [], Y0 - .04);
   }
-  MD.esc_fer = v => { const b = G.mb(980 + ((v || 0) & 3)); ironStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32 }, lvlOf(v)); return b.done(); };
-  for (let e = 0; e < 16; e++) MD['ef_' + e] = v => { const b = G.mb(1700 + e * 4 + (v & 3)); ironStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32 }, e); return b.done(); };
+  MD.esc_fer = v => { const b = G.mb(980 + ((v || 0) & 3)); ironStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32, P: v & 2 }, lvlOf(v)); return b.done(); };
+  for (let e = 0; e < 16; e++) MD['ef_' + e] = v => { const b = G.mb(1700 + e * 4 + (v & 3)); ironStairs(b, v & 1 ? 2 : 1, { L: v & 4, R: v & 8, F: v & 16, B: v & 32, P: v & 2 }, e); return b.done(); };
   const efKey = v => 'ef_' + lvlOf(v) + ':' + (v & 63);
   const oko = G.objKey; G.objKey = o => { const d = O[o.t]; return d && d.keyOf ? d.keyOf(o.v != null ? o.v : d.v || 0) : oko(o); };
   // ---------- collisions ----------
@@ -137,16 +152,30 @@
       if (qd && qd.stair) { const F = G.FR[q.r & 3], sb = G.stairBase(q); if ((F[0] === dx && F[1] === dz && Math.abs(sb + T - dk) < .01) || (F[0] === -dx && F[1] === -dz && Math.abs(sb - dk) < .01)) v |= bit; } // un escalier arrive ou part de ce bord
       else if (!m.water[m.idx(x, z)] && m.baseH(x, z) > dk - .3) v |= bit; } // du sol au niveau du plancher ou plus haut (falaise, butte) : pas de balustrade, seulement côté vide
     if (o.x % 5 === 0) v |= 16; if (o.z % 5 === 0) v |= 256;
+    let solid = 0; NB.forEach(([dx, dz], i) => { if (solidAt(m, o.x + dx, o.z + dz, dk)) solid |= 1 << i; }); v |= solid << 11;
+    if (!d.susp && !solid && !hasCol(v)) { let best = 0, bk = 99; NB.forEach(([dx, dz], i) => { for (let k = 1; k <= 6 && k < bk; k++) { const q = platAt(m, o.x + dx * k, o.z + dz * k, dk); if (!q) break; if (!O[q.t].susp && hasCol(q.v || 0)) { bk = k; best = i + 1; break; } } }); v |= best << 15; }
     if (v !== o.v) { o.v = v; if (o._k) m.refresh(o); } }
-  const touch = (m, o) => { const d = O[o.t], [w, dd] = G.fpDims(d, o.r || 0); for (let z = o.z - 1; z <= o.z + dd; z++) for (let x = o.x - 1; x <= o.x + w; x++) for (const q of [m.objAt(x, z), m.upAt && m.upAt(x, z)]) { if (!q || q === o) continue; const qd = O[q.t];
-    if (qd.plat) relinkPlat(m, q); else if (qd.stair && G.stairRelink) G.stairRelink(m, q); } };
+  // une case a-t-elle sa propre colonne ? (croisement des multiples de 5, ou coin extérieur)
+  const hasCol = v => !!(((v & 16) && (v & 256)) || [[1, 2], [2, 4], [4, 8], [8, 1]].some(([a, c]) => !(v & a) && !(v & c)));
+  // ce qui est solide à côté : falaise ou butte à la hauteur du plancher, mur de maison, rocher, gros bâtiment
+  const solidAt = (m, x, z, dk) => { if (!m.inb(x, z)) return false; const i = m.idx(x, z); if (!m.water[i] && m.baseH(x, z) > dk - .3) return true;
+    const q = m.objAt(x, z), qd = q && O[q.t]; return !!(qd && !qd.plat && !qd.stair && !qd.walk && (q.y || 0) + (qd.h || 0) > dk - .3 && (qd.enter || qd.fixed || qd.mine || qd.h > 2)); };
+  // escaliers en fer : on compte depuis le bas de la volée, une paire de colonnes tous les 3 escaliers
+  const ironSt = q => !!(q && O[q.t] && O[q.t].stair && O[q.t].model === 'esc_fer');
+  function stairNext(m, o, sg) { const d = O[o.t], [w, dd] = G.fpDims(d, o.r), Fv = G.FR[o.r & 3], L = d.fp[1], x = Math.floor(o.x + w / 2 + Fv[0] * sg * (L / 2 + .5)), z = Math.floor(o.z + dd / 2 + Fv[1] * sg * (L / 2 + .5)), q = m.objAt(x, z);
+    if (!ironSt(q) || q === o || (q.r & 3) !== (o.r & 3)) return null; return Math.abs(G.stairBase(q) - (G.stairBase(o) - sg * T)) < .05 ? q : null; }
+  function stairChain(m, o) { if (!ironSt(o)) return; let b = o, n = 0; while (n++ < 64) { const q = stairNext(m, b, 1); if (!q) break; b = q; }
+    let i = 0, q = b; while (q && i < 64) { const v0 = q.v != null ? q.v : O[q.t].v, want = i % 3 === 0 ? 2 : 0; if ((v0 & 2) !== want) { q.v = (v0 & ~2) | want; if (q._k) m.refresh(q); } q = stairNext(m, q, -1); i++; } }
+  const touch = (m, o) => { const d = O[o.t], [w, dd] = G.fpDims(d, o.r || 0), R = d.plat ? 6 : 1, near = q => q.x >= o.x - 1 && q.x <= o.x + w && q.z >= o.z - 1 && q.z <= o.z + dd;
+    for (let z = o.z - R; z <= o.z + dd - 1 + R; z++) for (let x = o.x - R; x <= o.x + w - 1 + R; x++) { if (!m.inb(x, z)) continue; for (const q of [m.objAt(x, z), m.upAt && m.upAt(x, z)]) { if (!q || q === o) continue; const qd = O[q.t];
+      if (qd.plat) relinkPlat(m, q); else if (qd.stair && near(q)) { if (G.stairRelink) G.stairRelink(m, q); stairChain(m, q); } } } };
   // pose par le joueur : la plateforme ou l'escalier en fer prend la hauteur où il se tient
   let placing = false; const opl = G.act.placeObj; G.act.placeObj = (it, tx, tz) => { placing = true; try { return opl(it, tx, tz); } finally { placing = false; } };
   const GP = G.GMap.prototype, oadd = GP.addObj, orem = GP.removeObj;
   GP.addObj = function (t, tx, tz, r, extra) { const d = O[t], plat = d && d.plat;
     if (placing && this === G.map && d && (plat || t.startsWith('escalier_fer'))) { const lv = plat ? placeLvl(this, tx, tz, 1) - 1 : placeLvl(this, tx, tz, 0); extra = Object.assign({}, extra, { v: ((d.v || 0) & ~1728) | G.lvlBits(lv) }); }
     const o = oadd.call(this, t, tx, tz, plat ? 0 : r, extra);
-    if (o && (plat || d.stair)) { if (plat) relinkPlat(this, o); else if (G.stairRelink) G.stairRelink(this, o); touch(this, o); } return o; };
+    if (o && (plat || d.stair)) { if (plat) relinkPlat(this, o); else if (G.stairRelink) G.stairRelink(this, o); touch(this, o); if (d.stair) stairChain(this, o); } return o; };
   GP.removeObj = function (o) { const d = o && O[o.t], hit = d && (d.plat || d.stair); const res = orem.call(this, o); if (hit) touch(this, o); return res; };
   const otake = G.act.take; G.act.take = () => { const p = G.player, m = G.map; if (p && m && m.upAt && !p.act && !p.sit && !p.dead) { const [tx, tz] = p.target(), u = m.upAt(tx, tz), g = m.objAt(tx, tz);
       if (u && !(g && g.dk != null) && (!g || p.y > G.platDeck(u) - .6)) { const [cx, cz] = m.center(u); if (G.mode === 'survie' && G.inv.add(u.t, 1) > 0) { G.ui.toast('Inventaire plein !'); return; } m.removeObj(u); G.sfx('pickup'); G.fx.puff(cx, G.platDeck(u), cz, 10, 0xffffff, .7); return; } } return otake(); };
