@@ -259,7 +259,7 @@
   // =====================================================================
   // ============================ CATALOGUE ===============================
   // =====================================================================
-  Object.assign(O.tour_eiffel || (O.tour_eiffel = { id: 'tour_eiffel', model: 'tour_eiffel', v: 0, take: 1, cat: 'construction' }), { n: 'Tour Eiffel', monument: 1, fp: [24, 24], h: 60, light: 1, ly: 52, ld: 40, li: 1.8 });
+  Object.assign(O.tour_eiffel || (O.tour_eiffel = { id: 'tour_eiffel', model: 'tour_eiffel', v: 0, take: 1, cat: 'construction' }), { n: 'Tour Eiffel', monument: 1, fp: [24, 24], h: 60, light: 1, ly: 52, ld: 40, li: 1.8, open: (x, z) => !((x <= 5 || x >= 18) && (z <= 5 || z >= 18)) });
   Object.assign(O.notre_dame || (O.notre_dame = { id: 'notre_dame', model: 'notre_dame', v: 0, take: 1, cat: 'construction' }), { n: 'Notre-Dame de Paris', monument: 1, fp: [7, 16], h: 11.2, light: 1, ly: 3.9, ld: 9, li: .8, enter: 'cathedrale' });
   for (const [id, n, sell, desc] of [['tour_eiffel', 'Tour Eiffel', 80000, 'Gigantesque : 60 cases jusqu\'à l\'antenne et 24 de côté au sol. Quatre piliers en treillis fin aux arêtes courbes sur leurs massifs de pierre, grandes arches, 1er et 2e étages et leurs pavillons, le fût, le 3e étage vitré, le campanile et les antennes. La nuit, elle scintille d\'or.'],
     ['notre_dame', 'Notre-Dame de Paris', 120000, 'Immense : tours de 8 cases, flèche à 11, quinze cases de long. Portails sculptés, galerie des rois, grande rose, arcs-boutants, transept et chevet, flèche et apôtres. On peut entrer dedans !']]) {

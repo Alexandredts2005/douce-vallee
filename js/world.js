@@ -187,6 +187,7 @@
       if (G._deckY != null && G.deckOK(d)) { const s = this.deckFit(t, tx, tz, r, G._deckY); if (s !== null) return !!s; } // posé par le joueur sur un plancher
       for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) {
         if (x < m || z < m || x >= this.W - m || z >= this.H - m) return false;
+        if (d.open && d.open(x - tx, z - tz, r)) continue; // case vide du bâtiment (sous une arche, entre les pieds) : rien à y vérifier, on peut y poser autre chose
         const i = z * this.W + x; if (this.occ[i] && !G.replaces(d, this.objs[this.occ[i] - 1])) return false;
         if (d.onWater) { if (!this.water[i]) return false; } else if ((this.water[i] && !d.plat && !(d.stair && (d.model === 'esc_fer' || d.waterOK))) || this.ramp[i]) return false;
         if (L === null) L = this.lvl[i]; else if (this.lvl[i] !== L) return false;
@@ -198,14 +199,14 @@
       let ds = extra && extra.dk != null ? { du: extra.du ? 1 : 0, dk: +extra.dk } : null; // posé sur un plancher : sa hauteur au-dessus du sol
       if (!ds && G._deckY != null && G.deckOK(d)) { const s = this.deckFit(t, tx, tz, r, G._deckY); if (s) ds = { du: s.du, dk: Math.round((s.h - this.baseH(tx, tz)) * 1000) / 1000 }; }
       // une maison, un bâtiment ou l'avion se posent par-dessus les fleurs : elles sont enlevées
-      if (!ds) for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { const q = this.objAt(x, z); if (q && G.replaces(d, q)) this.removeObj(q); }
+      if (!ds) for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) { if (d.open && d.open(x - tx, z - tz, r)) continue; const q = this.objAt(x, z); if (q && G.replaces(d, q)) this.removeObj(q); }
       const o = { t, x: tx, z: tz, r, hp: d.chop || d.mine || 0, f: (d.fruit || d.pickFruit) ? 3 : 0 };
       if (extra) Object.assign(o, extra);
       o.y = this.baseH(tx, tz) + (o.cy || 0); const own = tz * this.W + tx; // cy : posé plus haut que le terrain (la cour pavée d'un château)
       if (ds) { o.dk = ds.dk; if (ds.du) o.du = 1; else delete o.du; o.y += ds.dk; const D = this.dk || (this.dk = new Map()), b = ds.du ? this.W * this.H : 0; for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) D.set(b + z * this.W + x, o); }
       else if (d.up) { const U = this.up || (this.up = new Map()); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) U.set(z * this.W + x, o); }
       else if (d.ceil) { o.y += this.ceilH(); o.v = Math.round(this.ceilH() * 2); for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.ceil.set(z * this.W + x, o); }
-      else { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z)) this.occ[z * this.W + x] = own + 1; this.objs[own] = o; }
+      else { for (let z = tz; z < tz + dd; z++) for (let x = tx; x < tx + w; x++) if (this.inb(x, z) && !(d.open && d.open(x - tx, z - tz, r))) this.occ[z * this.W + x] = own + 1; this.objs[own] = o; }
       this.list.add(o); if (d.light) this.lights.add(o);
       this.objr.add(o); this.rev++; return o;
     }

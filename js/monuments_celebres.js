@@ -370,7 +370,7 @@
   // =====================================================================
   const add = (id, n, o, sell, desc) => { O[id] = Object.assign({ id, n, model: id, v: 0, take: 1, cat: 'construction', monument: 1 }, o);
     G.ITEMS[id] = Object.assign(G.ITEMS[id] || {}, { id, n, kind: 'place', obj: id, cat: 'construction', thumb: 'obj:' + id, sell, stack: 1, desc }); if (G.SHOPLIST && !G.SHOPLIST.includes(id)) G.SHOPLIST.push(id); };
-  add('arc_triomphe', 'Arc de Triomphe', { fp: [5, 3], h: 5.1 }, 45000, 'Grand arc, frises sculptées, boucliers de l\'attique et le drapeau tricolore sous la voûte.');
+  add('arc_triomphe', 'Arc de Triomphe', { fp: [5, 3], h: 5.1, open: (x, z, r) => (r & 1 ? z : x) === 2 }, 45000, 'Grand arc, frises sculptées, boucliers de l\'attique et le drapeau tricolore sous la voûte.');
   add('pyramide_louvre', 'Pyramide du Louvre', { fp: [5, 5], h: 2.8 }, 40000, 'Verre et acier en losanges, entourée de ses bassins et de leurs jets d\'eau.');
   add('sacre_coeur', 'Basilique du Sacré-Cœur', { fp: [6, 7], h: 12.3 }, 70000, 'Toute blanche, son grand dôme sur un tambour à colonnes, ses quatre petits dômes et son campanile.');
   add('obelisque', 'Obélisque de la Concorde', { fp: [2, 2], h: 8.9 }, 25000, 'Granit rose couvert de hiéroglyphes, et sa pointe dorée.');
