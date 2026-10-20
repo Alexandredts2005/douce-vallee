@@ -2,6 +2,14 @@
 // ===== Carte en tuiles : niveaux/falaises, pentes, eau & cascades, objets instanciés (1 draw call par type) =====
 (function () {
   const T = G.TIER, CH = 24, WS = -.32, BED = -.9, SEABED = -1.35;
+  // paroi de falaise découpée en couches d'un niveau, comme dans Minecraft : seule la couche du dessus a son liseré d'herbe
+  // (moitié haute de la texture), les couches en dessous ne montrent que la terre (moitié basse). A, B : bas de l'arête ; y0 / t : bas / haut de chaque arête
+  function cliffQuad(buf, A, B, yA0, yB0, tA, tB, cb, ct, uA, uB) {
+    const n = Math.max(1, Math.ceil(Math.max(tA - yA0, tB - yB0) / T - .001));
+    const col = (y, y0, t) => { const k = t - y0 > 1e-4 ? G.clamp((y - y0) / (t - y0), 0, 1) : 1; return [cb[0] + (ct[0] - cb[0]) * k, cb[1] + (ct[1] - cb[1]) * k, cb[2] + (ct[2] - cb[2]) * k]; };
+    for (let k = 0; k < n; k++) { const aT = tA - k * T, bT = tB - k * T, aTop = Math.max(aT, yA0), bTop = Math.max(bT, yB0), aB = Math.max(yA0, aT - T), bB = Math.max(yB0, bT - T);
+      if (aTop - aB < 1e-4 && bTop - bB < 1e-4) continue; const base = k ? .006 : .506, v = (y, top) => base + G.clamp(1 - (top - y) / T, 0, 1) * .488;
+      buf.quad([A[0], aB, A[2]], [B[0], bB, B[2]], [B[0], bTop, B[2]], [A[0], aTop, A[2]], col(aB, yA0, tA), col(bB, yB0, tB), col(bTop, yB0, tB), col(aTop, yA0, tA), [uA, v(aB, aT)], [uB, v(bB, bT)], [uB, v(bTop, bT)], [uA, v(aTop, aT)]); } }
   const tmp4 = [0, 0, 0, 0], nb4 = [0, 0, 0, 0], M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S1 = new THREE.Vector3(1, 1, 1), SV = new THREE.Vector3(), YA = new THREE.Vector3(0, 1, 0);
   // ---------- tampon de géométrie ----------
   function FREE() { this.array = null; } // une fois envoyé à la carte graphique, le tableau n'est plus utile
@@ -269,7 +277,7 @@
             const yA0 = Math.min(nA, tA), yB0 = Math.min(nB, tB);
             const uA = (A[0] + A[2]) * .5, uB = (B[0] + B[2]) * .5;
             const sh = wt ? .7 : 1;
-            walls.quad([A[0], yA0, A[2]], [B[0], yB0, B[2]], [B[0], tB, B[2]], [A[0], tA, A[2]], [.62 * sh, .62 * sh, .62 * sh], [.62 * sh, .62 * sh, .62 * sh], [sh, sh, sh], [sh, sh, sh], [uA, yA0 / T], [uB, yB0 / T], [uB, tB / T], [uA, tA / T]);
+            cliffQuad(walls, A, B, yA0, yB0, tA, tB, [.62 * sh, .62 * sh, .62 * sh], [sh, sh, sh], uA, uB);
           }
           // cascade : eau voisine plus basse
           if (wt && inb && this.water[nz * W + nx] && this.lvl[nz * W + nx] < this.lvl[i]) {
@@ -281,7 +289,7 @@
         }
         const lowH = j => this.water[j] ? this.lvl[j] * T + (this.water[j] === 2 ? SEABED : BED) : this.lvl[j] * T;
         if (anyCv) for (const k of RING) { if (!cv[k]) continue; const [s1, s2] = CS[k], j1 = nbi(SIDES[s1][0], SIDES[s1][1]), j2 = nbi(SIDES[s2][0], SIDES[s2][1]), jd = nbi(DG[k][0], DG[k][1]), yb = Math.min(lowH(j1), lowH(j2)), pts = ARC[k];
-          for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1], uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; walls.quad([tx + p[0], yb, tz + p[1]], [tx + q[0], yb, tz + q[1]], [tx + q[0], L0, tz + q[1]], [tx + p[0], L0, tz + p[1]], [.62, .62, .62], [.62, .62, .62], [1, 1, 1], [1, 1, 1], [uA, yb / T], [uB, yb / T], [uB, L0 / T], [uA, L0 / T]); }
+          for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1], uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; cliffQuad(walls, [tx + p[0], 0, tz + p[1]], [tx + q[0], 0, tz + q[1]], yb, yb, L0, L0, [.62, .62, .62], [1, 1, 1], uA, uB); }
           const Q = [tx + CX[k], 0, tz + CZ[k]], wj = this.water[j1] ? j1 : this.water[j2] ? j2 : this.water[jd] ? jd : -1;
           const patch = (buf, y, colr, uvf) => { for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1]; upTri(buf, [Q[0], y, Q[2]], [tx + p[0], y, tz + p[1]], [tx + q[0], y, tz + q[1]], colr, colr, colr, uvf(CX[k], CZ[k]), uvf(p[0], p[1]), uvf(q[0], q[1])); } };
           if (wj >= 0) { const bed = lowH(wj), ws = this.lvl[wj] * T + WS, cb = this.water[wj] === 2 ? [.52, .62, .7] : [.66, .7, .78], [b0, b1, b2, b3] = G.atlasUV(10); patch(tops, bed, cb, (x, z) => [b0 + x * (b2 - b0), b3 - z * (b3 - b1)]); patch(wat, ws, [.92, .98, 1], (x, z) => [(tx + x) * .3, (tz + z) * .3]); }
@@ -300,7 +308,7 @@
             for (const k of RING) { if (!cv[k]) continue; const [s1, s2] = CS[k], j1 = nbi(SIDES[s1][0], SIDES[s1][1]), j2 = nbi(SIDES[s2][0], SIDES[s2][1]), top = Math.max(this.lvl[j1], this.lvl[j2]) * T, pts = ARC[k], Q = [tx + CX[k], top, tz + CZ[k]];
               const sc = G.SURF[this.surf[j1]] ? G.SURF[this.surf[j1]].cell : 0, [g0, g1, g2, g3] = G.atlasUV(sc), gu = (x, z) => [g0 + x * (g2 - g0), g3 - z * (g3 - g1)], cg = [.95, .95, .95];
               for (let r = 0; r < pts.length - 1; r++) { const p = pts[r], q = pts[r + 1]; upTri(tops, Q, [tx + p[0], top, tz + p[1]], [tx + q[0], top, tz + q[1]], cg, cg, cg, gu(CX[k], CZ[k]), gu(p[0], p[1]), gu(q[0], q[1]));
-                const uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; walls.quad([tx + q[0], bed, tz + q[1]], [tx + p[0], bed, tz + p[1]], [tx + p[0], top, tz + p[1]], [tx + q[0], top, tz + q[1]], [.62, .62, .62], [.62, .62, .62], [1, 1, 1], [1, 1, 1], [uB, bed / T], [uA, bed / T], [uA, top / T], [uB, top / T]); } } }
+                const uA = (tx + p[0] + tz + p[1]) * .5, uB = (tx + q[0] + tz + q[1]) * .5; cliffQuad(walls, [tx + q[0], 0, tz + q[1]], [tx + p[0], 0, tz + p[1]], bed, bed, top, top, [.62, .62, .62], [1, 1, 1], uB, uA); } } }
         }
       }
       const lz = this.lazyT(), g = new THREE.Group(); const add = (buf, mat, shadow) => { const geo = buf.geo(); if (!geo) return; if (lz) for (const k in geo.attributes) geo.attributes[k].onUpload(FREE); const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = shadow; m.frustumCulled = false; g.add(m); };

@@ -19,6 +19,9 @@
   tag(LK.hair, 'f', ['carre', 'long', 'queue', 'couettes', 'chignon', 'tresses', 'frange', 'ondule', 'macarons', 'mi_long', 'long_lisse', 'queue_haute']);
   LK.hair.splice(LK.hair.length - 1, 0, ['degrade', 'Dégradé', 'g'], ['banane', 'Banane', 'g'], ['raie', 'Raie sur le côté', 'g'], ['brosse', 'En brosse', 'g'], ['mulet', 'Mulet', 'g'],
     ['chignon_h', 'Chignon d\'homme', 'g'], ['long_h', 'Mi-long d\'homme', 'g'], ['boucles_h', 'Boucles courtes', 'g'], ['queue_basse', 'Queue basse', 'f'], ['tresse_cote', 'Tresse sur le côté', 'f']);
+  LK.hair.splice(LK.hair.length - 1, 0, ['rase', 'Tondu ras', 'g'], ['bol', 'Coupe au bol'], ['plaque', 'Plaqué en arrière', 'g'], ['ebouriffe', 'Ébouriffé', 'g'], ['ondule_h', 'Ondulé mi-court', 'g'], ['dreads', 'Dreadlocks'],
+    ['pixie', 'Coupe pixie', 'f'], ['carre_ondule', 'Carré ondulé', 'f'], ['longues_boucles', 'Longues boucles', 'f'], ['chignon_bas', 'Chignon bas', 'f'], ['demi_queue', 'Demi-queue', 'f'], ['tresse_couronne', 'Tresse couronne', 'f'],
+    ['queue_tressee', 'Queue tressée', 'f'], ['frange_rideau', 'Frange rideau', 'f']);
   LK.eyes.push(['fins', 'Fins', 'g'], ['percants', 'Perçants', 'g'], ['serieux', 'Sérieux', 'g'], ['calmes', 'Calmes', 'g']); tag(LK.eyes, 'f', ['coeurs', 'etoiles']);
   LK.beard = [['aucune', 'Aucune'], ['trois_jours', 'Barbe de 3 jours'], ['moustache', 'Moustache'], ['bouc', 'Bouc'], ['barbe_courte', 'Barbe courte'], ['barbe', 'Grande barbe'], ['collier', 'Collier'], ['favoris', 'Favoris']];
   LK.body = [['mince', 'Mince'], ['normal', 'Normal'], ['athletique', 'Athlétique'], ['costaud', 'Costaud']];
@@ -162,7 +165,7 @@
     return c;
   }
   // ---------- coiffures ----------
-  const BIG = new Set(['herisse', 'crete', 'afro', 'chignon', 'macarons', 'queue_haute', 'decoiffe', 'banane', 'chignon_h']);
+  const BIG = new Set(['herisse', 'crete', 'afro', 'chignon', 'macarons', 'queue_haute', 'decoiffe', 'banane', 'chignon_h', 'ebouriffe', 'dreads', 'longues_boucles', 'tresse_couronne']);
   function hair(b, st, col, hatOn, hd, skinC) {
     const B2 = hd || b; // mèches qui bougent (os des cheveux)
     if (st === 'chauve') { b.S(S().hair); for (const s of [-1, 1]) b.sph(.035, col, s * .078, .07, -.04, .5, 1.1, 1.3); b.S(null); return; } // couronne de cheveux des messieurs chauves
@@ -171,7 +174,8 @@
     const vol = st === 'afro' ? 1.32 : st === 'boucles' ? 1.12 : st === 'decoiffe' || st === 'herisse' ? 1.08 : 1.055;
     const front = st === 'crete' ? .3 : st === 'garconne' || st === 'court' ? 1.0 : .95;
     const CAPS = { brosse: [1.025, 1.05, 1.72, 2.2], degrade: [1.07, .95, 1.2, 1.45], banane: [1.07, .98, 1.2, 1.45], raie: [1.06, .98, 1.65, 2.2], mulet: [1.05, 1.0, 1.6, 2.25], chignon_h: [1.035, .92, 1.62, 2.1],
-      long_h: [1.055, .95, 1.62, 2.25], boucles_h: [1.09, 1.0, 1.6, 2.15], queue_basse: [1.055, .95, 1.62, 2.25], tresse_cote: [1.055, .95, 1.62, 2.25] }, cp = CAPS[st];
+      long_h: [1.055, .95, 1.62, 2.25], boucles_h: [1.09, 1.0, 1.6, 2.15], queue_basse: [1.055, .95, 1.62, 2.25], tresse_cote: [1.055, .95, 1.62, 2.25],
+      rase: [1.012, 1.0, 1.72, 2.15], bol: [1.07, 1.0, 1.75, 2.15], plaque: [1.035, .88, 1.68, 2.2], pixie: [1.05, .98, 1.65, 2.1], dreads: [1.06, .95, 1.62, 2.2], ebouriffe: [1.06, .98, 1.65, 2.15] }, cp = CAPS[st];
     if (cp) hairCap(b, col, cp[0], cp[1], cp[2], cp[3]); else hairCap(b, col, vol, front, st === 'crete' ? .3 : 1.62, st === 'crete' ? .4 : 2.25);
     if (st === 'degrade' || st === 'banane') hairCap(b, C3(col).lerp(C3(skinC || 0xffdcc4), .42).getHex(), 1.012, 1.0, 1.85, 2.25); // côtés rasés en dégradé
     const lk = (th0, ph0, th1, ph1, len, r = .02, bulge = 1.13, k0 = 1.04, flat = .5, twist = 0, bb = b) => { // mèche du crâne vers le bas
@@ -216,6 +220,32 @@
       B2.S(null); B2.tor(.013, .006, 0xe8434a, st0.x, st0.y - .37, st0.z + .11, PI / 2, 0, 0, 0, 12); B2.S(S().hair); }
     else if (st === 'afro') { for (let i = 0; i < 26; i++) { const th = .2 + (i % 5) * .38, ph = i * 2.4, p = hp(th, ph, 1.3); b.sph(.038, col, p.x, p.y, p.z, 1, 1, 1, 0, 12, 9); } }
     else if (st === 'boucles') { fringe(5, .02, .6); for (let i = 0; i < 30; i++) { const th = .5 + (i % 6) * .3, ph = i * 2.39 + (th > 1.6 ? 0 : 0), p = hp(th, ph, 1.13); if (th > 1.5 && Math.sin(ph) > .5) continue; b.sph(.024, col, p.x, p.y, p.z, 1, 1, 1, 0, 10, 8); } back(7, .06, 1.6, .03, .02); }
+    // ---------- 14 coiffures de plus ----------
+    else if (st === 'rase') { } // tondu ras : la calotte seule, au plus près du crâne
+    else if (st === 'bol') { fringe(10, .034, .85, true); sides(.04, 2.05); back(9, .03, 1.75, .034); }
+    else if (st === 'plaque') { for (let i = 0; i < 11; i++) { const ph = PI / 2 + (i / 10 - .5) * 1.5; strand(b, col, [hp(.95, ph, 1.04), hp(.35, ph, 1.1), hp(1.45, -PI / 2 + (ph - PI / 2) * .55, 1.08)], .028, .006, .42, 10); } back(7, .03, 1.5, .03); }
+    else if (st === 'ebouriffe') { fringe(5, .02, .6); for (let i = 0; i < 16; i++) { const ph = i * 2.4, th = .2 + (i % 4) * .22, p0 = hp(th, ph, 1.03), d = p0.clone().sub(HC).normalize(), p2 = p0.clone().addScaledVector(d, .04 + (i % 3) * .012).add(new THREE.Vector3(Math.sin(i) * .015, .012, Math.cos(i * 1.7) * .015));
+      strand(b, col, [p0, p0.clone().lerp(p2, .5).addScaledVector(d, .01), p2], .022, .002, .55); } sides(.01, 1.8); back(5, .02, 1.4); }
+    else if (st === 'ondule_h') { fringe(6, .03, .66); sides(.07, 2.2); for (let i = 0; i < 9; i++) { const t = i / 8 * 2 - 1, ph = -PI / 2 + t * 1.6, p0 = hp(1.2, ph, 1.05), p1 = hp(1.9, ph + .1, 1.2), p2 = hp(2.2, ph - .08, 1.15); p2.y -= .06;
+        strand(B2, col, [p0, p1, p1.clone().lerp(p2, .5).add(new THREE.Vector3(i % 2 ? .012 : -.012, 0, .01)), p2], .032, .004, .5, 12); }
+      for (let i = 0; i < 6; i++) { const ph = PI / 2 + (i / 5 - .5) * 1.2; strand(b, col, [hp(.85, ph, 1.05), hp(.45, ph + .2, 1.16), hp(.2, ph + .5, 1.1)], .03, .005, .45, 9); } }
+    else if (st === 'dreads') { fringe(4, .02, .5); for (let i = 0; i < 24; i++) { const ph = i / 24 * TAU, th = .85 + (i % 3) * .25; if (Math.sin(ph) > .55 && th < 1.4) continue; const p0 = hp(th, ph, 1.05), p1 = hp(th + .55, ph, 1.2), p2 = hp(th + .8, ph, 1.15); p2.y -= .14 + (i % 4) * .03; p1.y -= .03;
+      strand(B2, col, [p0, p1, p2], .019, .014, .95, 9, 5); } }
+    else if (st === 'pixie') { for (let i = 0; i < 8; i++) { const t = i / 7; strand(b, col, [hp(.2 + t * .3, PI / 2 + 1.2 - t * .4, 1.06), hp(.55 + t * .2, PI / 2 + .3, 1.16), hp(1.0 + t * .12, PI / 2 - .35 - t * .25, 1.07)], .028, .004, .45, 9); } sides(.02, 1.85); back(6, .015, 1.5, .03); }
+    else if (st === 'carre_ondule') { fringe(7, .03, .7); sides(.09, 2.35); for (let i = 0; i < 10; i++) { const t = i / 9 * 2 - 1, ph = -PI / 2 + t * 1.75, p0 = hp(1.2, ph, 1.04), p1 = hp(1.95, ph, 1.22), p2 = hp(2.3, ph, 1.12); p2.y -= .07; const pm = p1.clone().lerp(p2, .5); pm.x += i % 2 ? .014 : -.014;
+      strand(B2, col, [p0, p1, pm, p2], .036, .006, .5, 12); } }
+    else if (st === 'longues_boucles') { fringe(6, .03, .62); sides(.08, 2.2); for (let i = 0; i < 11; i++) { const t = i / 10 * 2 - 1, ph = -PI / 2 + t * 1.9, s0 = hp(1.7, ph, 1.12);
+      for (let k = 0; k < 8; k++) { const a = k * 1.3 + i; B2.sph(.026 - k * .0012, col, s0.x + Math.cos(a) * .012 + s0.x * k * .03, s0.y - k * .036, s0.z + Math.sin(a) * .012 + s0.z * k * .02, 1, 1, 1, 0, 9, 7); } } }
+    else if (st === 'chignon_bas') { fringe(5, .025, .6); sides(.05, 2.15); back(7, 0, 1.45, .032); const t = hp(2.0, -PI / 2, 1.14); b.sph(.05, col, t.x, t.y - .01, t.z - .02, 1.1, .85, .9);
+      for (let k = 0; k < 4; k++) b.add(new THREE.TorusGeometry(.03 + k * .006, .01, 6, 16, PI * 1.4), col, b.M(t.x, t.y - .01, t.z - .035, 0, 0, k * 1.6), 0, true); }
+    else if (st === 'demi_queue') { fringe(6, .033, .66); sides(.28, 2.4); for (let i = 0; i < 10; i++) { const t = i / 9 * 2 - 1, ph = -PI / 2 + t * 1.7, p0 = hp(1.2, ph, 1.04), p1 = hp(2.05, ph, 1.24); p1.y -= .1; const p2 = hp(2.45, ph, 1.1); p2.y -= .32; p2.z -= .05; strand(B2, col, [p0, p1, p2], .035, .004, .5, 10); }
+      const tie = hp(.95, -PI / 2, 1.1); b.S(null); b.tor(.016, .007, 0x5a7ae8, tie.x, tie.y, tie.z, .8, 0, 0, 0, 12); b.S(S().hair);
+      for (let i = 0; i < 5; i++) { const o = new THREE.Vector3((i - 2) * .008, 0, 0); strand(B2, col, [tie.clone().add(o), tie.clone().add(new THREE.Vector3(o.x * 2, -.03, -.06)), tie.clone().add(new THREE.Vector3(o.x, -.14, -.07))], .022, .003, .6, 9); } }
+    else if (st === 'tresse_couronne') { fringe(5, .025, .55); sides(.03, 1.95); back(6, .01, 1.5); for (let i = 0; i <= 20; i++) { const ph = PI / 2 + 1.25 + i / 20 * (TAU - 2.5), p = hp(.95 - Math.sin(i / 20 * PI) * .25, ph, 1.13); b.sph(.024, col, p.x, p.y, p.z, 1.1, .85, 1, 0, 9, 7); } }
+    else if (st === 'queue_tressee') { fringe(6, .03, .62); sides(.06, 2.2); back(5, 0, 1.3); const tie = hp(1.55, -PI / 2, 1.08); b.S(null); b.tor(.018, .008, 0xe8434a, tie.x, tie.y, tie.z, .4, 0, 0, 0, 12); b.S(S().hair);
+      for (let i = 0; i < 12; i++) B2.sph(.024 - i * .0011, col, tie.x + (i % 2 ? .01 : -.01), tie.y - .03 - i * .03, tie.z - .045 - i * .004, 1, 1.15, .9, 0, 9, 7); B2.S(null); B2.tor(.011, .005, 0xe8434a, tie.x, tie.y - .39, tie.z - .09, PI / 2, 0, 0, 0, 10); B2.S(S().hair); }
+    else if (st === 'frange_rideau') { for (const s of [-1, 1]) for (let i = 0; i < 4; i++) { const t = i / 3; strand(b, col, [hp(.35 + t * .1, PI / 2 + s * .08, 1.06), hp(.95, PI / 2 + s * (.3 + t * .25), 1.2), hp(1.5, PI / 2 + s * (.75 + t * .2), 1.1)], .03, .004, .45, 10); }
+      sides(.3, 2.4); for (let i = 0; i < 12; i++) { const t = i / 11 * 2 - 1, ph = -PI / 2 + t * 1.75, p0 = hp(1.15, ph, 1.04), p1 = hp(2.05, ph, 1.24); p1.y -= .1; const p2 = hp(2.45, ph, 1.1); p2.y -= .36; p2.z -= .05; strand(B2, col, [p0, p1, p2], .036, .004, .5, 10); } }
     b.jit(0); b.S(null);
   }
   // ---------- chapeaux ----------

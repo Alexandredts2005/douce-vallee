@@ -1,7 +1,8 @@
 'use strict';
 // ===== La carte (M) › « ⛰️ Hauteur » : le relief en couleurs, du niveau 0 (vert) au niveau 10 (neige), et un pinceau pour le peindre.
 // On choisit un niveau, la taille du pinceau, on zoome, puis on clique ou on glisse sur la carte : le terrain monte ou descend aussitôt en 3D.
-// Les maisons et les constructions ne bougent pas (leurs cases sont protégées) ; arbres, fleurs et rochers suivent le terrain. =====
+// Tout ce qui est posé suit le terrain : arbres, fleurs, rochers, et aussi maisons, immeubles et constructions (le pinceau prend alors
+// toutes les cases du bâtiment, pour qu'il reste d'aplomb). Le sol se redessine aussitôt. =====
 (function () {
   const MAXL = 10;
   const COL = ['#3aa346', '#76c34b', '#b5d64a', '#e6c65a', '#cdb4f4', '#ae8ce8', '#9069da', '#7550c6', '#5d3aa8', '#9a91aa', '#f7f5ff'];
@@ -62,26 +63,32 @@
 
   // ---------- le pinceau ----------
   function paint(m, tx, tz, stroke) {
-    const r = st.br / 2, R = Math.ceil(r), changed = [], redo = new Set();
-    for (let z = tz - R; z <= tz + R; z++) for (let x = tx - R; x <= tx + R; x++) {
-      if (st.br > 1 && Math.hypot(x - tx, z - tz) > r) continue;
-      if (x < 3 || z < 3 || x >= m.W - 3 || z >= m.H - 3) continue; const i = m.idx(x, z);
-      if (m.water[i] || (m.lvl[i] === st.lv && !m.ramp[i])) continue;
-      const o = m.objAt(x, z); if (o && !nature(o)) continue; if (o) redo.add(o);
+    const r = st.br / 2, R = Math.ceil(r), cells = new Map(), changed = [];
+    const want = (x, z) => { if (x < 3 || z < 3 || x >= m.W - 3 || z >= m.H - 3) return; const i = m.idx(x, z); if (!m.water[i]) cells.set(i, [x, z]); };
+    for (let z = tz - R; z <= tz + R; z++) for (let x = tx - R; x <= tx + R; x++) { if (st.br > 1 && Math.hypot(x - tx, z - tz) > r) continue; want(x, z); }
+    // un bâtiment touché par le pinceau monte ou descend tout entier : toutes ses cases prennent le niveau
+    const seen = new Set(); for (const [, [x, z]] of [...cells]) { const o = m.objAt(x, z); if (!o || seen.has(o)) continue; seen.add(o); const [w, dd] = G.fpDims(G.OBJ[o.t], o.r || 0); if (w * dd > 1) for (let zz = o.z; zz < o.z + dd; zz++) for (let xx = o.x; xx < o.x + w; xx++) want(xx, zz); }
+    for (const [i, [x, z]] of cells) {
+      if (m.lvl[i] === st.lv && !m.ramp[i]) continue;
       if (!stroke.seen.has(i)) { stroke.seen.add(i); stroke.list.push([i, m.lvl[i], m.ramp[i], m.surf[i]]); }
-      m.lvl[i] = st.lv; m.ramp[i] = 0; if (st.lv >= 9 && m.surf[i] <= 1) m.surf[i] = 8; else if (st.lv < 9 && m.surf[i] === 8) m.surf[i] = 0; // la neige sur les sommets m.markDirty(x, z); changed.push([x, z]);
+      m.lvl[i] = st.lv; m.ramp[i] = 0; if (st.lv >= 9 && m.surf[i] <= 1) m.surf[i] = 8; else if (st.lv < 9 && m.surf[i] === 8) m.surf[i] = 0; // la neige sur les sommets
+      m.markDirty(x, z); changed.push([x, z]);
     }
-    for (const o of redo) reseat(m, o);
-    if (changed.length) { touchPx(m, changed); stroke.n += changed.length; }
+    if (changed.length) { seat(m, changed); touchPx(m, changed); stroke.n += changed.length; }
     return changed.length;
   }
-  // un arbre, une fleur ou un rocher se repose à la nouvelle hauteur du terrain
-  function reseat(m, o) { if (!m.list.has(o)) return; const ex = {}; for (const k of ['v', 'f', 'g', 'iid', 'txt', 'cy']) if (o[k] != null) ex[k] = o[k]; const { t, x, z, r } = o; m.removeObj(o); m.addObj(t, x, z, r || 0, ex); }
+  // tout ce qui est posé sur ces cases se repose à la nouvelle hauteur du terrain (au sol, sur un plancher, en hauteur) et s'affiche aussitôt
+  function seat(m, cells) { const S = new Set(), N = m.W * m.H; let x0 = 1e9, z0 = 1e9, x1 = -1, z1 = -1;
+    for (const [x, z] of cells) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); const i = z * m.W + x, o = m.objAt(x, z), u = m.upAt && m.upAt(x, z); if (o) S.add(o); if (u) S.add(u);
+      if (m.dk) for (const k of [i, i + N]) { const q = m.dk.get(k); if (q) S.add(q); } }
+    for (const o of S) { const d = G.OBJ[o.t]; if (!d || d.ceil) continue; o.y = m.baseH(o.x, o.z) + (o.cy || 0) + (o.dk != null ? +o.dk : 0); if (o._k) m.refresh(o); }
+    if (G.ironRelink && x1 >= 0) G.ironRelink(m, x0 - 3, z0 - 3, x1 + 3, z1 + 3); // terrasses en fer : balustrades et équerres selon le nouveau relief
+    m.rev++; if (G.lampRefresh) G.lampRefresh(); }
   function lift() { const p = G.player, m = G.world; if (G.map !== m || !p) return; const g = p.groundAt ? p.groundAt(p.x, p.z) : m.topAt(p.x, p.z); if (p.y < g) p.y = g; }
   function undo() {
     const s = st.undo.pop(), m = G.world; if (!s) { G.sfx('error'); return; } const ch = [];
     for (let k = s.list.length - 1; k >= 0; k--) { const [i, l, r, f] = s.list[k], x = i % m.W, z = Math.floor(i / m.W); m.lvl[i] = l; m.ramp[i] = r; m.surf[i] = f; m.markDirty(x, z); ch.push([x, z]); }
-    for (const [x, z] of ch) { const o = m.objAt(x, z); if (o && nature(o) && o.x === x && o.z === z) reseat(m, o); }
+    seat(m, ch);
     touchPx(m, ch); lift(); G.sfx('dig'); render(); updUndo();
   }
   const updUndo = () => { const b = $('mh-undo'); if (b) b.disabled = !st.undo.length; };
@@ -146,5 +153,5 @@
     U.openMap = () => { bar(); if (G.map && G.map.interior && st.on) { /* on peint quand même le village, vu de la carte */ } om(); sync(); if (st.on) render(); };
     const cm = U.closeMap; U.closeMap = () => { st.drag = null; lift(); cm(); };
     $('map-close').onclick = U.closeMap; });
-  G.mapHeight = { st, render, COL, NOM };
+  G.mapHeight = { st, render, COL, NOM, paintAt: (tx, tz) => { drawOff(G.world); const d = { list: [], seen: new Set(), n: 0 }; const n = paint(G.world, tx, tz, d); if (d.list.length) st.undo.push(d); return n; }, undo };
 })();

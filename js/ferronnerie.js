@@ -195,6 +195,7 @@
   // les plateformes autour d'une case (deux passes : une case regarde si sa voisine a une colonne, qui dépend de ses propres voisines)
   function relinkNear(m, x0, z0, x1, z1) { const L = []; for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { if (!m.inb(x, z)) continue; for (const q of [m.objAt(x, z), m.upAt && m.upAt(x, z)]) if (q && O[q.t].plat && !L.includes(q)) L.push(q); }
     for (let n = 0; n < 2; n++) for (const q of L) relinkPlat(m, q); }
+  G.ironRelink = relinkNear; // la carte des hauteurs s'en sert quand le relief change sous les terrasses
   // une case a-t-elle sa propre colonne ? (croisement des multiples de 5, ou coin extérieur)
   const hasCol = v => !!(((v & 16) && (v & 256)) || [[1, 2], [2, 4], [4, 8], [8, 1]].some(([a, c]) => !(v & a) && !(v & c)));
   // un mur juste à côté, sur toute la hauteur de l'équerre : paroi de falaise ou de butte qui monte au moins jusqu'au plancher, mur de maison ou de bâtiment

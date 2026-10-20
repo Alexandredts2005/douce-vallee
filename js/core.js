@@ -129,11 +129,12 @@ G.makeTextures = () => {
   });
   const at = new THREE.CanvasTexture(A); at.anisotropy = 4; G.TEX.atlas = at;
   // falaise
-  const C = cv(128, 128), cc = C.getContext('2d'), r = G.rng(55);
+  const C = cv(128, 256), cc = C.getContext('2d'), r = G.rng(55);
   const bands = ['#a97d51', '#9a6f47', '#b88b5c', '#8f6640', '#a57a4f'];
-  let y = 0; let bi = 0; while (y < 128) { const h = 14 + r() * 16; cc.fillStyle = bands[bi++ % bands.length]; cc.fillRect(0, y, 128, h + 1); y += h; }
-  speck(cc, 40, ['#7c5838', '#c49a6c', '#8a8580', '#a6a199'], 2, 5, 128, r);
-  cc.fillStyle = 'rgba(70,45,25,.35)'; for (let i = 0; i < 9; i++) { const x = r() * 128; cc.fillRect(x, 20 + r() * 60, 2, 10 + r() * 30); }
+  for (const y0 of [0, 128]) { cc.save(); cc.beginPath(); cc.rect(0, y0, 128, 128); cc.clip(); cc.translate(0, y0);
+    let y = 0; let bi = 0; while (y < 128) { const h = 14 + r() * 16; cc.fillStyle = bands[bi++ % bands.length]; cc.fillRect(0, y, 128, h + 1); y += h; }
+    speck(cc, 40, ['#7c5838', '#c49a6c', '#8a8580', '#a6a199'], 2, 5, 128, r);
+    cc.fillStyle = 'rgba(70,45,25,.35)'; for (let i = 0; i < 9; i++) { const x = r() * 128; cc.fillRect(x, 20 + r() * 60, 2, 10 + r() * 30); } cc.restore(); }
   cc.fillStyle = '#6dbf55'; cc.fillRect(0, 0, 128, 10);
   for (let x = 0; x < 128; x += 8) { const d = 6 + r() * 10; cc.beginPath(); cc.ellipse(x + 4, 9, 5, d, 0, 0, 7); cc.fill(); }
   cc.fillStyle = '#86d16a'; cc.fillRect(0, 0, 128, 5);
