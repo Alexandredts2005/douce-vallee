@@ -72,9 +72,11 @@
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; }
       if (m.t === 'pres' && m.id != null) { const pr = m.d || {}; if (pr.pid) for (const [id, q] of NET.peers) if (id !== m.id && q.pr && q.pr.pid === pr.pid) NET.peers.delete(id); NET.peers.set(m.id, { id: m.id, pr, t: performance.now() }); onPeers(); }
       else if (m.t === 'left') { NET.peers.delete(m.id); onPeers(); }
-      else if (m.t === 'res') { const cb = NET.req.get(m.rid); if (cb) { NET.req.delete(m.rid); cb(m.data); } } };
+      else if (m.t === 'res') { const cb = NET.req.get(m.rid); if (cb) { NET.req.delete(m.rid); cb(m.data); } }
+      else if (m.t === 'cop' && NET.onCommune) NET.onCommune(m); };
   }
   const wsReq = (msg, ms = 15000) => new Promise(res => { if (!NET.wsOk) return res(null); const rid = ++NET.rid; msg.rid = rid; NET.req.set(rid, res); NET.ws.send(JSON.stringify(msg)); setTimeout(() => { if (NET.req.has(rid)) { NET.req.delete(rid); res(null); } }, ms); });
+  NET.wsReq = wsReq; NET.wsSend = msg => { if (NET.mode === 'server' && NET.wsOk) try { NET.ws.send(JSON.stringify(msg)); return true; } catch (e) { } return false; };
   function setPeers(list, lobby) {
     NET.peers.clear();
     const best = new Map(); for (const p of list) { if (p.sameTab || p.kind !== 'viewer') continue; const pr = p.presence || {}; if (lobby && pr.at !== NET.curRoom) continue; const k = pr.pid || p.peer, o = best.get(k); if (!o || (p.updatedAt || 0) > (o.updatedAt || 0)) best.set(k, p); }
@@ -192,7 +194,7 @@
     const ints = m === G.world ? G.interiors : NET.visit && m === NET.visit.map ? NET.visit.interiors : {};
     try { for (const op0 of pr.ops.l) { if (!op0 || typeof op0.s !== 'number' || op0.s <= last) continue; if (pubOnly && !op0.pub) { last = op0.s; continue; }
       const op = op0, m = op.m === 'ile' ? (G.island && G.island.day === op.d ? G.island : null) : op.m ? (NET.visit && ints === NET.visit.interiors ? NET.room(op.m) : ints[op.m]) : base; if (!m) { last = op.s; continue; } if (!m.inb(op.x | 0, op.z | 0)) continue;
-      if (op.k === 't') { last = op.s; if (m.interior || op.x < 2 || op.z < 2 || op.x >= m.W - 2 || op.z >= m.H - 2) continue; const i = m.idx(op.x | 0, op.z | 0); m.lvl[i] = Math.max(0, Math.min(4, op.l | 0)); m.water[i] = Math.max(0, Math.min(2, op.w | 0)); m.ramp[i] = Math.max(0, Math.min(255, op.p | 0)); if (G.SURF[op.f | 0]) m.surf[i] = op.f | 0; m.markDirty(op.x | 0, op.z | 0); continue; }
+      if (op.k === 't') { last = op.s; if (m.interior || op.x < 2 || op.z < 2 || op.x >= m.W - 2 || op.z >= m.H - 2) continue; const i = m.idx(op.x | 0, op.z | 0); m.lvl[i] = Math.max(0, Math.min(10, op.l | 0)); m.water[i] = Math.max(0, Math.min(2, op.w | 0)); m.ramp[i] = Math.max(0, Math.min(255, op.p | 0)); if (G.SURF[op.f | 0]) m.surf[i] = op.f | 0; m.markDirty(op.x | 0, op.z | 0); continue; }
       if (!G.OBJ[op.t]) continue; last = op.s;
       const dk = typeof op.dk === 'number' && op.dk > 0 && op.dk < 40 ? op.dk : null, du = op.du ? 1 : 0; // posé sur un plancher
       if (op.k === 'r') { const o = dk != null ? m.deckAt(op.x, op.z, du) : m.objAt(op.x, op.z); if (o && o.t === op.t && o.x === op.x && o.z === op.z) m.removeObj(o); }
@@ -242,6 +244,7 @@
   const isHost = pr => !!(NET.visit && pr && pr.home === ids(NET.visit.code).id && !pr.vis);
   function onPeers() {
     for (const id of [...NET.av.keys()]) if (!NET.peers.has(id)) dropAvatar(id);
+    if (NET.forceRoom) { updBadge(); return; } // dans la ville commune, les constructions passent par le serveur
     let hostAdm = null, hostEd = false; if (NET.visit) for (const p of NET.peers.values()) if (isHost(p.pr)) { if (Array.isArray(p.pr.adm)) hostAdm = p.pr.adm; if (p.pr.ed === 1) hostEd = true; }
     for (const p of NET.peers.values()) { const pr = p.pr; if (!pr) continue;
       if (isHost(pr)) applyOps(pr, NET.visit.map, p.id);
@@ -278,7 +281,7 @@
   });
   G.on('update', dt => {
     if (!NET.online()) return;
-    const want = G.session && townCode() ? ids(townCode()).room : null; if (want !== NET.curRoom && !NET.roomBusy) switchRoom(want);
+    const want = NET.forceRoom /* la ville commune */ || (G.session && townCode() ? ids(townCode()).room : null); if (want !== NET.curRoom && !NET.roomBusy) switchRoom(want);
     NET.presT -= dt; if (NET.presT < 0) { NET.presT = .085; sendPresence(); }
     // en visite : même heure que l'hôte, ses habitants aux mêmes endroits
     if (NET.visit) { let hp = null; for (const q of NET.peers.values()) if (isHost(q.pr) && live(q.pr)) { hp = q.pr; break; }
@@ -392,9 +395,10 @@
     if (NET.visit && G.map.visit) return G.npcSay(v, ['Bienvenue à ' + NET.visit.vil + ' ! Tu es venu·e en visite, hi hi !'], ['Rentrer chez moi', 'Rester encore']).then(k => { if (k === 0) NET.goHome(); });
     const closed = NET.closed(), edit = NET.editOpen();
     return G.npcSay(v, ['Bienvenue à la gare de ' + G.villageName + ' ! Hi hi !', 'Ton code ami : ' + (myCode() || '—') + '. Ne le donne qu\'à tes amis : sans lui, personne ne peut entrer.' + (closed ? ' (Ton portillon est fermé.)' : ' (Ton portillon est ouvert.)')],
-      ['Visiter un ami', closed ? '🔓 Ouvrir le portillon' : '🔒 Fermer le portillon', edit ? '🚫 Mes amis ne modifient plus' : '⭐ Mes amis peuvent modifier', 'Attendre le prochain train', 'Utiliser les casiers', 'Au revoir']).then(k => {
+      ['Visiter un ami', '🌍 La ville commune (tous les joueurs)', closed ? '🔓 Ouvrir le portillon' : '🔒 Fermer le portillon', edit ? '🚫 Mes amis ne modifient plus' : '⭐ Mes amis peuvent modifier', 'Attendre le prochain train', 'Utiliser les casiers', 'Au revoir']).then(k => {
       if (k === 0) return NET.askVisit();
-      if (k === 1) { NET.setClosed(!closed); return G.npcSay(v, closed ? ['Portillon ouvert ! Tes amis peuvent venir avec ton code ami.'] : ['Portillon fermé. Plus personne ne peut venir, même avec ton code. Reviens me voir pour rouvrir !']); }
+      if (k === 1) return G.commune && G.commune.join();
+      k--; if (k === 1) { NET.setClosed(!closed); return G.npcSay(v, closed ? ['Portillon ouvert ! Tes amis peuvent venir avec ton code ami.'] : ['Portillon fermé. Plus personne ne peut venir, même avec ton code. Reviens me voir pour rouvrir !']); }
       if (k === 2) { NET.setEditOpen(!edit); return G.npcSay(v, edit ? ['C\'est noté : tes visiteurs regardent, mais ne touchent plus à rien.'] : ['C\'est noté ! Tes amis pourront planter, poser, retirer et modeler le terrain comme chez eux… sauf les maisons, hi hi !']); }
       if (k === 3) { const ok = G.train && G.train.start(4); return G.npcSay(v, ok ? ['Le train arrive dans un instant ! Sors vite sur le quai, hi hi !'] : ['Un train est déjà en gare !']); } if (k === 4) G.ui.openStorage(); });
   };

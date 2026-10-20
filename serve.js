@@ -8,8 +8,10 @@ const VER = '8.2';
 const root = path.resolve(process.argv[2] || __dirname), PORT = +(process.env.PORT || process.argv[3] || 5180), ON_RENDER = !!process.env.RENDER;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const DATA = path.join(fs.existsSync('/data') ? '/data' : root, 'douce-vallee-serveur.json');
-let towns = {}; try { const d = JSON.parse(fs.readFileSync(DATA, 'utf8')); if (d.v === 2) towns = d.towns || {}; } catch (e) { } // l'ancien format (codes en clair) est oublié
-let saveT = null; const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { fs.writeFileSync(DATA, JSON.stringify({ v: 2, towns })); } catch (e) { console.error('écriture impossible', e.message); } }, 1500); };
+// la ville commune (façon serveur Minecraft) : une seule ville pour tous les joueurs, gardée ici — sa carte de départ, puis chaque construction
+const COMMUNE = 't' + 'c0'.repeat(20), CMAX = 120000;
+let towns = {}, commune = { base: null, bseq: 0, seq: 0, ops: [] }; try { const d = JSON.parse(fs.readFileSync(DATA, 'utf8')); if (d.v === 2) { towns = d.towns || {}; if (d.commune && d.commune.base) commune = d.commune; } } catch (e) { } // l'ancien format (codes en clair) est oublié
+let saveT = null; const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { fs.writeFileSync(DATA, JSON.stringify({ v: 2, towns, commune })); } catch (e) { console.error('écriture impossible', e.message); } }, 1500); };
 // le jeu ouvert depuis le fichier (ou un autre site) peut aussi joindre ce serveur
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
 const isLocal = req => { const a = (req.socket && req.socket.remoteAddress) || ''; return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1'; };
@@ -62,6 +64,17 @@ function onMessage(c, txt) {
     if (ok) { towns[m.h] = { ow: m.ow, rec: { v: 2, z: m.rec.z ? 1 : 0, n: m.rec.n, d: m.rec.d }, at: Date.now() }; persist(); } send(c, { t: 'res', rid: m.rid, data: !!ok }); }
   else if (m.t === 'unpub') { const t = towns[m.h], ok = okH(m.h) && t && t.ow === m.ow; if (ok) { delete towns[m.h]; persist(); } send(c, { t: 'res', rid: m.rid, data: !!ok }); }
   else if (m.t === 'get') send(c, { t: 'res', rid: m.rid, data: okH(m.h) && towns[m.h] ? towns[m.h].rec : null });
+  // ---------- la ville commune : on lit la ville (carte de départ + constructions), on la crée, on construit ----------
+  else if (m.t === 'cget') { const from = typeof m.from === 'number' && m.from >= commune.bseq && m.from <= commune.seq ? m.from : null;
+    send(c, { t: 'res', rid: m.rid, data: { has: !!commune.base, base: from == null ? commune.base : null, bseq: commune.bseq, seq: commune.seq, ops: commune.ops.filter(e => e.s > (from == null ? commune.bseq : from)) } }); }
+  else if (m.t === 'cbase') { const r = m.rec, ok = !!(r && typeof r === 'object' && r.kind === 'world' && typeof r.lvl === 'string' && Array.isArray(r.objs) && r.W > 16 && r.W < 1300 && r.H > 16 && r.H < 1000 && JSON.stringify(r).length < 7e6
+      && (!commune.base || (m.seq === commune.seq && commune.ops.length > 3000))); // créée une seule fois ; ensuite seulement « tassée » quand les constructions s'accumulent
+    if (ok) { commune.base = r; commune.bseq = commune.seq; commune.ops = []; persist(); } send(c, { t: 'res', rid: m.rid, data: ok }); }
+  else if (m.t === 'cop') { if (!commune.base || !Array.isArray(m.ops) || commune.ops.length >= CMAX) return; const now = Date.now(); c.cw = c.cw && now - c.cw.t < 1000 ? c.cw : { t: now, n: 0 };
+    const out = []; for (const o of m.ops.slice(0, 40)) { if (++c.cw.n > 80) break; // 80 changements par seconde au plus par joueur
+      if (!o || typeof o !== 'object' || !['a', 'r', 't'].includes(o.k) || !Number.isInteger(o.x) || !Number.isInteger(o.z) || JSON.stringify(o).length > 400 || (o.k !== 't' && (typeof o.t !== 'string' || o.t.length > 40))) continue;
+      const e = { s: ++commune.seq, o }; commune.ops.push(e); out.push(e); }
+    if (out.length) { inRoom(COMMUNE, { t: 'cop', l: out }); persist(); } }
 }
 server.on('upgrade', (req, sock) => {
   if (req.url.split('?')[0] !== '/ws') return sock.destroy(); const key = req.headers['sec-websocket-key']; if (!key) return sock.destroy();

@@ -84,6 +84,33 @@ MAISONS ET CHÂTEAUX
   - On se cogne à la vraie forme des objets : on passe sous les arbres, autour de la fontaine ronde,
     sous les avant-toits, et on monte sur les marches et les porches.
 
+LA VILLE COMMUNE (façon serveur Minecraft)
+  - Une seule ville pour TOUS les joueurs, gardée par le serveur : à la gare, Pablo → « 🌍 La ville commune »,
+    ou menu Pause → « 🌍 Ville commune ». Il faut être en ligne sur le serveur (douce-vallee.onrender.com ou ton PC).
+  - Tout le monde y construit en même temps : ce que l'un pose, retire ou modèle apparaît aussitôt chez les autres,
+    et reste là même quand plus personne n'est connecté. Ce qu'un joueur a posé, seul lui peut le retirer.
+  - On garde son sac et ses clochettes. « 🏠 Quitter la ville commune » (en haut à droite) ou Pablo pour rentrer.
+  - Sur Render (offre gratuite), la ville repart de zéro si le serveur redémarre, sauf si un disque /data est monté.
+
+LA CARTE (M) › « ⛰️ HAUTEUR »
+  - Le relief en couleurs, du niveau 0 (vert) au niveau 10 (neige ; le niveau 4 est violet clair).
+  - Choisis un niveau et un pinceau, puis clique ou glisse sur la carte : le terrain monte ou descend aussitôt.
+    Molette ou boutons ×2 ×4 ×8 : zoom ; clic droit (ou Maj) glissé : se déplacer ; « ↩️ Annuler ».
+  - Les maisons et constructions ne bougent pas ; arbres, fleurs et rochers suivent le terrain. Neige aux niveaux 9 et 10.
+
+LA MER RECULE
+  - La mer est trois fois plus grande (30 cases jusqu'au bord). On y pose pontons et bateaux, ou on la comble
+    (Terrain › Combler) pour bâtir dessus. Les anciennes parties s'agrandissent toutes seules.
+
+LES FÊTES DE LA PLACE (le mât des fêtes, sur la place du village)
+  - 🗝️ Chasse au trésor : 8 trésors enterrés autour de la place, une pelle, le « chaud ou froid » et 10 minutes.
+  - 🎈 Fête des montgolfières : des ballons sur la place et dans le ciel ; E près d'un ballon pour un grand vol au-dessus du village.
+  - 🎆 Feu d'artifice (le samedi à 21 h, ou quand tu veux). Le mât donne aussi le programme de la semaine.
+
+LE PARC DES MERVEILLES (rue commerçante, tout au bout du Boulevard de la Vallée, à l'est)
+  - Grande roue, carrousel, montagnes russes, chaises volantes, tasses folles : approche-toi et appuie sur E pour monter.
+  - Stands : barbe à papa, glaces, chamboule-tout, pêche aux canards, gaufres, ballons. (En Survie : 100 🔔 le tour.)
+
 EN JEU
   Entrée : discuter (en ligne)        G : émotes        K : encyclopédie
   Échap : pause (code ami, visiter un ami, changer d'habitant, sauvegarder)
