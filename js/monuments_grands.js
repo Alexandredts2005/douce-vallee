@@ -40,15 +40,20 @@
   // nervure sous le 1er étage, le 1er étage et sa frise d'arcades, ses pavillons vitrés et son grand vide central,
   // le 2e étage et sa ceinture, le fût unique avec la plate-forme intermédiaire, la cage des ascenseurs, le 3e étage et sa galerie
   // vitrée, le campanile en quatre arcs, le phare et les antennes rouges et blanches. La nuit, des milliers d'ampoules dorées.
-  MD.tour_eiffel = () => { const b = G.mb(5400), sk = SK(), IR = 0x6b5848, IR2 = 0x5a4a3c, IR3 = 0x7a6656, WARM = 0xffd98a, S = 60 / 330, m = v => v * S;
-    const Y1 = 57.6, Y2 = 115.7, YM = 196, Y3 = 276, YT = 300; // hauteurs réelles des étages (m)
-    const W = y => 56.5 * Math.exp(-.01158 * y) + 6.2; // demi-largeur extérieure (m) : 62,5 m au sol, 35 m au 1er, 21 m au 2e, 8 m au 3e
-    const I = y => Math.max(1.5, 37.5 * (1 - y / Y2) + 1.5); // bord intérieur des piliers : ils se rejoignent au 2e étage
+  MD.tour_eiffel = () => { const b = G.mb(5400), sk = SK(), IR = 0x5e4a39, IR2 = 0x503f30, IR3 = 0x6c5745, WARM = 0xffd98a, S = 60 / 330, m = v => v * S;
+    // les cotes officielles : 1er étage à 57,63 m (plate-forme de 70,69 m de côté), 2e à 115,73 m (40,96 m), 3e à 276,13 m (18,65 m),
+    // sommet à 300 m, antennes jusqu'à 330 m ; base carrée de 124,9 m, piliers écartés de 74,24 m (25,3 m de côté chacun)
+    const Y1 = 57.63, Y2 = 115.73, YM = 196, Y3 = 276.13, YT = 300;
+    // le profil courbe des arêtes extérieures, une exponentielle qui passe exactement par la base, le 1er et le 2e étage
+    const W = y => 60.02 * Math.exp(-.010424 * y) + 2.43; // demi-largeur (m) : 62,45 au sol, 35,35 au 1er, 20,4 au 2e, 5,8 sous le 3e
+    const I = y => Math.max(.6, 37.12 * (1 - y / Y2)); // bord intérieur des piliers : 74,24 m d'écart au sol, ils se rejoignent au 2e étage
+    // la peinture « brun tour Eiffel » en trois tons, plus foncée en bas et plus claire en haut, pour qu'elle paraisse uniforme dans le ciel
+    const C0 = new THREE.Color(0x4e3c2c), C1 = new THREE.Color(0x8c7660), shade = (yR, k) => C0.clone().lerp(C1, Math.min(1, Math.max(0, yR / 300))).multiplyScalar(k).getHex();
     const P3 = (x, y, z) => [m(x), m(y), m(z)], mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2], lerp = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
     const bulbs = [];
     // une travée de treillis entre deux sections carrées A et B (sommets dans l'ordre) : membrures d'angle, chaque face en cols panneaux
     // (montants, croix de Saint-André, entretoise haute), et des ampoules le long des arêtes
-    function bay(A, B, cols, wc, wd, light) { for (let c = 0; c < 4; c++) beam(b, A[c], B[c], wc, IR);
+    function bay(A, B, cols, wc, wd, light) { const yR = A[0][1] / S, IR = shade(yR, 1.08), IR2 = shade(yR, .92), IR3 = shade(yR, 1.15); for (let c = 0; c < 4; c++) beam(b, A[c], B[c], wc, IR);
       for (let f = 0; f < 4; f++) { const a0 = A[f], a1 = A[(f + 1) % 4], b0 = B[f], b1 = B[(f + 1) % 4];
         for (let k = 0; k < cols; k++) { const pa = lerp(a0, a1, k / cols), qa = lerp(a0, a1, (k + 1) / cols), pb = lerp(b0, b1, k / cols), qb = lerp(b0, b1, (k + 1) / cols);
           beam(b, pa, qb, wd, IR2); beam(b, qa, pb, wd, IR2); if (k) beam(b, pa, pb, wd * 1.3, IR2); }
@@ -61,8 +66,9 @@
       const C = y => { const w = W(y), n = I(y); return [P3(sx * n, y, sz * n), P3(sx * w, y, sz * n), P3(sx * w, y, sz * w), P3(sx * n, y, sz * w)]; };
       for (let k = 0; k < ys.length - 1; k++) { const y = ys[k], wid = W(y) - I(y), cols = wid > 18 ? 4 : wid > 10 ? 3 : 2, t = y / Y2;
         bay(C(y), C(ys[k + 1]), cols, m(1.5 - .6 * t), m(.42 - .1 * t), k % 2 === 0); }
-      // massif de pierre de taille sous le pilier
-      const w0 = W(0), n0 = I(0), c0 = (w0 + n0) / 2, s0 = w0 - n0 + 4; b.S(sk.stone); b.P(PT.pierre); bx(b, m(s0), m(3.2), m(s0), 0xcfc4a8, m(sx * c0), m(1.6), m(sz * c0)); bx(b, m(s0 - 2), m(1.2), m(s0 - 2), 0xd8ceb4, m(sx * c0), m(3.8), m(sz * c0)); b.P(0); b.S(sk.iron); }
+      // chaque arête du pilier repose sur son propre massif de pierre de taille, et chaque pilier sur un socle
+      const w0 = W(0), n0 = I(0), c0 = (w0 + n0) / 2, s0 = w0 - n0 + 3; b.S(sk.stone); b.P(PT.pierre); bx(b, m(s0), m(1.2), m(s0), 0xc8bda0, m(sx * c0), m(.6), m(sz * c0));
+      for (const q of C(0)) { bx(b, m(7), m(3.4), m(7), 0xcfc4a8, q[0], m(1.7), q[2]); bx(b, m(5.6), m(.8), m(5.6), 0xd8ceb4, q[0], m(3.8), q[2]); } b.P(0); b.S(sk.iron); }
     // ----- les quatre grandes arches décoratives, à double nervure et cercles, entre les piliers sous le 1er étage -----
     const yS = 9, yA = Y1 - 6, R0 = I(yS) + 1, H0 = yA - yS;
     for (let f = 0; f < 4; f++) { const ry = f * PI / 2, map = (u, y, d0) => { const d = W(y) - d0; return [m(Math.cos(ry) * u + Math.sin(ry) * d), m(y), m(-Math.sin(ry) * u + Math.cos(ry) * d)]; };
@@ -83,8 +89,8 @@
         if (pav) { const pw = L * .6, d = wOut - (wOut - Math.max(0, wIn)) * .42, p = at(0, d, y + 3.2), np = Math.round(pw / 3); bx(b, m(pw), m(5.6), m((wOut - Math.max(0, wIn)) * .5), 0x7a6858, p[0], p[1], p[2], ry);
           for (let k = 0; k < np; k++) { const q = at(-pw / 2 + (k + .5) * pw / np, d + (wOut - Math.max(0, wIn)) * .25 + .05, y + 3.2); bx(b, m(pw / np * .8), m(4), m(.15), 0xd8e8f0, q[0], q[1], q[2], ry, 2); bx(b, m(pw / np * .7), m(.4), m(.16), WARM, q[0], m(y + 5.5), q[2], ry, 1); }
           const r = at(0, d, y + 6.2); bx(b, m(pw + 1), m(.5), m((wOut - Math.max(0, wIn)) * .56), IR2, r[0], r[1], r[2], ry); } } }
-    floor(Y1, W(Y1) + 1.2, I(Y1) - .4, 7, 18, true);
-    floor(Y2, W(Y2) + 1, 0, 4, 12, true);
+    floor(Y1, W(Y1), I(Y1) - .4, 7, 18, true); // 70,69 m de côté
+    floor(Y2, 20.48, 0, 4, 12, true); // 40,96 m de côté
     // ----- le fût, du 2e au 3e étage, avec la plate-forme intermédiaire -----
     const ysh = []; for (let i = 0; i <= 28; i++) ysh.push(Y2 + (Y3 - Y2) * i / 28);
     for (let k = 0; k < ysh.length - 1; k++) { const y0 = ysh[k], y1 = ysh[k + 1], C = y => { const w = W(y); return [P3(-w, y, -w), P3(w, y, -w), P3(w, y, w), P3(-w, y, w)]; }, t = k / 28;
@@ -93,7 +99,7 @@
     bx(b, m(3.2), m(Y3 - Y2), m(3.2), 0x4a3e34, 0, m((Y2 + Y3) / 2), 0); bx(b, m(.6), m(Y3 - Y2), m(4), 0xd8c040, m(1.9), m((Y2 + Y3) / 2), 0); // cage des ascenseurs
     for (let y = Y2 + 8; y < Y3; y += 16) bx(b, m(3.6), m(.3), m(4.4), IR2, 0, m(y), 0);
     // ----- le 3e étage : plate-forme, galerie vitrée éclairée, terrasse, campanile en quatre arcs, phare et antennes -----
-    const w3 = W(Y3) + 1.6; bx(b, m(w3 * 2), m(.8), m(w3 * 2), IR2, 0, m(Y3), 0);
+    const w3 = 9.33; bx(b, m(w3 * 2), m(.8), m(w3 * 2), IR2, 0, m(Y3), 0); // 18,65 m de côté
     bx(b, m(w3 * 1.72), m(4.4), m(w3 * 1.72), 0x7a6858, 0, m(Y3 + 2.6), 0);
     for (let f = 0; f < 4; f++) { const ry = f * PI / 2; for (let k = 0; k < 7; k++) { const u = (-3 + k) * w3 * .24, x = Math.sin(ry) * w3 * .865 + Math.cos(ry) * u, z = Math.cos(ry) * w3 * .865 - Math.sin(ry) * u; bx(b, m(w3 * .18), m(3), m(.2), WARM, m(x), m(Y3 + 2.6), m(z), ry, 1); } }
     bx(b, m(w3 * 1.95), m(.4), m(w3 * 1.95), IR2, 0, m(Y3 + 5), 0); for (let f = 0; f < 4; f++) { const ry = f * PI / 2; for (let k = 0; k <= 12; k++) { const u = -w3 * .95 + k * w3 * .158; bx(b, m(.12), m(1.5), m(.12), IR2, m(Math.sin(ry) * w3 * .97 + Math.cos(ry) * u), m(Y3 + 5.9), m(Math.cos(ry) * w3 * .97 - Math.sin(ry) * u), ry); } }
