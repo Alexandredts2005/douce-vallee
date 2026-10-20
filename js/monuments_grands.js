@@ -1,6 +1,6 @@
 'use strict';
 // ===== Deux monuments refaits à l'échelle exacte :
-// • la tour Eiffel, 15 cases jusqu'au bout de l'antenne (330 m réels) : les quatre piliers en treillis séparés jusqu'au 2e étage,
+// • la tour Eiffel, 60 cases jusqu'au bout de l'antenne (330 m réels, dessinée en mètres puis ramenée à l'échelle), 24 cases de côté : les quatre piliers en treillis séparés jusqu'au 2e étage,
 //   leurs arêtes courbes (le profil exponentiel de Gustave Eiffel), les grandes arches décoratives sous le 1er étage, la frise
 //   d'arcades, les pavillons, le 2e étage, le fût unique jusqu'au 3e étage, la lanterne et les antennes rouges et blanches ;
 // • Notre-Dame de Paris, immense : tours de 8 cases (69 m), flèche à 11 cases (96 m), près de 15 cases de long — façade
@@ -34,53 +34,78 @@
   // =====================================================================
   // ============================ TOUR EIFFEL =============================
   // =====================================================================
-  MD.tour_eiffel = () => { const b = G.mb(5400), sk = SK(), IR = 0x6b5848, IR2 = 0x58483a, WARM = 0xffd98a, S = 15 / 330;
-    const Y1 = 57.6 * S, Y2 = 115.7 * S, Y3 = 276 * S, YT = 300 * S;
-    const W = y => 2.66 * Math.exp(-.2406 * y) + .18; // demi-largeur extérieure : le profil courbe de la tour
-    const I = y => Math.max(.1, 1.66 - .293 * y); // bord intérieur des piliers (ils se rejoignent au 2e étage)
-    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
-    // une travée de treillis entre deux sections carrées A et B : quatre membrures, montant central et croix de Saint-André sur chaque face, ceinture
-    function bay(A, B, wc, wb) { for (let c = 0; c < 4; c++) beam(b, A[c], B[c], wc, IR);
-      for (let f = 0; f < 4; f++) { const c1 = f, c2 = (f + 1) % 4, am = mid(A[c1], A[c2]), bm = mid(B[c1], B[c2]);
-        beam(b, am, bm, wc * .55, IR2); beam(b, A[c1], bm, wb, IR2); beam(b, am, B[c1], wb, IR2); beam(b, am, B[c2], wb, IR2); beam(b, A[c2], bm, wb, IR2); beam(b, B[c1], B[c2], wb * 1.3, IR2); } }
+  // Dessinée en mètres réels (330 m jusqu'au bout de l'antenne), puis ramenée à 60 cases : 24 cases de côté au sol.
+  // Quatre piliers en treillis à membrures-caissons, chaque face recoupée en panneaux à croix de Saint-André et montants,
+  // le profil courbe de Gustave Eiffel, piliers posés sur leurs massifs de pierre, quatre grandes arches décoratives à double
+  // nervure sous le 1er étage, le 1er étage et sa frise d'arcades, ses pavillons vitrés et son grand vide central,
+  // le 2e étage et sa ceinture, le fût unique avec la plate-forme intermédiaire, la cage des ascenseurs, le 3e étage et sa galerie
+  // vitrée, le campanile en quatre arcs, le phare et les antennes rouges et blanches. La nuit, des milliers d'ampoules dorées.
+  MD.tour_eiffel = () => { const b = G.mb(5400), sk = SK(), IR = 0x6b5848, IR2 = 0x5a4a3c, IR3 = 0x7a6656, WARM = 0xffd98a, S = 60 / 330, m = v => v * S;
+    const Y1 = 57.6, Y2 = 115.7, YM = 196, Y3 = 276, YT = 300; // hauteurs réelles des étages (m)
+    const W = y => 56.5 * Math.exp(-.01158 * y) + 6.2; // demi-largeur extérieure (m) : 62,5 m au sol, 35 m au 1er, 21 m au 2e, 8 m au 3e
+    const I = y => Math.max(1.5, 37.5 * (1 - y / Y2) + 1.5); // bord intérieur des piliers : ils se rejoignent au 2e étage
+    const P3 = (x, y, z) => [m(x), m(y), m(z)], mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2], lerp = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+    const bulbs = [];
+    // une travée de treillis entre deux sections carrées A et B (sommets dans l'ordre) : membrures d'angle, chaque face en cols panneaux
+    // (montants, croix de Saint-André, entretoise haute), et des ampoules le long des arêtes
+    function bay(A, B, cols, wc, wd, light) { for (let c = 0; c < 4; c++) beam(b, A[c], B[c], wc, IR);
+      for (let f = 0; f < 4; f++) { const a0 = A[f], a1 = A[(f + 1) % 4], b0 = B[f], b1 = B[(f + 1) % 4];
+        for (let k = 0; k < cols; k++) { const pa = lerp(a0, a1, k / cols), qa = lerp(a0, a1, (k + 1) / cols), pb = lerp(b0, b1, k / cols), qb = lerp(b0, b1, (k + 1) / cols);
+          beam(b, pa, qb, wd, IR2); beam(b, qa, pb, wd, IR2); if (k) beam(b, pa, pb, wd * 1.3, IR2); }
+        beam(b, b0, b1, wd * 1.5, IR3); }
+      if (light) for (const c of A) bulbs.push(c); }
     b.S(sk.iron);
-    // ----- les quatre piliers -----
-    const ys = []; for (let i = 0; i <= 11; i++) ys.push(Y1 * i / 11); for (let i = 1; i <= 9; i++) ys.push(Y1 + (Y2 - Y1) * i / 9);
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const C = y => { const w = W(y), n = I(y); return [[sx * n, y, sz * n], [sx * w, y, sz * n], [sx * w, y, sz * w], [sx * n, y, sz * w]]; };
-      for (let k = 0; k < ys.length - 1; k++) { const t = ys[k] / Y2; bay(C(ys[k]), C(ys[k + 1]), .075 - .03 * t, .02);
-        const o = C(ys[k])[2]; b.add(BOX, WARM, b.M(o[0] + sx * .04, o[1], o[2] + sz * .04, 0, 0, 0, .045, .045, .045), 1, false); } // ampoules dorées (scintillent la nuit)
-      const w0 = W(0), n0 = I(0), c0 = (w0 + n0) / 2, s0 = w0 - n0 + .3; b.S(sk.stone); b.P(PT.pierre); bx(b, s0, .2, s0, 0xcfc4a8, sx * c0, .1, sz * c0); bx(b, s0 - .12, .1, s0 - .12, 0xd8ceb4, sx * c0, .25, sz * c0); b.P(0); b.S(sk.iron); }
-    // ----- les quatre grandes arches décoratives -----
-    const yS = .9, yA = Y1 - .24, R0 = I(yS), H0 = yA - yS;
-    for (let f = 0; f < 4; f++) { const ry = f * PI / 2, map = (u, y) => { const d = W(y) - .03; return [Math.cos(ry) * u + Math.sin(ry) * d, y, -Math.sin(ry) * u + Math.cos(ry) * d]; };
-      const A = [], Bq = []; for (let i = 0; i <= 28; i++) { const t = PI * i / 28; A.push(map(R0 * Math.cos(t), yS + H0 * Math.sin(t))); Bq.push(map((R0 - .13) * Math.cos(t), yS + (H0 - .12) * Math.sin(t))); }
-      path(b, A, .055, IR); path(b, Bq, .035, IR2);
-      for (let i = 0; i <= 28; i += 2) beam(b, A[i], Bq[i], .022, IR2);
-      for (let i = 1; i < 28; i += 2) { const c = mid(A[i], Bq[i]); b.add(new THREE.TorusGeometry(.045, .009, 4, 10), IR2, b.M(c[0], c[1], c[2], 0, ry, 0), 0, true); } }
-    // ----- 1er étage : ceinture, frise d'arcades, plancher autour du grand vide, garde-corps, pavillons -----
+    // ----- les quatre piliers, du sol au 2e étage -----
+    const ys = []; for (let i = 0; i <= 12; i++) ys.push(Y1 * i / 12); for (let i = 1; i <= 11; i++) ys.push(Y1 + (Y2 - Y1) * i / 11);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const C = y => { const w = W(y), n = I(y); return [P3(sx * n, y, sz * n), P3(sx * w, y, sz * n), P3(sx * w, y, sz * w), P3(sx * n, y, sz * w)]; };
+      for (let k = 0; k < ys.length - 1; k++) { const y = ys[k], wid = W(y) - I(y), cols = wid > 18 ? 4 : wid > 10 ? 3 : 2, t = y / Y2;
+        bay(C(y), C(ys[k + 1]), cols, m(1.5 - .6 * t), m(.42 - .1 * t), k % 2 === 0); }
+      // massif de pierre de taille sous le pilier
+      const w0 = W(0), n0 = I(0), c0 = (w0 + n0) / 2, s0 = w0 - n0 + 4; b.S(sk.stone); b.P(PT.pierre); bx(b, m(s0), m(3.2), m(s0), 0xcfc4a8, m(sx * c0), m(1.6), m(sz * c0)); bx(b, m(s0 - 2), m(1.2), m(s0 - 2), 0xd8ceb4, m(sx * c0), m(3.8), m(sz * c0)); b.P(0); b.S(sk.iron); }
+    // ----- les quatre grandes arches décoratives, à double nervure et cercles, entre les piliers sous le 1er étage -----
+    const yS = 9, yA = Y1 - 6, R0 = I(yS) + 1, H0 = yA - yS;
+    for (let f = 0; f < 4; f++) { const ry = f * PI / 2, map = (u, y, d0) => { const d = W(y) - d0; return [m(Math.cos(ry) * u + Math.sin(ry) * d), m(y), m(-Math.sin(ry) * u + Math.cos(ry) * d)]; };
+      const A = [], Bq = [], N = 40; for (let i = 0; i <= N; i++) { const t = PI * i / N; A.push(map(R0 * Math.cos(t), yS + H0 * Math.sin(t), .8)); Bq.push(map((R0 - 3.2) * Math.cos(t), yS + (H0 - 3) * Math.sin(t), .8)); }
+      path(b, A, m(1.1), IR); path(b, Bq, m(.8), IR2);
+      for (let i = 0; i <= N; i++) { beam(b, A[i], Bq[i], m(.35), IR2); if (i < N) beam(b, A[i], Bq[i + 1], m(.25), IR2); }
+      for (let i = 1; i < N; i += 2) { const c = mid(A[i], Bq[i]); b.add(new THREE.TorusGeometry(m(1.05), m(.16), 4, 12), IR2, b.M(c[0], c[1], c[2], 0, ry, 0), 0, true); }
+      for (let i = 0; i <= N; i += 4) bulbs.push(A[i]); }
+    // ----- un étage : ceinture (frise d'arcades), plancher autour du vide, garde-corps, pavillons vitrés -----
     function floor(y, wOut, wIn, hBelt, nArc, pav) { b.S(sk.iron);
-      for (let f = 0; f < 4; f++) { const ry = f * PI / 2, c = Math.cos(ry), s = Math.sin(ry), L = 2 * wOut;
-        bx(b, L + .1, hBelt, .1, IR, s * wOut, y - hBelt / 2 + .04, c * wOut, ry); // poutre de ceinture
-        for (let k = 0; k < nArc; k++) { const u = -wOut + (k + .5) * L / nArc, r = L / nArc * .42; b.add(new THREE.TorusGeometry(r, .011, 4, 12, PI), IR2, b.M(s * (wOut + .055) + c * u, y - hBelt + .02, c * (wOut + .055) - s * u, 0, ry, 0), 0, true); } // frise d'arcades
-        if (wIn > 0) bx(b, L, .06, wOut - wIn, IR2, s * (wOut + wIn) / 2, y + .04, c * (wOut + wIn) / 2, ry); else if (f === 0) bx(b, L, .06, L, IR2, 0, y + .04, 0); // plancher
-        for (let k = 0; k <= nArc * 2; k++) { const u = -wOut + k * L / (nArc * 2); bx(b, .015, .14, .015, IR2, s * (wOut + .03) + c * u, y + .14, c * (wOut + .03) - s * u, ry); } bx(b, L + .06, .02, .02, IR2, s * (wOut + .03), y + .21, c * (wOut + .03), ry); // garde-corps
-        if (pav) { const pw = L * .62; bx(b, pw, .26, .32, 0x7a6858, s * (wOut - .3), y + .2, c * (wOut - .3), ry); for (let k = 0; k < 12; k++) bx(b, pw / 12 * .7, .14, .02, WARM, s * (wOut - .13) + c * (-pw / 2 + (k + .5) * pw / 12), y + .2, c * (wOut - .13) - s * (-pw / 2 + (k + .5) * pw / 12), ry, 1); bx(b, pw + .06, .03, .38, IR2, s * (wOut - .3), y + .345, c * (wOut - .3), ry); } } }
-    floor(Y1, W(Y1) + .06, I(Y1) - .02, .22, 16, true);
-    floor(Y2, W(Y2) + .05, 0, .15, 10, true); bx(b, .2, .04, .2, 0x2a2a2e, 0, Y2 + .07, 0);
-    // ----- le fût, du 2e au 3e étage -----
-    const N3 = 20; for (let k = 0; k < N3; k++) { const y0 = Y2 + (Y3 - Y2) * k / N3, y1 = Y2 + (Y3 - Y2) * (k + 1) / N3, C = y => { const w = W(y); return [[-w, y, -w], [w, y, -w], [w, y, w], [-w, y, w]]; };
-      bay(C(y0), C(y1), .06 - .025 * k / N3, .016); if (k % 2 === 0) for (const c of C(y0)) b.add(BOX, WARM, b.M(c[0] * 1.05, c[1], c[2] * 1.05, 0, 0, 0, .04, .04, .04), 1, false); }
-    bx(b, .14, Y3 - Y2, .14, 0x4a3e34, 0, (Y2 + Y3) / 2, 0); bx(b, .04, Y3 - Y2, .2, 0xd8c040, .1, (Y2 + Y3) / 2, 0); // cage des ascenseurs
-    // ----- le sommet : 3e étage, lanterne, antennes -----
-    const w3 = W(Y3) + .08; bx(b, w3 * 2, .06, w3 * 2, IR2, 0, Y3, 0); bx(b, w3 * 1.7, .34, w3 * 1.7, 0x7a6858, 0, Y3 + .2, 0);
-    for (let f = 0; f < 4; f++) { const ry = f * PI / 2; for (let k = 0; k < 5; k++) { const u = -w3 * .65 + k * w3 * .325; bx(b, .08, .2, .02, WARM, Math.sin(ry) * w3 * .86 + Math.cos(ry) * u, Y3 + .2, Math.cos(ry) * w3 * .86 - Math.sin(ry) * u, ry, 1); } }
-    bx(b, w3 * 1.9, .03, w3 * 1.9, IR2, 0, Y3 + .38, 0); bx(b, w3 * 1.1, .3, w3 * 1.1, 0x6e5c4c, 0, Y3 + .55, 0); bx(b, w3 * 1.25, .03, w3 * 1.25, IR2, 0, Y3 + .71, 0);
-    for (let k = 0; k < 4; k++) { const a = k * PI / 2 + PI / 4; beam(b, [Math.cos(a) * w3 * .55, Y3 + .72, Math.sin(a) * w3 * .55], [0, YT - .05, 0], .03, IR); }
-    b.add(new THREE.CylinderGeometry(.1, .14, .3, 12), 0x6e5c4c, b.M(0, YT - .1, 0), 0, true); b.add(new THREE.SphereGeometry(.12, 14, 8, 0, TAU, 0, PI / 2), IR2, b.M(0, YT + .05, 0), 0, true);
-    b.add(new THREE.SphereGeometry(.07, 10, 8), 0xfff2c0, b.M(0, YT + .2, 0), 1, true); // le phare
-    for (let k = 0; k < 6; k++) rod(b, [0, YT + .22 + k * .13, 0], [0, YT + .22 + (k + 1) * .13, 0], .03 - k * .003, k % 2 ? 0xf6f6f6 : 0xd83a3a, 8); // antennes
-    rod(b, [0, YT + 1.0, 0], [0, 15, 0], .012, 0xd8d8d8, 6); for (const a of [0, 2.1, 4.2]) bx(b, .1, .1, .02, 0xe8e8e8, Math.cos(a) * .06, YT + .5, Math.sin(a) * .06, a);
-    b.add(new THREE.SphereGeometry(.03, 8, 6), 0xff3030, b.M(0, 15, 0), 1, true);
+      for (let f = 0; f < 4; f++) { const ry = f * PI / 2, c = Math.cos(ry), s = Math.sin(ry), L = 2 * wOut, at = (u, d, yy) => [m(s * d + c * u), m(yy), m(c * d - s * u)];
+        bx(b, m(L + 1), m(hBelt), m(1.2), IR, m(s * wOut), m(y - hBelt / 2), m(c * wOut), ry); // poutre de ceinture
+        for (let k = 0; k < nArc; k++) { const u = -wOut + (k + .5) * L / nArc, r = L / nArc * .42, p = at(u, wOut + .7, y - hBelt * .7); b.add(new THREE.TorusGeometry(m(r), m(.25), 4, 12, PI), IR2, b.M(p[0], p[1], p[2], 0, ry, 0), 0, true);
+          const q = at(u, wOut + .65, y - hBelt * .25); bx(b, m(r * 1.4), m(hBelt * .18), m(.2), IR3, q[0], q[1], q[2], ry); } // frise d'arcades et cartouches
+        if (wIn > 0) { const p = at(0, (wOut + wIn) / 2, y + .4); bx(b, m(L), m(.8), m(wOut - wIn), IR2, p[0], p[1], p[2], ry); } else if (f === 0) bx(b, m(L), m(.8), m(L), IR2, 0, m(y + .4), 0); // plancher
+        for (let k = 0; k <= nArc * 3; k++) { const u = -wOut + k * L / (nArc * 3), p = at(u, wOut + .3, y + 1.4); bx(b, m(.15), m(1.8), m(.15), IR2, p[0], p[1], p[2], ry); } { const p = at(0, wOut + .3, y + 2.3); bx(b, m(L + .6), m(.25), m(.25), IR2, p[0], p[1], p[2], ry); } // garde-corps
+        if (wIn > 0) for (let k = 0; k <= nArc * 2; k++) { const u = -wIn + k * 2 * wIn / (nArc * 2), p = at(u, wIn - .3, y + 1.4); bx(b, m(.15), m(1.8), m(.15), IR2, p[0], p[1], p[2], ry); } // garde-corps du grand vide
+        if (pav) { const pw = L * .6, d = wOut - (wOut - Math.max(0, wIn)) * .42, p = at(0, d, y + 3.2), np = Math.round(pw / 3); bx(b, m(pw), m(5.6), m((wOut - Math.max(0, wIn)) * .5), 0x7a6858, p[0], p[1], p[2], ry);
+          for (let k = 0; k < np; k++) { const q = at(-pw / 2 + (k + .5) * pw / np, d + (wOut - Math.max(0, wIn)) * .25 + .05, y + 3.2); bx(b, m(pw / np * .8), m(4), m(.15), 0xd8e8f0, q[0], q[1], q[2], ry, 2); bx(b, m(pw / np * .7), m(.4), m(.16), WARM, q[0], m(y + 5.5), q[2], ry, 1); }
+          const r = at(0, d, y + 6.2); bx(b, m(pw + 1), m(.5), m((wOut - Math.max(0, wIn)) * .56), IR2, r[0], r[1], r[2], ry); } } }
+    floor(Y1, W(Y1) + 1.2, I(Y1) - .4, 7, 18, true);
+    floor(Y2, W(Y2) + 1, 0, 4, 12, true);
+    // ----- le fût, du 2e au 3e étage, avec la plate-forme intermédiaire -----
+    const ysh = []; for (let i = 0; i <= 28; i++) ysh.push(Y2 + (Y3 - Y2) * i / 28);
+    for (let k = 0; k < ysh.length - 1; k++) { const y0 = ysh[k], y1 = ysh[k + 1], C = y => { const w = W(y); return [P3(-w, y, -w), P3(w, y, -w), P3(w, y, w), P3(-w, y, w)]; }, t = k / 28;
+      bay(C(y0), C(y1), W(y0) > 14 ? 3 : 2, m(1.25 - .55 * t), m(.36 - .12 * t), k % 2 === 0); }
+    { const w = W(YM) + .8; bx(b, m(2 * w), m(.6), m(2 * w), IR2, 0, m(YM), 0); for (let f = 0; f < 4; f++) { const ry = f * PI / 2; bx(b, m(2 * w), m(1.4), m(.15), IR2, m(Math.sin(ry) * w), m(YM + .8), m(Math.cos(ry) * w), ry); } }
+    bx(b, m(3.2), m(Y3 - Y2), m(3.2), 0x4a3e34, 0, m((Y2 + Y3) / 2), 0); bx(b, m(.6), m(Y3 - Y2), m(4), 0xd8c040, m(1.9), m((Y2 + Y3) / 2), 0); // cage des ascenseurs
+    for (let y = Y2 + 8; y < Y3; y += 16) bx(b, m(3.6), m(.3), m(4.4), IR2, 0, m(y), 0);
+    // ----- le 3e étage : plate-forme, galerie vitrée éclairée, terrasse, campanile en quatre arcs, phare et antennes -----
+    const w3 = W(Y3) + 1.6; bx(b, m(w3 * 2), m(.8), m(w3 * 2), IR2, 0, m(Y3), 0);
+    bx(b, m(w3 * 1.72), m(4.4), m(w3 * 1.72), 0x7a6858, 0, m(Y3 + 2.6), 0);
+    for (let f = 0; f < 4; f++) { const ry = f * PI / 2; for (let k = 0; k < 7; k++) { const u = (-3 + k) * w3 * .24, x = Math.sin(ry) * w3 * .865 + Math.cos(ry) * u, z = Math.cos(ry) * w3 * .865 - Math.sin(ry) * u; bx(b, m(w3 * .18), m(3), m(.2), WARM, m(x), m(Y3 + 2.6), m(z), ry, 1); } }
+    bx(b, m(w3 * 1.95), m(.4), m(w3 * 1.95), IR2, 0, m(Y3 + 5), 0); for (let f = 0; f < 4; f++) { const ry = f * PI / 2; for (let k = 0; k <= 12; k++) { const u = -w3 * .95 + k * w3 * .158; bx(b, m(.12), m(1.5), m(.12), IR2, m(Math.sin(ry) * w3 * .97 + Math.cos(ry) * u), m(Y3 + 5.9), m(Math.cos(ry) * w3 * .97 - Math.sin(ry) * u), ry); } }
+    bx(b, m(w3 * 1.15), m(4.2), m(w3 * 1.15), 0x6e5c4c, 0, m(Y3 + 7.3), 0); bx(b, m(w3 * 1.3), m(.4), m(w3 * 1.3), IR2, 0, m(Y3 + 9.5), 0);
+    for (let k = 0; k < 4; k++) { const a = k * PI / 2 + PI / 4, P = []; for (let i = 0; i <= 10; i++) { const t = i / 10, r = w3 * .6 * (1 - t), y = Y3 + 9.6 + (YT - 2 - Y3 - 9.6) * Math.sin(t * PI / 2); P.push(P3(Math.cos(a) * r, y, Math.sin(a) * r)); } path(b, P, m(.7), IR); }
+    b.add(new THREE.CylinderGeometry(m(2), m(2.8), m(4), 12), 0x6e5c4c, b.M(0, m(YT - 2), 0), 0, true); b.add(new THREE.SphereGeometry(m(2.3), 14, 8, 0, TAU, 0, PI / 2), IR2, b.M(0, m(YT), 0), 0, true);
+    b.add(new THREE.SphereGeometry(m(1.3), 12, 10), 0xfff2c0, b.M(0, m(YT + 3), 0), 1, true); // le phare
+    for (let k = 0; k < 8; k++) rod(b, P3(0, YT + 4.4 + k * 2.6, 0), P3(0, YT + 4.4 + (k + 1) * 2.6, 0), m(.75 - k * .06), k % 2 ? 0xf6f6f6 : 0xd83a3a, 10); // antennes rouges et blanches
+    rod(b, P3(0, YT + 25, 0), P3(0, 330, 0), m(.22), 0xd8d8d8, 6); for (const a of [0, 2.1, 4.2]) { bx(b, m(1.6), m(1.6), m(.3), 0xe8e8e8, m(Math.cos(a) * 1.4), m(YT + 12), m(Math.sin(a) * 1.4), a); bx(b, m(1.2), m(1.2), m(.25), 0xe8e8e8, m(Math.cos(a + 1) * 1.2), m(YT + 18), m(Math.sin(a + 1) * 1.2), a + 1); }
+    b.add(new THREE.SphereGeometry(m(.6), 8, 6), 0xff3030, b.M(0, m(330), 0), 1, true);
+    // ----- des milliers d'ampoules dorées le long des arêtes (elles scintillent la nuit) -----
+    for (const c of bulbs) b.add(BOX, WARM, b.M(c[0] * 1.012, c[1], c[2] * 1.012, 0, 0, 0, m(.7), m(.7), m(.7)), 1, false);
     b.S(null); return b.done(); };
 
   // =====================================================================
@@ -234,9 +259,9 @@
   // =====================================================================
   // ============================ CATALOGUE ===============================
   // =====================================================================
-  Object.assign(O.tour_eiffel || (O.tour_eiffel = { id: 'tour_eiffel', model: 'tour_eiffel', v: 0, take: 1, cat: 'construction' }), { n: 'Tour Eiffel', monument: 1, fp: [6, 6], h: 15, light: 1, ly: 13.8, ld: 16, li: 1.5 });
+  Object.assign(O.tour_eiffel || (O.tour_eiffel = { id: 'tour_eiffel', model: 'tour_eiffel', v: 0, take: 1, cat: 'construction' }), { n: 'Tour Eiffel', monument: 1, fp: [24, 24], h: 60, light: 1, ly: 52, ld: 40, li: 1.8 });
   Object.assign(O.notre_dame || (O.notre_dame = { id: 'notre_dame', model: 'notre_dame', v: 0, take: 1, cat: 'construction' }), { n: 'Notre-Dame de Paris', monument: 1, fp: [7, 16], h: 11.2, light: 1, ly: 3.9, ld: 9, li: .8, enter: 'cathedrale' });
-  for (const [id, n, sell, desc] of [['tour_eiffel', 'Tour Eiffel', 80000, 'À l\'échelle exacte : 15 cases jusqu\'à l\'antenne. Quatre piliers en treillis aux arêtes courbes, grandes arches, deux étages, le fût et le sommet. La nuit, elle scintille d\'or.'],
+  for (const [id, n, sell, desc] of [['tour_eiffel', 'Tour Eiffel', 80000, 'Gigantesque : 60 cases jusqu\'à l\'antenne et 24 de côté au sol. Quatre piliers en treillis fin aux arêtes courbes sur leurs massifs de pierre, grandes arches, 1er et 2e étages et leurs pavillons, le fût, le 3e étage vitré, le campanile et les antennes. La nuit, elle scintille d\'or.'],
     ['notre_dame', 'Notre-Dame de Paris', 120000, 'Immense : tours de 8 cases, flèche à 11, quinze cases de long. Portails sculptés, galerie des rois, grande rose, arcs-boutants, transept et chevet, flèche et apôtres. On peut entrer dedans !']]) {
     G.ITEMS[id] = Object.assign(G.ITEMS[id] || {}, { id, n, kind: 'place', obj: id, cat: 'construction', thumb: 'obj:' + id, sell, stack: 1, desc }); if (G.SHOPLIST && !G.SHOPLIST.includes(id)) G.SHOPLIST.push(id); }
 })();
