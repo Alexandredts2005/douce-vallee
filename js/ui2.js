@@ -137,6 +137,13 @@
   U.saveSettings = () => G.store.set('dv_settings', G.settings);
   [['o-music', 'music', 'value', Number], ['o-sfx', 'sfx', 'value', Number], ['o-day', 'day', 'value', String], ['o-curve', 'curve', 'checked', Boolean], ['o-shadow', 'shadow', 'checked', Boolean], ['o-quality', 'quality', 'value', String], ['o-touch', 'touch', 'value', String], ['o-cam', 'camMode', 'value', String], ['o-fp', 'fp', 'checked', Boolean], ['o-sens', 'sens', 'value', Number], ['o-outline', 'outlines', 'value', String]]
     .forEach(([id, k, prop, T]) => $(id).addEventListener(prop === 'checked' ? 'change' : 'input', () => { G.settings[k] = T($(id)[prop]); U.applySettings(); U.saveSettings(); }));
+  // ---------- heure actuelle : on règle l'horloge du jeu au quart d'heure ----------
+  const hh = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(Math.floor(m % 60)).padStart(2, '0');
+  let hDrag = false; const oh = $('o-hour'), ohl = $('o-hour-l');
+  const hSync = () => { if (!G.clock) return; const real = G.settings.day === 'real'; oh.disabled = real; oh.title = real ? "Choisis une autre durée de journée pour régler l'heure" : ''; if (!hDrag) oh.value = Math.floor(G.clock.min / 15) * 15; ohl.textContent = hh(hDrag ? +oh.value : G.clock.min); };
+  oh.addEventListener('input', () => { hDrag = true; if (G.clock && G.settings.day !== 'real') G.clock.min = +oh.value; hSync(); });
+  oh.addEventListener('change', () => { hDrag = false; hSync(); });
+  setInterval(() => { if (oh.offsetParent) hSync(); }, 500);
   // ---------- contrôles tactiles ----------
   U.touchMode = () => { const s = G.settings.touch, auto = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window; $('touch').hidden = !(G.state === 'play' || G.state === 'pause') || !(s === 'on' || (s === 'auto' && auto)); $('app').classList.toggle('touch-on', !$('touch').hidden); };
   (function touch() {
